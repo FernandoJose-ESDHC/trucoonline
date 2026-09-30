@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Truco">
+<meta name="description" content="Truco Mineiro e Paulista no navegador: salas online sem cadastro ou offline contra bots.">
+<meta property="og:title" content="Truco Online — Mineiro & Paulista">
+<meta property="og:description" content="Jogue truco com os amigos em salas online sem cadastro, ou sozinho contra bots.">
+<meta property="og:image" content="https://fernandojose-esdhc.github.io/trucoonline/docs/img/banner.png">
+<meta property="og:url" content="https://fernandojose-esdhc.github.io/trucoonline/">
+<meta name="twitter:card" content="summary_large_image">
+<title>Truco Online — Mineiro & Paulista</title>
+<style>
+:root{
+  --felt:#11603a; --felt2:#0a4128; --gold:#e7b43a; --red:#c0182b; --ink:#1a1a1a;
+  --cw:74px; --ch:106px; --sw:34px; --sh:48px;
+  --nos:#3ecf7a; --eles:#ff5a5a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+/* áreas seguras do iPhone (notch / barra inferior) */
+#game header{padding-top:max(8px,env(safe-area-inset-top));padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+#mesa{margin-bottom:env(safe-area-inset-bottom)}
+.screen{padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  background:radial-gradient(ellipse at center,var(--felt) 0%,var(--felt2) 75%,#06271a 100%);
+  color:#fff;-webkit-tap-highlight-color:transparent;
+}
+button,select{font-family:inherit}
+.hidden{display:none!important}
+/* ---------- TELAS ---------- */
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.panel{
+  background:linear-gradient(180deg,rgba(23,61,43,.96),rgba(13,42,29,.96));border:2px solid var(--gold);
+  border-radius:18px;padding:24px;width:100%;max-width:520px;box-shadow:0 20px 50px rgba(0,0,0,.6);margin:auto;
+  animation:pop .35s cubic-bezier(.2,.9,.3,1.2)
+}
+.title{font-size:34px;font-weight:900;color:var(--gold);letter-spacing:2px;text-align:center;text-shadow:0 3px 0 #6b4a00}
+.subtitle{text-align:center;color:#cfe;font-size:13px;letter-spacing:3px;margin-bottom:18px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:13px;font-weight:700;color:#ffe6a6}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+input.txt,select.sel{
+  min-width:0;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);
+  color:#fff;font-size:16px;outline:none;width:100%
+}
+select.sel option{background:#0d2a1d}
+input.txt:focus,select.sel:focus{border-color:var(--gold)}
+select.sel:disabled{opacity:.7}
+input.code{text-transform:uppercase;letter-spacing:4px;font-weight:800}
+.big{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px;transition:transform .1s,filter .15s}
+.big:hover:not(:disabled){filter:brightness(1.1)} .big:active:not(:disabled){transform:scale(.97)}
+.big:disabled{opacity:.45;cursor:not-allowed}
+.g{background:var(--nos);color:#06301a} .d{background:#4a4a4a;color:#fff} .y{background:var(--gold);color:#3a2600}
+.sep{display:flex;align-items:center;gap:10px;color:#9cb;font-size:12px;margin:10px 0 14px}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.2)}
+.msg{min-height:20px;text-align:center;font-size:14px;color:#ffe6a6;margin-top:6px}
+.small{font-size:12px;color:#9cb;text-align:center;margin-top:10px;line-height:1.5}
+.codebox{text-align:center;margin-bottom:14px}
+.codebox .lbl{font-size:12px;color:#cfe;letter-spacing:2px}
+.codebox .code{font-size:42px;font-weight:900;letter-spacing:8px;color:var(--gold)}
+.duplas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 14px}
+.dupla h4{font-size:12px;letter-spacing:2px;margin-bottom:6px;text-align:center}
+.dupla.a h4{color:var(--nos)} .dupla.b h4{color:var(--eles)}
+.seatbox{
+  background:rgba(0,0,0,.3);border:2px dashed rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-bottom:6px;
+  text-align:center;font-weight:700;font-size:14px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;transition:.2s
+}
+.seatbox.taken{border-style:solid;border-color:rgba(255,255,255,.35)}
+.seatbox.mine{border-color:var(--gold);box-shadow:0 0 10px rgba(231,180,58,.5)}
+.seatbox.free{cursor:pointer;color:#9cb}
+.seatbox.free:hover{border-color:var(--gold);color:#fff}
+#roomLog{background:rgba(0,0,0,.3);border-radius:10px;padding:8px 10px;height:100px;overflow:auto;font-size:13px;line-height:1.5;margin-bottom:8px;display:flex;flex-direction:column-reverse}
+.cn{color:var(--gold);font-weight:800}
+/* ---------- JOGO ---------- */
+#game{position:fixed;inset:0;display:flex;flex-direction:column}
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:8px 14px;background:rgba(0,0,0,.35);border-bottom:2px solid rgba(231,180,58,.35);
+}
+.logo{font-weight:900;letter-spacing:1px;color:var(--gold);font-size:18px;white-space:nowrap}
+.logo small{display:block;font-size:10px;color:#cfe;letter-spacing:2px;font-weight:600}
+.placar{display:flex;align-items:center;gap:14px}
+.team{display:flex;flex-direction:column;align-items:center;min-width:92px}
+.team .lbl{font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85}
+.team .pts{font-size:30px;font-weight:900;line-height:1;display:inline-block}
+.team.nos .pts{color:var(--nos)} .team.eles .pts{color:var(--eles)}
+.tentos{display:flex;gap:2px;margin-top:3px}
+.tentos i{width:6px;height:6px;border-radius:2px;background:rgba(255,255,255,.18);transition:background .4s}
+.team.nos .tentos i.on{background:var(--nos)} .team.eles .tentos i.on{background:var(--eles)}
+.meio{display:flex;flex-direction:column;align-items:center;gap:4px}
+.vale{background:var(--gold);color:#3a2600;font-weight:900;border-radius:20px;padding:3px 12px;font-size:13px;white-space:nowrap;display:inline-block}
+.nivel{font-size:11px;opacity:.85;font-weight:700;letter-spacing:1px}
+.partidas{font-size:10px;opacity:.7;font-weight:700}
+.dots{display:flex;gap:6px}
+.dots span{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4);transition:.3s}
+.dots .n{background:var(--nos);border-color:var(--nos)}
+.dots .e{background:var(--eles);border-color:var(--eles)}
+.dots .t{background:#aaa;border-color:#aaa}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.tbtn{
+  background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);
+  border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600
+}
+.tbtn:hover{background:rgba(255,255,255,.2)}
+#mesa{position:relative;flex:1;min-height:0}
+#mesa::before{
+  content:"";position:absolute;left:50%;top:50%;width:min(520px,70vw);height:min(360px,48vh);transform:translate(-50%,-52%);
+  border-radius:50%;border:2px solid rgba(255,255,255,.06);box-shadow:inset 0 0 60px rgba(0,0,0,.25);pointer-events:none
+}
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px}
+.s0{bottom:14px;left:50%;transform:translateX(-50%)}
+.s2{top:12px;left:50%;transform:translateX(-50%)}
+.s1{right:14px;top:50%;transform:translateY(-50%)}
+.s3{left:14px;top:50%;transform:translateY(-50%)}
+.tag{
+  background:rgba(0,0,0,.45);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;
+  display:flex;align-items:center;gap:6px;border:2px solid transparent;white-space:nowrap;transition:border-color .2s
+}
+.tag.nos{color:#bff5d4} .tag.eles{color:#ffd0d0}
+.tag.vez{border-color:var(--gold);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 6px rgba(231,180,58,.5)}50%{box-shadow:0 0 20px rgba(231,180,58,1)}}
+.chip{background:var(--gold);color:#3a2600;border-radius:50%;width:18px;height:18px;font-size:11px;display:grid;place-items:center;font-weight:900}
+.status{font-size:13px;font-weight:800;color:var(--gold);min-height:18px;text-shadow:0 1px 3px #000}
+.status.go{animation:blink 1s ease-in-out infinite}
+@keyframes blink{50%{opacity:.45}}
+.hand{display:flex;gap:10px;min-height:var(--ch);align-items:flex-end}
+.hand.small{gap:0;min-height:var(--sh)}
+.hand.small .card{width:var(--sw);height:var(--sh);margin-left:-12px}
+.hand.small .card:first-child{margin-left:0}
+.hand.reveal{gap:6px}
+.hand.reveal .card{--cw:52px;--ch:74px;width:52px;height:74px;margin:0}
+/* cartas */
+.card{
+  width:var(--cw);height:var(--ch);background:linear-gradient(160deg,#fffef9,#f3eee0);
+  border-radius:9px;box-shadow:0 3px 8px rgba(0,0,0,.45);position:relative;color:var(--ink);
+  font-weight:800;user-select:none;flex:none;transition:transform .15s,box-shadow .15s,opacity .2s
+}
+.card.red{color:var(--red)}
+.card .tl,.card .br{position:absolute;font-size:calc(var(--cw)*.23);line-height:1;text-align:center}
+.card .tl{top:5px;left:6px} .card .br{bottom:5px;right:6px;transform:rotate(180deg)}
+.card .mid{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cw)*.5)}
+.card .nm{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:calc(var(--cw)*.12);color:#8a6a10;font-weight:800;letter-spacing:.5px}
+.card.manilha{box-shadow:0 0 0 3px var(--gold),0 3px 10px rgba(0,0,0,.5)}
+.card.back{
+  background:
+    repeating-linear-gradient(45deg,rgba(255,255,255,.12) 0 4px,transparent 4px 8px),
+    linear-gradient(135deg,#8e1b22,#5a0e14);
+  border:3px solid #f4ead2;
+}
+.card.back::after{content:"♣";position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.35);font-size:calc(var(--cw)*.4)}
+.hand.small .card.back::after{font-size:12px}
+.card.playable{cursor:pointer;animation:glow 1.6s infinite}
+@media (hover:hover){ .card.playable:hover{transform:translateY(-16px) rotate(-2deg)} }
+.card.playable:active{transform:translateY(-10px) scale(1.04)}
+@keyframes glow{0%,100%{box-shadow:0 3px 8px rgba(0,0,0,.45)}50%{box-shadow:0 0 0 2px rgba(231,180,58,.8),0 3px 12px rgba(0,0,0,.5)}}
+.card.manilha.playable{animation:none}
+#hand0.covering .card.playable::before{
+  content:"COBRIR";position:absolute;inset:0;border-radius:9px;background:rgba(90,14,20,.55);display:grid;place-items:center;
+  color:#fff;font-size:12px;letter-spacing:1px;z-index:2
+}
+.card.coberta{opacity:.7}
+.card.coberta::before{content:"COBERTA";position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:#5a0e14;color:#fff;font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:1px;z-index:2}
+#centro{position:absolute;left:50%;top:50%;width:260px;height:250px;transform:translate(-50%,-52%)}
+.slot{position:absolute}
+.slot.p0{bottom:0;left:50%;transform:translateX(-50%)}
+.slot.p2{top:0;left:50%;transform:translateX(-50%)}
+.slot.p1{right:0;top:50%;transform:translateY(-50%)}
+.slot.p3{left:0;top:50%;transform:translateY(-50%)}
+.slot .card.win{box-shadow:0 0 0 4px var(--gold),0 0 26px rgba(231,180,58,.95);transform:scale(1.08);z-index:3}
+.slot .card.lose{opacity:.5;transform:scale(.95)}
+#deckArea{position:absolute;top:14px;left:16px;z-index:5}
+#deckArea .card{--cw:70px;--ch:100px;width:70px;height:100px;box-shadow:0 0 0 2px rgba(231,180,58,.6),0 6px 14px rgba(0,0,0,.5)}
+.vira-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 8px 8px}
+.vira-lbl{font-size:12px;font-weight:900;letter-spacing:3px;color:var(--gold)}
+.mani-lbl{font-size:12px;font-weight:800;color:#ffe6a6;text-align:center;line-height:1.2}
+.tbtn .ico{display:none}
+#bLog2{display:none;position:relative}
+#bLog2.dot::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--eles)}
+.bubble{
+  position:absolute;background:#fff;color:#222;font-weight:900;border-radius:14px;padding:6px 12px;
+  font-size:15px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:20;max-width:240px;overflow:hidden;text-overflow:ellipsis;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .25s cubic-bezier(.2,.9,.3,1.4);transform:scale(.5)
+}
+.bubble.show{opacity:1;transform:scale(1)}
+.bubble.grito{background:var(--red);color:#fff;font-size:20px;letter-spacing:1px}
+.s0 .bubble{bottom:calc(100% + 6px)} .s2 .bubble{top:calc(100% + 6px)}
+.s1 .bubble{right:calc(100% + 8px);top:0} .s3 .bubble{left:calc(100% + 8px);top:0}
+#btnTruco{
+  position:absolute;right:18px;bottom:20px;z-index:10;
+  background:linear-gradient(180deg,#e2283b,#9d1020);color:#fff;border:3px solid #ffd6a0;
+  border-radius:50%;width:96px;height:96px;font-size:17px;font-weight:900;cursor:pointer;
+  box-shadow:0 6px 16px rgba(0,0,0,.5);letter-spacing:1px;transition:.15s
+}
+#btnTruco:hover:not(:disabled){transform:scale(1.08) rotate(-4deg)}
+#btnTruco:not(:disabled){animation:ready 1.8s ease-in-out infinite}
+@keyframes ready{50%{box-shadow:0 0 0 6px rgba(226,40,59,.35),0 6px 16px rgba(0,0,0,.5)}}
+#btnTruco:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
+#btnCobrir{
+  position:absolute;right:18px;bottom:126px;z-index:10;padding:9px 12px;border-radius:20px;border:2px solid rgba(255,255,255,.4);
+  background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px;cursor:pointer;transition:.15s;width:96px
+}
+#btnCobrir.on{background:#8e1b22;border-color:#ffd6a0}
+#btnCobrir:disabled{opacity:.35;cursor:not-allowed}
+#side{position:absolute;left:12px;bottom:14px;width:260px;display:flex;flex-direction:column;gap:6px}
+#log{
+  max-height:130px;overflow:hidden;font-size:12px;line-height:1.45;color:#dff5e7;background:rgba(0,0,0,.28);
+  border-radius:10px;padding:8px 10px;display:flex;flex-direction:column-reverse
+}
+#log div{opacity:.9} #log div:first-child{opacity:1;font-weight:700;color:#fff;animation:slidein .3s ease-out}
+@keyframes slidein{from{transform:translateX(-12px);opacity:0}}
+#chatForm input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;font-size:13px;outline:none}
+#banner{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:50;text-align:center;padding:20px}
+#banner .bn{
+  font-size:54px;font-weight:900;color:var(--gold);text-shadow:0 4px 0 #6b4a00,0 0 30px rgba(0,0,0,.8);
+  animation:bannerIn 1.2s cubic-bezier(.2,.9,.3,1.2) forwards
+}
+#banner .bn.truco{color:#fff;font-size:72px;text-shadow:0 5px 0 #7a0a15,0 0 40px rgba(226,40,59,.9);-webkit-text-stroke:2px #c0182b}
+#banner .bn.bad{color:#ff9d9d;text-shadow:0 4px 0 #5a0e14,0 0 30px rgba(0,0,0,.8)}
+@keyframes bannerIn{0%{transform:scale(.3) rotate(-8deg);opacity:0}18%{transform:scale(1.15) rotate(2deg);opacity:1}30%{transform:scale(1) rotate(0)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.1)}}
+.bump{animation:bump .5s cubic-bezier(.2,.9,.3,1.5)}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:80}
+/* modais */
+.mwrap{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.mwrap.show{display:flex;animation:fade .2s}
+.mwrap.show .box{animation:pop .3s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{transform:scale(.8);opacity:0}}
+#pmodal{z-index:70}
+.box{
+  background:linear-gradient(180deg,#173d2b,#0d2a1d);border:2px solid var(--gold);border-radius:16px;
+  padding:22px;max-width:480px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.6);max-height:90vh;overflow:auto
+}
+.box h2{color:var(--gold);font-size:24px;margin-bottom:8px}
+.box p{color:#e3f3ea;margin-bottom:8px;line-height:1.45;font-size:15px}
+.box .hint{background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;font-style:italic;font-size:14px}
+.box ul{margin:6px 0 10px 20px;color:#e3f3ea;font-size:14px;line-height:1.55}
+.box h3{color:#ffe6a6;font-size:15px;margin:12px 0 4px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.btns button{flex:1;min-width:110px;padding:12px;border-radius:10px;border:none;font-size:15px;font-weight:800;cursor:pointer;transition:transform .1s}
+.btns button:active{transform:scale(.96)}
+.b-ok{background:var(--nos);color:#06301a} .b-no{background:#555;color:#fff} .b-up{background:var(--red);color:#fff}
+.btns button:hover{filter:brightness(1.1)}
+.manilhas{display:flex;gap:8px;justify-content:center;margin:8px 0}
+.manilhas .card{--cw:52px;--ch:74px;width:52px;height:74px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;font-weight:800;cursor:pointer}
+.tabs button.on{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+@media (max-width:720px){
+  :root{--cw:60px;--ch:86px;--sw:24px;--sh:35px}
+  /* cabeçalho compacto numa linha: placar + ícones */
+  header{padding:6px 8px;gap:6px;flex-wrap:nowrap}
+  #game header{padding-top:max(6px,env(safe-area-inset-top));padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right))}
+  #chatForm input{font-size:16px}   /* evita o zoom automático do iPhone ao digitar */
+  .logo{display:none}
+  .placar{gap:8px;flex:1;justify-content:center}
+  .team{min-width:0} .team .lbl{font-size:10px;letter-spacing:1px} .team .pts{font-size:24px}
+  .tentos{gap:1px} .tentos i{width:4px;height:5px}
+  .vale{font-size:12px;padding:2px 10px} .nivel{font-size:10px} .partidas{display:none}
+  .dots span{width:11px;height:11px}
+  .tools{flex-wrap:nowrap;gap:4px;flex-direction:column}
+  .tools>.tbtn{padding:4px 7px;font-size:14px;line-height:1}
+  .tbtn .txt{display:none} .tbtn .ico{display:inline}
+  .tools{display:grid;grid-template-columns:repeat(3,auto);gap:4px}
+  #bLog2{display:inline-block}
+  /* mesa */
+  #mesa::before{width:86vw;height:44%}
+  #centro{width:clamp(190px,calc(100vw - 160px),270px);height:228px;transform:translate(-50%,-50%)}
+  .tag{font-size:11px;padding:3px 8px;max-width:88px;overflow:hidden;text-overflow:ellipsis}
+  .s0 .tag{max-width:none}
+  .s1{right:4px} .s3{left:4px}
+  .s2{top:8px}
+  .hand{gap:6px}
+  .status{font-size:12px}
+  /* botões ao lado das cartas */
+  #btnTruco{width:70px;height:70px;font-size:12px;right:8px;bottom:22px}
+  #btnCobrir{left:8px;right:auto;bottom:34px;width:70px;font-size:11px;padding:8px 4px}
+  /* histórico e chat abrem pelo botão 💬 */
+  #side{display:none;position:absolute;top:8px;left:8px;right:8px;bottom:auto;width:auto;z-index:40;
+        background:rgba(6,39,26,.96);border:1px solid rgba(231,180,58,.5);border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+  #side.open{display:flex}
+  #log{font-size:12px;max-height:40vh;background:transparent}
+  #banner .bn{font-size:34px} #banner .bn.truco{font-size:46px}
+  .codebox .code{font-size:34px}
+  /* vira maior, no canto de cima */
+  #deckArea{top:8px;left:6px}
+  #deckArea .card{--cw:52px;--ch:75px;width:52px;height:75px}
+  .vira-wrap{padding:4px 6px 6px;gap:3px}
+  .vira-lbl{font-size:10px;letter-spacing:2px} .mani-lbl{font-size:10px}
+}
+/* celular deitado / telas baixas */
+@media (max-height:520px){
+  :root{--cw:50px;--ch:72px;--sw:22px;--sh:32px}
+  header{padding:3px 8px} .team .pts{font-size:20px} .partidas,.dots{display:none}
+  #centro{height:180px}
+  #deckArea .card{--cw:44px;--ch:63px;width:44px;height:63px}
+  #btnTruco{width:62px;height:62px;bottom:10px} #btnCobrir{bottom:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ TELA INICIAL ============ -->
+<div class="screen" id="home">
+  <div class="panel">
+    <div class="title">TRUCO</div>
+    <div class="subtitle">MINEIRO & PAULISTA · ONLINE</div>
+    <div class="field">
+      <label for="nameIn">Seu nome</label>
+      <input class="txt" id="nameIn" maxlength="16" placeholder="Como te chamam na mesa?">
+    </div>
+    <div class="field">
+      <div class="row">
+        <div><label for="modeSel">Modo</label>
+          <select class="sel" id="modeSel"><option value="mineiro">Truco Mineiro</option><option value="paulista">Truco Paulista</option></select></div>
+        <div><label for="diffSel">Bots</label>
+          <select class="sel" id="diffSel"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select></div>
+      </div>
+    </div>
+    <button class="big g" id="bCreate">Criar sala online</button>
+    <div class="field">
+      <label for="codeIn">Entrar numa sala</label>
+      <div class="row">
+        <input class="txt code" id="codeIn" maxlength="5" placeholder="CÓDIGO">
+        <button class="big y" id="bJoin" style="flex:0 0 auto;width:auto;margin:0;padding:0 20px">Entrar</button>
+      </div>
+    </div>
+    <div class="sep">ou</div>
+    <button class="big d" id="bSolo">Jogar sozinho contra bots (offline)</button>
+    <button class="big d" id="bRules1" style="background:transparent;border:1px solid rgba(255,255,255,.3)">Ver regras</button>
+    <div class="msg" id="homeMsg"></div>
+    <div class="small" id="histHome"></div>
+  </div>
+</div>
+
+<!-- ============ SALA DE ESPERA ============ -->
+<div class="screen hidden" id="room">
+  <div class="panel">
+    <div class="codebox">
+      <div class="lbl">CÓDIGO DA SALA</div>
+      <div class="code" id="roomCode">-----</div>
+      <div class="row" style="justify-content:center;margin-top:6px">
+        <button class="tbtn" id="bCopyCode" style="flex:0 0 auto">Copiar código</button>
+        <button class="tbtn" id="bCopyLink" style="flex:0 0 auto">Copiar link</button>
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:6px">
+      <div><label class="small" style="display:block;text-align:left;margin:0 0 4px">Modo</label>
+        <select class="sel" id="roomMode"><option value="mineiro">Truco Mineiro</option><option value="paulista">Truco Paulista</option></select></div>
+      <div><label class="small" style="display:block;text-align:left;margin:0 0 4px">Bots</label>
+        <select class="sel" id="roomDiff"><option value="facil">Fácil</option><option value="normal">Normal</option><option value="dificil">Difícil</option></select></div>
+    </div>
+    <div class="duplas">
+      <div class="dupla a"><h4>DUPLA 1</h4><div id="seatBox0" class="seatbox"></div><div id="seatBox2" class="seatbox"></div></div>
+      <div class="dupla b"><h4>DUPLA 2</h4><div id="seatBox1" class="seatbox"></div><div id="seatBox3" class="seatbox"></div></div>
+    </div>
+    <p class="small" style="margin:0 0 10px">Clique num lugar vago para trocar de dupla. Lugares vazios viram bots ao iniciar.</p>
+    <div id="roomLog"></div>
+    <form id="roomChat" class="row" style="margin-bottom:12px"><input class="txt" id="roomChatIn" maxlength="120" placeholder="Mensagem para a sala..."></form>
+    <button class="big g" id="bStart">Iniciar partida</button>
+    <div class="msg" id="roomMsg"></div>
+    <button class="big d" id="bLeave1">Sair da sala</button>
+  </div>
+</div>
+
+<!-- ============ JOGO ============ -->
+<div id="game" class="hidden">
+  <header>
+    <div class="logo">TRUCO<small id="modeLbl">ONLINE</small></div>
+    <div class="placar">
+      <div class="team nos"><span class="lbl">NÓS</span><span class="pts" id="sNos">0</span><div class="tentos" id="tNos"></div></div>
+      <div class="meio">
+        <div class="vale" id="valeBox">Vale <span id="valor">2</span></div>
+        <div class="nivel" id="nivel">Normal</div>
+        <div class="dots" id="dots"></div>
+        <div class="partidas" id="partidas"></div>
+      </div>
+      <div class="team eles"><span class="lbl">ELES</span><span class="pts" id="sEles">0</span><div class="tentos" id="tEles"></div></div>
+    </div>
+    <div class="tools">
+      <button class="tbtn" id="bRegras" title="Regras"><span class="ico">📖</span><span class="txt">Regras</span></button>
+      <button class="tbtn" id="bSom" title="Som"><span class="ico" id="somIco">🔊</span><span class="txt" id="somTxt">🔊 Som</span></button>
+      <button class="tbtn" id="bLog2" title="Histórico e chat">💬</button>
+      <button class="tbtn" id="bVel" title="Velocidade"><span class="ico">⏩</span><span class="txt" id="velTxt">Veloc.: Normal</span></button>
+      <button class="tbtn" id="bLeave2" title="Sair"><span class="ico">✕</span><span class="txt">Sair</span></button>
+    </div>
+  </header>
+  <div id="mesa">
+    <div id="deckArea"></div>
+    <div class="seat s2"><div class="bubble" id="bb2"></div><div class="hand small" id="hand2"></div><div class="tag nos" id="tag2"></div></div>
+    <div class="seat s1"><div class="bubble" id="bb1"></div><div class="tag eles" id="tag1"></div><div class="hand small" id="hand1"></div></div>
+    <div class="seat s3"><div class="bubble" id="bb3"></div><div class="tag eles" id="tag3"></div><div class="hand small" id="hand3"></div></div>
+    <div id="centro">
+      <div class="slot p0" id="slot0"></div><div class="slot p1" id="slot1"></div>
+      <div class="slot p2" id="slot2"></div><div class="slot p3" id="slot3"></div>
+    </div>
+    <div class="seat s0"><div class="bubble" id="bb0"></div><div class="status" id="status"></div><div class="tag nos" id="tag0"></div><div class="hand" id="hand0"></div></div>
+    <div id="side">
+      <div id="log"></div>
+      <form id="chatForm"><input id="chatIn" maxlength="120" placeholder="Falar na mesa..."></form>
+    </div>
+    <button id="btnCobrir" disabled title="A partir da 2ª vaza você pode jogar uma carta virada para baixo">🂠 Cobrir</button>
+    <button id="btnTruco" disabled>TRUCO!</button>
+  </div>
+</div>
+
+<div id="banner"></div>
+<canvas id="confetti"></canvas>
+<div id="modal" class="mwrap"><div class="box" id="mbox"></div></div>
+<div id="pmodal" class="mwrap"><div class="box" id="pbox"></div></div>
+
+<!-- PeerJS: conexão direta entre navegadores (WebRTC). Sem internet, só o modo sozinho funciona. -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   CONSTANTES
+   ===================================================================== */
+const SUITS = ['♣','♥','♠','♦'];
+const RANKS = ['4','5','6','7','Q','J','K','A','2','3'];           // ordem crescente de força
+const SUIT_RANK = {'♦':0,'♠':1,'♥':2,'♣':3};                      // força dos naipes nas manilhas
+const CALLS = ['', 'TRUCO', 'SEIS', 'NOVE', 'DOZE'];
+const MODES = {
+  mineiro: { name:'Mineiro', values:[2,4,8,10,12], hand10:10, m10Play:4, m10Run:2, vira:false },
+  paulista:{ name:'Paulista', values:[1,3,6,9,12], hand10:11, m10Play:3, m10Run:1, vira:true }
+};
+const DIFF = {
+  facil:  { name:'Fácil',   N:0,   bluff:0.04, susp:1.00, noise:0.22, cover:0.2 },
+  normal: { name:'Normal',  N:160, bluff:0.07, susp:0.86, noise:0.07, cover:0.5 },
+  dificil:{ name:'Difícil', N:450, bluff:0.10, susp:1.00, noise:0.02, cover:0.7 }
+};
+const ACEITES = ['Desce!','Manda!','Vem!','Aceito!','Bora!','Pode vir!'];
+const BOT_NAMES = ['Tião','Zé','Chico','Dito','Juca','Nhô Quim'];
+const PREFIX = 'trucomineiro-v1-';
+const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const PEER_OPTS = { debug:0, config:{ iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'}
+]}};
+const FULL_DECK = (() => { const d=[]; for(const s of SUITS) for(const r of RANKS) d.push({r,s}); return d; })();
+
+const $ = s => document.querySelector(s);
+const team = p => p % 2;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const ck = c => c ? c.r + c.s : 'X';
+const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cleanName = s => String(s||'').replace(/\s+/g,' ').trim().slice(0,16);
+function genCode(){ let s=''; for(let i=0;i<5;i++) s += CODE_CH[Math.floor(Math.random()*CODE_CH.length)]; return s; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+/* força da carta: 0..9 cartas comuns, 10..13 manilhas, -1 coberta */
+function manilhaRank(mode, vira){
+  if(mode !== 'paulista' || !vira) return null;
+  return RANKS[(RANKS.indexOf(vira.r) + 1) % 10];
+}
+function powerIn(c, mode, vira){
+  if(!c) return -1;
+  if(mode === 'paulista'){
+    if(vira && c.r === manilhaRank(mode, vira)) return 10 + SUIT_RANK[c.s];
+    return RANKS.indexOf(c.r);
+  }
+  if(c.r==='4' && c.s==='♣') return 13;
+  if(c.r==='7' && c.s==='♥') return 12;
+  if(c.r==='A' && c.s==='♠') return 11;
+  if(c.r==='7' && c.s==='♦') return 10;
+  return RANKS.indexOf(c.r);
+}
+const MANI_NAMES = {13:'ZAP',12:'COPAS',11:'ESPADILHA',10:'PICA-FUMO'};
+const drawPower = c => RANKS.indexOf(c.r)*4 + SUIT_RANK[c.s];   // desempate da votação
+
+let stats = lsGet('trucoMineiroStats') || {w:0,l:0};
+const cfg = lsGet('trucoMineiroCfg') || {};
+let speed = cfg.speed || 1, soundOn = cfg.sound !== false;
+const saveCfg = () => lsSet('trucoMineiroCfg', {speed, sound:soundOn});
+
+/* ---------- som ---------- */
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let actx = null;
+/* iPhone/iPad: o áudio só é liberado depois de um toque do usuário */
+function unlockAudio(){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    const b = actx.createBuffer(1, 1, 22050), s = actx.createBufferSource();
+    s.buffer = b; s.connect(actx.destination); s.start(0);
+  }catch(e){}
+}
+['touchend','pointerdown','click'].forEach(ev => document.addEventListener(ev, unlockAudio, {passive:true}));
+function beep(freq=440, dur=0.08, type='triangle', vol=0.08, delay=0){
+  if(!soundOn) return;
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + dur);
+  }catch(e){}
+}
+const sndCard = () => beep(300 + Math.random()*80, 0.06, 'square', 0.035);
+const sndCover = () => beep(160, 0.09, 'square', 0.04);
+const sndDeal = () => { for(let i=0;i<12;i++) beep(420 + Math.random()*120, 0.03, 'square', 0.02, i*0.07); };
+const sndTruco = () => { beep(220,0.15,'sawtooth',0.07); beep(330,0.22,'sawtooth',0.07,0.12); };
+const sndWin = () => [523,659,784].forEach((f,i) => beep(f,0.15,'triangle',0.08,i*0.11));
+const sndLose = () => [392,330,262].forEach((f,i) => beep(f,0.18,'triangle',0.08,i*0.13));
+const sndMsg = () => beep(880,0.05,'sine',0.04);
+const sndFanfare = () => [523,659,784,1046,784,1046].forEach((f,i) => beep(f,0.18,'triangle',0.09,i*0.12));
+
+/* =====================================================================
+   REDE — o anfitrião roda o jogo e manda a cada um só o que ele pode ver
+   ===================================================================== */
+const NET = { role:null, peer:null, conns:[], conn:null, code:'', leaving:false };
+let VIEW = null;
+function toHost(m){
+  if(NET.role === 'guest'){ if(NET.conn && NET.conn.open) NET.conn.send(m); }
+  else if(NET.role) hostHandle('host', m);
+}
+
+/* =====================================================================
+   MOTOR (anfitrião / sozinho)
+   ===================================================================== */
+const S = {
+  phase:'lobby', mode:'mineiro', diff:'normal', seats:[null,null,null,null],
+  score:[0,0], games:[0,0], gameNo:0, lastWinner:-1, dealer:0,
+  hands:[[],[],[],[]], table:[], vazas:[], level:0, value:2, lastRaise:-1, turn:-1, vazaStarter:0,
+  ferro:false, noTruco:false, showPartnerTeam:-1, m10Team:-1, winP:-1, running:false,
+  vira:null, seen:[], coveredBy:[[],[],[],[]], handTag:'', raisers:[]
+};
+const R = () => MODES[S.mode];
+const sleep = ms => new Promise(r => setTimeout(r, ms * speed));
+const seatOf = cid => S.seats.findIndex(x => x && x.cid === cid);
+const nm = p => esc(S.seats[p] ? S.seats[p].name : '?');
+const teamLbl = t => `${nm(t)} & ${nm(t+2)}`;
+const power = c => powerIn(c, S.mode, S.vira);
+const entryPow = e => e.covered ? -1 : power(e.card);
+const isHuman = s => !!(S.seats[s] && S.seats[s].human);
+
+function emit(e){
+  applyEvent(e);
+  NET.conns.forEach(c => { try{ if(c.open) c.send({t:'ev', e}); }catch(_){} });
+}
+const log = text => emit({k:'log', text});
+const say = (seat, text, grito=false) => emit({k:'say', seat, text, grito});
+
+function viewFor(seat){
+  const t = seat >= 0 ? team(seat) : 0;
+  const v = {
+    phase:S.phase, code:NET.code, solo:NET.role==='solo', me:seat, mode:S.mode, diff:S.diff, vira:S.vira,
+    seats:S.seats.map(x => x ? {name:x.name, human:x.human, online:x.online, host:x.cid==='host'} : null),
+    score:S.score, games:S.games, gameNo:S.gameNo, lastWinner:S.lastWinner, handTag:S.handTag,
+    value:S.value, level:S.level, noTruco:S.noTruco, ferro:S.ferro, vazas:S.vazas, m10Team:S.m10Team,
+    table:S.table.map(e => ({seat:e.p, card:(e.covered && e.p !== seat) ? null : e.card, covered:!!e.covered, drawn:!!e.drawn})),
+    winSeat:S.winP, turn:S.turn, dealer:S.dealer,
+    counts:S.hands.map(h => h.length),
+    hand: seat >= 0 ? S.hands[seat].map(c => S.ferro ? null : c) : [],
+    partner: (seat >= 0 && S.showPartnerTeam === t && !S.ferro) ? S.hands[(seat+2)%4] : null,
+    pending:null, canRaise:false, canCover:false, waitingNames:[]
+  };
+  if(waiter){
+    v.waitingNames = waiter.seats.map(s => S.seats[s].name);
+    if(waiter.seats.includes(seat)){
+      v.pending = Object.assign({id:waiter.id, kind:waiter.kind}, waiter.extra);
+      if(waiter.extra.hints) v.pending.hint = waiter.extra.hints[seat] || '';
+      delete v.pending.hints;
+      if(waiter.kind === 'play'){ v.canRaise = canRaise(t); v.canCover = canCover(seat); }
+    }
+  }
+  return v;
+}
+function sync(){
+  if(NET.role === 'guest' || !NET.role) return;
+  NET.conns.forEach(c => { try{ if(c.open) c.send({t:'view', v:viewFor(seatOf(c.peer))}); }catch(_){} });
+  VIEW = viewFor(seatOf('host'));
+  render();
+}
+
+/* ---------- espera por decisões humanas ---------- */
+let waiter = null, waitId = 0;
+function waitFor(kind, seats, extra, botFn){
+  seats = seats.filter(isHuman);
+  if(!seats.length) return Promise.resolve(botFn());
+  return new Promise(res => { waiter = {id:++waitId, kind, seats, extra, botFn, resolve:res}; sync(); });
+}
+function collectVotes(extra){
+  const votes = {};
+  [0,1,2,3].filter(s => !isHuman(s)).forEach(s => votes[s] = Math.random() < 0.5);
+  const humans = [0,1,2,3].filter(isHuman);
+  if(!humans.length) return Promise.resolve(votes);
+  return new Promise(res => {
+    waiter = {id:++waitId, kind:'vote', seats:humans, extra, multi:true, votes, botFn:() => Math.random() < 0.5, resolve:res};
+    sync();
+  });
+}
+function onAction(seat, a){
+  if(!waiter || !waiter.seats.includes(seat) || !a || typeof a !== 'object') return;
+  if(waiter.kind === 'vote'){
+    waiter.votes[seat] = !!a.value;
+    waiter.seats = waiter.seats.filter(s => s !== seat);
+    log(`${nm(seat)} votou`);
+    if(!waiter.seats.length){ const w = waiter; waiter = null; w.resolve(w.votes); }
+    sync(); return;
+  }
+  let out;
+  if(waiter.kind === 'play'){
+    if(a.type === 'card'){
+      const i = a.idx|0; if(i < 0 || i >= S.hands[seat].length) return;
+      out = {type:'card', idx:i, cover: !!a.cover && canCover(seat)};
+    } else if(a.type === 'raise'){
+      if(!canRaise(team(seat))) return; out = {type:'raise'};
+    } else return;
+  } else if(waiter.kind === 'respond'){
+    if(!['accept','run','raise'].includes(a.value)) return;
+    if(a.value === 'raise' && !waiter.extra.canUp) return;
+    out = {value:a.value};
+  } else if(waiter.kind === 'mao10'){
+    out = {value:!!a.value};
+  } else return;
+  out.seat = seat;
+  const w = waiter; waiter = null; w.resolve(out); sync();
+}
+function seatWentBot(s){
+  if(!waiter || !waiter.seats.includes(s)) return;
+  waiter.seats = waiter.seats.filter(x => x !== s);
+  if(waiter.multi) waiter.votes[s] = waiter.botFn();
+  if(!waiter.seats.length){ const w = waiter; waiter = null; w.resolve(w.multi ? w.votes : w.botFn()); }
+}
+
+/* ---------- regras ---------- */
+function deal(){
+  const deck = shuffle(FULL_DECK.slice());
+  for(let p=0;p<4;p++) S.hands[p] = deck.splice(0,3);
+  S.vira = R().vira ? deck.shift() : null;
+  S.seen = []; S.coveredBy = [[],[],[],[]];
+}
+const canRaise = t => !S.noTruco && S.level < 4 && S.lastRaise !== t;
+const canCover = seat => !S.ferro && S.vazas.length >= 1 && seat >= 0;
+function tableState(){
+  if(!S.table.length) return null;
+  let top = -2, player = -1, tie = false;
+  for(const e of S.table){
+    const pw = entryPow(e);
+    if(pw > top){ top = pw; player = e.p; tie = false; }
+    else if(pw === top && team(e.p) !== team(player)) tie = true;
+  }
+  return { top, player, team: (top < 0 || tie) ? -1 : team(player) };
+}
+function decide(v){
+  const [a,b,c] = v;
+  if(v.length === 2){
+    if(a !== -1 && a === b) return a;
+    if(a === -1 && b !== -1) return b;
+    if(a !== -1 && b === -1) return a;
+    return null;
+  }
+  if(v.length === 3){
+    if(c === -1) return a !== -1 ? a : (b !== -1 ? b : 'none');
+    return c;
+  }
+  return null;
+}
+function award(t, pts, motivo){
+  S.score[t] += pts;
+  log(`<b>${teamLbl(t)}</b> +${pts}${motivo ? ' — ' + motivo : ''}`);
+  emit({k:'pts', team:t, pts});
+  sync();
+}
+
+/* =====================================================================
+   INTELIGÊNCIA DOS BOTS
+   Normal/Difícil: simulação de Monte Carlo — sorteia as cartas que o bot
+   não conhece (descontando o que já saiu na mesa), joga o resto da mão
+   centenas de vezes e escolhe a carta com maior chance de vitória.
+   As apostas comparam o valor esperado em "chance de ganhar o jogo".
+   ===================================================================== */
+function strength(p){
+  const h = S.hands[p], t = team(p);
+  const pw = h.map(power).sort((a,b) => b-a);
+  let s = (pw[0]||0)/13*0.6 + (pw[1]||0)/13*0.3 + (pw[2]||0)/13*0.1;
+  const won = S.vazas.filter(v => v === t).length, lost = S.vazas.filter(v => v === 1-t).length;
+  s += won*0.25 - lost*0.3;
+  const st = tableState();
+  if(st && st.team === t) s += 0.1;
+  if(!h.length) s = won > lost ? 0.8 : 0.2;
+  return clamp(s, 0, 1);
+}
+function mcSetup(p){
+  const t = team(p), partnerKnown = S.m10Team === t;
+  const known = new Set();
+  S.hands[p].forEach(c => known.add(ck(c)));
+  if(partnerKnown) S.hands[(p+2)%4].forEach(c => known.add(ck(c)));
+  S.seen.forEach(c => known.add(ck(c)));
+  S.coveredBy[p].forEach(c => known.add(ck(c)));
+  if(S.vira) known.add(ck(S.vira));
+  return {
+    p, t,
+    pool: FULL_DECK.filter(c => !known.has(ck(c))).map(power),
+    own: S.hands[p].map(power),
+    partner: partnerKnown ? S.hands[(p+2)%4].map(power) : null,
+    counts: S.hands.map(h => h.length),
+    table: S.table.map(e => ({p:e.p, pw:entryPow(e)})),
+    starter: S.vazaStarter, vazas: S.vazas.slice()
+  };
+}
+function rChoose(hd, q, tb, vz){
+  let lo = 0, hi = 0;
+  for(let i=1;i<hd.length;i++){ if(hd[i] < hd[lo]) lo = i; if(hd[i] > hd[hi]) hi = i; }
+  if(!tb.length){
+    if(vz.length === 0 && hd.length === 3){ for(let i=0;i<3;i++) if(i !== lo && i !== hi) return i; }
+    return hi;
+  }
+  let top = -2, tp = -1, tie = false;
+  for(const e of tb){ if(e.pw > top){ top = e.pw; tp = e.p; tie = false; } else if(e.pw === top && e.p%2 !== tp%2) tie = true; }
+  const myT = q % 2;
+  if(!tie && top >= 0 && tp % 2 === myT) return lo;
+  let best = -1;
+  for(let i=0;i<hd.length;i++) if(hd[i] > top && (best < 0 || hd[i] < hd[best])) best = i;
+  if(best >= 0) return best;
+  if(vz.length === 0 || vz[0] === myT){ for(let i=0;i<hd.length;i++) if(hd[i] === top) return i; }
+  return lo;
+}
+function rollout(t, h, tb, st, vz0){
+  const vz = vz0.slice();
+  for(let guard=0; guard<4; guard++){
+    while(tb.length < 4){
+      const q = (st + tb.length) % 4;
+      if(!h[q].length) return 0.5;
+      const i = rChoose(h[q], q, tb, vz);
+      tb.push({p:q, pw:h[q][i]}); h[q].splice(i,1);
+    }
+    let top = -2, tp = -1, tie = false;
+    for(const e of tb){ if(e.pw > top){ top = e.pw; tp = e.p; tie = false; } else if(e.pw === top && e.p%2 !== tp%2) tie = true; }
+    vz.push((top < 0 || tie) ? -1 : tp % 2);
+    const d = decide(vz);
+    if(d !== null) return d === 'none' ? 0.5 : (d === t ? 1 : 0);
+    st = tp; tb = [];
+  }
+  return 0.5;
+}
+/* peso de uma amostra dado que o adversário 'cond.seat' pediu aumento:
+   mãos fracas ficam improváveis (a não ser como blefe) */
+function raiserLikelihood(hd, bluff){
+  if(!hd.length) return 1;
+  let a = -1, b = -1;
+  for(const x of hd){ if(x > a){ b = a; a = x; } else if(x > b) b = x; }
+  const q = (a/13)*0.65 + (Math.max(b,0)/13)*0.35;
+  return bluff + (1-bluff)*clamp((q - 0.3)/0.45, 0.02, 1);
+}
+function mcRun(base, N, act, cond){
+  const pool = base.pool.slice(), n = pool.length;
+  let sum = 0, wsum = 0;
+  const useCond = cond && cond.seat >= 0 && cond.seat !== base.p && !(base.partner && cond.seat === (base.p+2)%4);
+  for(let it=0; it<N; it++){
+    let k = 0;
+    const h = [null,null,null,null];
+    for(let q=0;q<4;q++){
+      if(q === base.p) h[q] = base.own.slice();
+      else if(base.partner && q === (base.p+2)%4) h[q] = base.partner.slice();
+      else {
+        const arr = [];
+        for(let j=0;j<base.counts[q] && k<n;j++){
+          const r = k + Math.floor(Math.random()*(n-k));
+          const tmp = pool[k]; pool[k] = pool[r]; pool[r] = tmp;
+          arr.push(pool[k]); k++;
+        }
+        h[q] = arr;
+      }
+    }
+    const tb = base.table.slice();
+    if(act){
+      const i = h[base.p].indexOf(act.pw);
+      h[base.p].splice(i,1);
+      tb.push({p:base.p, pw: act.cover ? -1 : act.pw});
+    }
+    const wgt = useCond ? raiserLikelihood(h[cond.seat], cond.bluff) : 1;
+    sum += wgt * rollout(base.t, h, tb, base.starter, base.vazas);
+    wsum += wgt;
+  }
+  return wsum ? sum / wsum : 0.5;
+}
+function lastOppRaiser(t){
+  for(let i=S.raisers.length-1;i>=0;i--) if(team(S.raisers[i]) !== t) return S.raisers[i];
+  return -1;
+}
+function condFor(t, seat){
+  if(seat < 0) return null;
+  const n = S.raisers.filter(s => team(s) === team(seat)).length;
+  return {seat, bluff: n <= 1 ? 0.22 : 0.1};
+}
+function easyChoose(p){
+  const h = S.hands[p], t = team(p);
+  const idx = h.map((c,i) => i).sort((a,b) => power(h[a]) - power(h[b]));
+  const low = idx[0], high = idx[idx.length-1], mid = idx[Math.floor(idx.length/2)];
+  const st = tableState();
+  if(!st) return S.vazas.length === 0 && h.length === 3 ? mid : high;
+  if(st.team === t) return low;
+  const beat = idx.filter(i => power(h[i]) > st.top);
+  if(beat.length) return beat[0];
+  return low;
+}
+function aiPlan(p){
+  const h = S.hands[p], D = DIFF[S.diff];
+  if(S.ferro) return {idx:Math.floor(Math.random()*h.length), cover:false, pwin:0.5};
+  if(!D.N){
+    let idx = easyChoose(p);
+    if(Math.random() < D.noise) idx = Math.floor(Math.random()*h.length);
+    return {idx, cover:false, pwin:strength(p)};
+  }
+  const base = mcSetup(p);
+  const cond = condFor(team(p), lastOppRaiser(team(p)));
+  const pws = [...new Set(h.map(power))];
+  let best = null;
+  for(const pw of pws){
+    const raw = mcRun(base, D.N, {pw, cover:false}, cond);
+    const sc = raw - pw*0.0015;      // empate técnico: guarda a carta mais forte
+    if(!best || sc > best.sc) best = {pw, sc, raw};
+  }
+  const idx = h.findIndex(c => power(c) === best.pw);
+  const st = tableState();
+  const cover = canCover(p) && !!st && best.pw < st.top && Math.random() < D.cover;
+  return {idx, cover, pwin:best.raw};
+}
+function estimateFor(p, condSeat=-1){
+  const D = DIFF[S.diff];
+  if(!S.hands[p].length && !S.table.length) return 0.5;
+  return D.N ? mcRun(mcSetup(p), D.N, null, condFor(team(p), condSeat)) : strength(p);
+}
+function mw(my, opp){     // chance aproximada de vencer o jogo por placar
+  if(my >= 12) return 1;
+  if(opp >= 12) return 0;
+  return clamp(0.5 + (my - opp)/26, 0.03, 0.97);
+}
+function aiWantsRaise(p, pwin){
+  const D = DIFF[S.diff], t = team(p), my = S.score[t], opp = S.score[1-t];
+  const v = S.value, v1 = R().values[S.level+1];
+  const q = clamp(pwin + (Math.random()*2-1)*D.noise, 0, 1);
+  const lastChance = S.hands[p].length <= 1;
+  if(S.diff !== 'facil' && q > 0.9 && !lastChance && Math.random() < 0.55) return false;   // segura o jogo pra pegar o adversário
+  const acc = clamp(1.5*(1-q) + 0.05, 0.1, 0.95);
+  const evR = acc*(q*mw(my+v1,opp) + (1-q)*mw(my,opp+v1)) + (1-acc)*mw(my+v,opp);
+  const evN = q*mw(my+v,opp) + (1-q)*mw(my,opp+v);
+  const nextLvl = S.level + 1;
+  const minQ = nextLvl === 1 ? 0.66 : nextLvl === 2 ? 0.8 : 0.9;   // aumentar mais alto exige mão cada vez melhor
+  if(q >= minQ && evR > evN + 0.004) return true;
+  const bl = D.bluff * (S.vazas[0] === t ? 1.8 : 1) * (lastChance ? 1.3 : 1) * (nextLvl === 1 ? 1 : 0.2);
+  return Math.random() < bl;
+}
+function aiRespond(rt, next, asker, askerP){
+  const D = DIFF[S.diff];
+  let bots = [rt, rt+2].filter(s => !isHuman(s));
+  if(!bots.length) bots = [rt, rt+2];
+  let p = Math.max(...bots.map(b => estimateFor(b, askerP)));
+  p = clamp(p*D.susp + (Math.random()*2-1)*D.noise, 0, 1);
+  const V = R().values, my = S.score[rt], opp = S.score[asker];
+  const v = S.value, v1 = V[next], v2 = V[next+1];
+  const run = mw(my, opp+v);
+  const acc = p*mw(my+v1,opp) + (1-p)*mw(my,opp+v1);
+  let best = acc >= run ? 'accept' : 'run', bestV = Math.max(acc, run);
+  if(next < 4){
+    const rai = p*mw(my+v2,opp) + (1-p)*mw(my,opp+v2);
+    if(rai > bestV + 0.01 && p > (next === 1 ? 0.82 : next === 2 ? 0.88 : 0.93)) best = 'raise';
+    else if(best === 'accept' && next === 1 && p > 0.5 && Math.random() < D.bluff*0.4) best = 'raise';
+  }
+  return best;
+}
+function aiMao10(t){
+  let bots = [t, t+2].filter(s => !isHuman(s));
+  if(!bots.length) bots = [t, t+2];
+  const p = Math.max(...bots.map(estimateFor));
+  const Rm = R(), my = S.score[t], opp = S.score[1-t];
+  const play = p*mw(my+Rm.m10Play,opp) + (1-p)*mw(my,opp+Rm.m10Play);
+  const run = mw(my, opp+Rm.m10Run);
+  return play >= run || Math.random() < DIFF[S.diff].noise;
+}
+function hintFor(seat){
+  const ps = (seat+2)%4;
+  if(isHuman(ps) || !S.hands[ps].length || S.ferro) return '';
+  const s = estimateFor(ps, S.raisers[S.raisers.length-1]), n = S.seats[ps].name;
+  return s > 0.66 ? `${n}: "Pode aceitar, parceiro, tô forte!"`
+       : s > 0.42 ? `${n}: "Tenho alguma coisinha..."` : `${n}: "Tô fraco, sô."`;
+}
+
+/* ---------- truco ---------- */
+async function raise(t, p){
+  let asker = t, askerP = p;
+  while(true){
+    const next = S.level + 1, V = R().values;
+    S.raisers.push(askerP);
+    say(askerP, CALLS[next] + '!', true);
+    log(`${nm(askerP)} pediu <b>${CALLS[next]}</b>`);
+    await sleep(1000);
+    const rt = 1 - asker;
+    const bots = [rt, rt+2].filter(s => !isHuman(s));
+    const hints = {};
+    [rt, rt+2].filter(isHuman).forEach(s => hints[s] = hintFor(s));
+    if(!bots.length || bots.length === 2) await sleep(bots.length ? 500 : 0);
+    const a = await waitFor('respond', [rt, rt+2],
+      { askerName:S.seats[askerP].name, call:CALLS[next], newValue:V[next], runValue:S.value,
+        canUp: next < 4, upCall: CALLS[next+1] || '', hints },
+      () => ({value:aiRespond(rt, next, asker, askerP), seat: bots.length ? bots.reduce((a,b) => strength(a) >= strength(b) ? a : b) : rt}));
+    const respP = a.seat;
+    if(a.value === 'run'){
+      say(respP, 'Corro!');
+      award(asker, S.value, `${teamLbl(rt)} correram`);
+      await sleep(1400);
+      return 'ended';
+    }
+    S.level = next; S.value = V[next]; S.lastRaise = asker;
+    if(a.value === 'accept'){
+      say(respP, pick(ACEITES));
+      log(`${nm(respP)} aceitou. Mão vale <b>${S.value}</b>`);
+      emit({k:'value'});
+      sync(); await sleep(800);
+      return 'ok';
+    }
+    emit({k:'value'});
+    sync();
+    asker = rt; askerP = respP;
+  }
+}
+
+/* ---------- fluxo ---------- */
+function playCard(p, i, cover){
+  const card = S.hands[p].splice(i,1)[0];
+  const covered = !!cover && canCover(p);
+  S.table.push({p, card, covered});
+  if(covered){ S.coveredBy[p].push(card); log(`${nm(p)} jogou <b>coberta</b>`); }
+  else S.seen.push(card);
+  emit({k:'snd', s: covered ? 'cover' : 'card'});
+  sync();
+}
+async function turn(p){
+  const t = team(p);
+  if(isHuman(p)){
+    while(true){
+      const a = await waitFor('play', [p], {}, () => { const pl = aiPlan(p); return {type:'card', idx:pl.idx, cover:pl.cover}; });
+      if(a.type === 'raise'){
+        const r = await raise(t, p);
+        if(r === 'ended') return 'ended';
+        continue;
+      }
+      playCard(p, a.idx, a.cover);
+      return 'ok';
+    }
+  }
+  await sleep(650 + Math.random()*350);
+  const plan = aiPlan(p);
+  if(canRaise(t) && aiWantsRaise(p, plan.pwin)){
+    const r = await raise(t, p);
+    if(r === 'ended') return 'ended';
+    await sleep(400);
+  }
+  playCard(p, plan.idx, plan.cover);
+  return 'ok';
+}
+async function voteFerro(){
+  const H = R().hand10;
+  emit({k:'banner', text:`${H} × ${H}!`});
+  log(`As duas duplas com ${H}! Votação: mão de ferro ou mão normal?`);
+  await sleep(1200);
+  const votes = await collectVotes({label:`${H} × ${H}`});
+  for(let s=0;s<4;s++) say(s, votes[s] ? 'Ferro!' : 'Normal!');
+  const fv = [0,1,2,3].filter(s => votes[s]).length;
+  log(`Votos: <b>${fv}</b> mão de ferro × <b>${4-fv}</b> mão normal`);
+  await sleep(1600);
+  let ferro;
+  if(fv !== 2) ferro = fv > 2;
+  else {
+    emit({k:'banner', text:'EMPATE! MAIOR CARTA'});
+    log('Empate na votação — vale o voto de quem tirar a maior carta.');
+    await sleep(1300);
+    const deck = shuffle(FULL_DECK.slice());
+    S.table = [0,1,2,3].map(s => ({p:s, card:deck[s], drawn:true}));
+    let w = 0; for(let s=1;s<4;s++) if(drawPower(deck[s]) > drawPower(deck[w])) w = s;
+    sync(); emit({k:'snd', s:'card'});
+    await sleep(1300);
+    S.winP = w; sync();
+    ferro = votes[w];
+    log(`${nm(w)} tirou a maior carta (${deck[w].r}${deck[w].s}) — vale o voto dele: <b>${ferro ? 'mão de ferro' : 'mão normal'}</b>`);
+    await sleep(1800);
+    emit({k:'collect', seat:w});
+    await sleep(500);
+    S.table = []; S.winP = -1; sync();
+  }
+  emit({k:'banner', text: ferro ? 'MÃO DE FERRO' : 'MÃO NORMAL'});
+  await sleep(1200);
+  return ferro;
+}
+async function playHand(){
+  const Rm = R(), H = Rm.hand10, [a,b] = S.score;
+  Object.assign(S, {level:0, value:Rm.values[0], lastRaise:-1, vazas:[], table:[], ferro:false, noTruco:false,
+                    showPartnerTeam:-1, m10Team:-1, winP:-1, turn:-1, vira:null, hands:[[],[],[],[]], raisers:[]});
+  sync();
+  let ferro = false, noTruco = false, m10Team = -1;
+  if(a === H && b === H){ ferro = await voteFerro(); noTruco = true; }
+  else if(a === H || b === H){ m10Team = a === H ? 0 : 1; noTruco = true; }
+
+  deal();
+  S.ferro = ferro; S.noTruco = noTruco; S.handTag = Math.random().toString(36).slice(2,8);
+  if(!ferro) S.hands.forEach(h => h.sort((x,y) => power(x) - power(y)));
+  emit({k:'deal', dealer:S.dealer, tag:S.handTag});
+  log(`— Nova mão. ${nm(S.dealer)} deu as cartas.` + (S.vira ? ` Vira: <b>${S.vira.r}${S.vira.s}</b> (manilha: ${manilhaRank(S.mode,S.vira)})` : ''));
+  sync(); await sleep(1400);
+
+  if(ferro) log('Mão de ferro: todos jogam no escuro, sem truco!');
+  else if(noTruco && m10Team < 0) log('Mão normal decisiva: sem truco, quem ganhar leva o jogo.');
+  if(m10Team >= 0){
+    const t = m10Team;
+    S.m10Team = t; S.showPartnerTeam = t;
+    emit({k:'banner', text:`MÃO DE ${H}`});
+    log(`Mão de ${H} para ${teamLbl(t)}`);
+    if(![t, t+2].some(isHuman)) await sleep(900);
+    const r = await waitFor('mao10', [t, t+2], {h:H, play:Rm.m10Play, run:Rm.m10Run},
+      () => ({value:aiMao10(t), seat: isHuman(t) ? t+2 : t}));
+    S.showPartnerTeam = -1;
+    say(r.seat, r.value ? 'Vamo jogar!' : 'Corremo!');
+    await sleep(900);
+    if(!r.value){
+      award(1-t, Rm.m10Run, `${teamLbl(t)} correram da mão de ${H}`);
+      await sleep(1300);
+      return;
+    }
+    S.value = Rm.m10Play;
+    log(`${teamLbl(t)} vão jogar a mão de ${H} (vale ${Rm.m10Play})`);
+    emit({k:'value'});
+    sync();
+  }
+
+  let starter = (S.dealer + 1) % 4;
+  for(let v=0; v<3; v++){
+    S.table = []; S.winP = -1; S.vazaStarter = starter; sync();
+    for(let i=0;i<4;i++){
+      const p = (starter + i) % 4;
+      S.turn = p; sync();
+      const r = await turn(p);
+      if(r === 'ended'){ S.turn = -1; return; }
+    }
+    S.turn = -1;
+    const st = tableState();
+    S.vazas.push(st.team);
+    S.winP = st.team === -1 ? -1 : st.player;
+    sync();
+    log(st.team === -1 ? `${v+1}ª vaza: empatou (cangou)` : `${v+1}ª vaza: ${nm(st.player)}`);
+    await sleep(1150);
+    emit({k:'collect', seat:S.winP});
+    await sleep(520);
+    S.table = []; S.winP = -1; sync();
+    const d = decide(S.vazas);
+    if(d !== null){
+      if(d === 'none'){ log('Mão empatada — ninguém pontua'); emit({k:'banner', text:'EMPATOU'}); }
+      else award(d, S.value, 'ganharam a mão');
+      await sleep(1300);
+      return;
+    }
+    starter = st.player;
+  }
+}
+async function gameLoop(){
+  if(S.running) return;
+  S.running = true; S.phase = 'game'; S.gameNo++; S.lastWinner = -1;
+  S.score = [0,0]; S.dealer = Math.floor(Math.random()*4);
+  log(`Partida ${S.gameNo} — Truco ${R().name} — ${teamLbl(0)} x ${teamLbl(1)}`);
+  emit({k:'banner', text:`TRUCO ${R().name.toUpperCase()}`});
+  sync(); await sleep(1400);
+  while(S.score[0] < 12 && S.score[1] < 12){
+    await playHand();
+    if(S.table.length){ emit({k:'collect', seat:-1}); await sleep(450); }
+    S.table = []; S.winP = -1; S.vira = null; S.hands = [[],[],[],[]]; sync();
+    await sleep(400);
+    S.dealer = (S.dealer + 1) % 4;
+  }
+  const w = S.score[0] >= 12 ? 0 : 1;
+  S.games[w]++; S.lastWinner = w; S.phase = 'over'; S.running = false;
+  log(`<b>${teamLbl(w)}</b> venceram a partida!`);
+  emit({k:'over', team:w});
+  sync();
+}
+function fillBots(){
+  const pool = BOT_NAMES.filter(n => !S.seats.some(s => s && s.name === n));
+  for(let i=0;i<4;i++) if(!S.seats[i]) S.seats[i] = {name:pool.shift() || 'Bot '+i, cid:null, human:false, online:true, wasHuman:false};
+}
+
+/* ---------- mensagens recebidas pelo anfitrião ---------- */
+function hostHandle(cid, m){
+  if(!m || typeof m !== 'object') return;
+  const seat = seatOf(cid), isHost = cid === 'host';
+  switch(m.t){
+    case 'sit': {
+      const to = m.seat|0;
+      if(S.phase !== 'lobby' || seat < 0 || to < 0 || to > 3 || S.seats[to]) return;
+      S.seats[to] = S.seats[seat]; S.seats[seat] = null; sync(); break;
+    }
+    case 'cfg':
+      if(isHost && (S.phase === 'lobby' || S.phase === 'over')){
+        if(MODES[m.mode]) S.mode = m.mode;
+        if(DIFF[m.diff]) S.diff = m.diff;
+        lsSet('trucoModo', {mode:S.mode, diff:S.diff});
+        sync();
+      }
+      break;
+    case 'act': if(seat >= 0) onAction(seat, m.a); break;
+    case 'chat': {
+      const text = String(m.text || '').replace(/\s+/g,' ').trim().slice(0,120);
+      if(text && seat >= 0) emit({k:'chat', seat, name:S.seats[seat].name, text});
+      break;
+    }
+    case 'start': if(isHost && S.phase === 'lobby'){ fillBots(); gameLoop(); } break;
+    case 'again': if(isHost && S.phase === 'over') gameLoop(); break;
+    case 'lobby':
+      if(isHost && S.phase === 'over'){
+        S.phase = 'lobby';
+        S.seats = S.seats.map(x => x && x.human && x.online ? x : null);
+        Object.assign(S, {hands:[[],[],[],[]], table:[], vazas:[], score:[0,0], level:0, value:R().values[0], turn:-1, winP:-1, vira:null});
+        sync();
+      }
+      break;
+  }
+}
+function onGuestConn(conn){
+  conn.on('data', m => {
+    if(m && m.t === 'hello') guestJoin(conn, m.name);
+    else if(seatOf(conn.peer) >= 0) hostHandle(conn.peer, m);
+  });
+  conn.on('close', () => guestLeave(conn.peer));
+  conn.on('error', () => guestLeave(conn.peer));
+}
+function guestJoin(conn, rawName){
+  if(seatOf(conn.peer) >= 0) return;
+  const name = cleanName(rawName) || 'Jogador';
+  let s;
+  if(S.phase === 'lobby'){
+    s = S.seats.findIndex(x => !x);
+    if(s < 0) return rejectConn(conn, 'A sala está cheia (4 jogadores).');
+    S.seats[s] = {name, cid:conn.peer, human:true, online:true, wasHuman:true};
+  } else {
+    s = S.seats.findIndex(x => x && !x.human && x.wasHuman && x.name === name);
+    if(s < 0) s = S.seats.findIndex(x => x && !x.human);
+    if(s < 0) return rejectConn(conn, 'A partida já começou e todos os lugares têm jogadores.');
+    const was = S.seats[s].name;
+    Object.assign(S.seats[s], {name, cid:conn.peer, human:true, online:true, wasHuman:true});
+    if(was !== name) log(`${esc(name)} assumiu o lugar de ${esc(was)}`);
+  }
+  NET.conns.push(conn);
+  log(`${esc(name)} entrou na sala`);
+  sync();
+}
+function rejectConn(conn, why){
+  try{ conn.send({t:'reject', why}); }catch(_){}
+  setTimeout(() => { try{ conn.close(); }catch(_){} }, 600);
+}
+function guestLeave(cid){
+  const i = NET.conns.findIndex(c => c.peer === cid);
+  if(i < 0) return;
+  NET.conns.splice(i,1);
+  const s = seatOf(cid);
+  if(s < 0) return;
+  const name = S.seats[s].name;
+  if(S.phase === 'lobby') S.seats[s] = null;
+  else { Object.assign(S.seats[s], {human:false, online:false, cid:null}); seatWentBot(s); }
+  log(`${esc(name)} saiu${S.phase === 'lobby' ? '' : ' — um bot assume até ele voltar'}`);
+  sync();
+}
+
+/* =====================================================================
+   INTERFACE E ANIMAÇÕES
+   ===================================================================== */
+function anim(el, kf, opts){ try{ return el && el.animate ? el.animate(kf, opts) : null; }catch(e){ return null; } }
+function rectOf(el){ return el ? el.getBoundingClientRect() : {left:0,top:0,width:0,height:0}; }
+function flyFrom(el, from, {delay=0, dur=420, rot=0, fade=false}={}){
+  const to = el.getBoundingClientRect();
+  if(!from || !to.width) return;
+  const dx = (from.left + from.width/2) - (to.left + to.width/2);
+  const dy = (from.top + from.height/2) - (to.top + to.height/2);
+  const sc = from.width ? clamp(from.width/to.width, 0.35, 1.6) : 0.6;
+  anim(el, [
+    {transform:`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${sc})`, opacity: fade ? 0 : 1},
+    {transform:'none', opacity:1}
+  ], {duration:dur, delay, easing:'cubic-bezier(.2,.8,.25,1)', fill:'backwards'});
+}
+
+let logLines = [];
+function addLog(html){
+  logLines.unshift(html); logLines = logLines.slice(0,30);
+  $('#log').innerHTML = logLines.slice(0,8).map(l => `<div>${l}</div>`).join('');
+  $('#roomLog').innerHTML = logLines.map(l => `<div>${l}</div>`).join('');
+}
+const posOf = seat => VIEW ? (seat - VIEW.me + 4) % 4 : seat;
+const bubbleTimers = {};
+function showBubble(seat, text, grito){
+  if(!VIEW || VIEW.phase === 'lobby') return;
+  const pos = posOf(seat), b = $('#bb'+pos);
+  b.textContent = text; b.className = 'bubble show' + (grito ? ' grito' : '');
+  clearTimeout(bubbleTimers[pos]);
+  bubbleTimers[pos] = setTimeout(() => b.className = 'bubble', 2200);
+}
+function showBanner(text, cls=''){
+  const b = $('#banner');
+  b.innerHTML = `<span class="bn ${cls}">${esc(text)}</span>`;
+}
+function shake(){
+  anim($('#mesa'), [
+    {transform:'translate(0,0)'},{transform:'translate(-8px,3px) rotate(-.4deg)'},{transform:'translate(7px,-3px) rotate(.4deg)'},
+    {transform:'translate(-5px,2px)'},{transform:'translate(4px,-1px)'},{transform:'translate(0,0)'}
+  ], {duration:450, easing:'ease-out'});
+}
+function bump(el){ if(!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
+let dealAnim = null, collecting = false;
+function applyEvent(e){
+  if(!e) return;
+  const myTeam = VIEW ? team(VIEW.me) : 0;
+  switch(e.k){
+    case 'log': addLog(e.text); break;
+    case 'chat':
+      addLog(`<span class="cn">${esc(e.name)}:</span> ${esc(e.text)}`);
+      if(!$('#side').classList.contains('open')) $('#bLog2').classList.add('dot');
+      showBubble(e.seat, e.text.length > 40 ? e.text.slice(0,40)+'…' : e.text, false);
+      sndMsg(); break;
+    case 'say':
+      showBubble(e.seat, e.text, e.grito);
+      if(e.grito){ sndTruco(); shake(); showBanner(e.text, 'truco'); }
+      break;
+    case 'snd': if(e.s === 'card') sndCard(); else if(e.s === 'cover') sndCover(); break;
+    case 'banner': showBanner(e.text); break;
+    case 'value': bump($('#valeBox')); break;
+    case 'deal': dealAnim = {dealer:e.dealer, tag:e.tag}; sndDeal(); break;
+    case 'collect': collectAnim(e.seat); break;
+    case 'pts': {
+      const mine = e.team === myTeam;
+      showBanner(mine ? `+${e.pts} PRA NÓS!` : `+${e.pts} PRA ELES`, mine ? '' : 'bad');
+      mine ? sndWin() : sndLose(); break;
+    }
+    case 'over': {
+      const mine = e.team === myTeam;
+      if(mine){ stats.w++; confetti(); sndFanfare(); } else stats.l++;
+      lsSet('trucoMineiroStats', stats); break;
+    }
+  }
+}
+function collectAnim(seat){
+  const target = seat >= 0 ? rectOf($('#tag'+posOf(seat))) : null;
+  for(let pos=0;pos<4;pos++){
+    const el = $('#slot'+pos).firstChild; if(!el) continue;
+    const r = el.getBoundingClientRect();
+    let tf = 'translate(0,30px) scale(.6)';
+    if(target && target.width) tf = `translate(${(target.left+target.width/2)-(r.left+r.width/2)}px,${(target.top+target.height/2)-(r.top+r.height/2)}px) scale(.35) rotate(${pos*25-30}deg)`;
+    anim(el, [{transform:'none', opacity:1},{transform:tf, opacity:0}], {duration:460, delay:pos*40, easing:'cubic-bezier(.5,0,.8,.4)', fill:'forwards'});
+  }
+}
+
+/* ---------- confete ---------- */
+function confetti(){
+  const cv = $('#confetti'); const ctx = cv.getContext && cv.getContext('2d');
+  if(!ctx || !window.requestAnimationFrame) return;
+  cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ['#e7b43a','#3ecf7a','#ff5a5a','#ffffff','#5ab0ff'];
+  const ps = Array.from({length:180}, () => ({
+    x:innerWidth/2 + (Math.random()-.5)*200, y:innerHeight*0.35, vx:(Math.random()-.5)*16, vy:-Math.random()*16-4,
+    s:4+Math.random()*6, r:Math.random()*6, vr:(Math.random()-.5)*.4, c:pick(cols)
+  }));
+  const t0 = performance.now();
+  (function frame(t){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ps.forEach(p => { p.vy += .35; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); ctx.restore(); });
+    if(t - t0 < 3500) requestAnimationFrame(frame); else ctx.clearRect(0,0,cv.width,cv.height);
+  })(t0);
+}
+
+/* ---------- cartas ---------- */
+function cardEl(c, back, ctx){
+  const d = document.createElement('div');
+  if(back || !c){ d.className = 'card back'; return d; }
+  const red = c.s === '♥' || c.s === '♦';
+  const pw = ctx ? powerIn(c, ctx.mode, ctx.vira) : -1;
+  const man = pw >= 10;
+  d.className = 'card' + (red ? ' red' : '') + (man ? ' manilha' : '');
+  d.innerHTML = `<span class="tl">${c.r}<br>${c.s}</span><span class="mid">${c.s}</span><span class="br">${c.r}<br>${c.s}</span>` +
+                (man ? `<span class="nm">${MANI_NAMES[pw]}</span>` : '');
+  return d;
+}
+
+/* ---------- modais ---------- */
+let modalTag = null;
+function modal(html, buttons, tag=null){
+  modalTag = tag;
+  const box = $('#mbox');
+  box.innerHTML = html + '<div class="btns"></div>';
+  const wrap = box.querySelector('.btns');
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = b.cls || 'b-ok'; el.textContent = b.label;
+    el.onclick = () => { closeModal(); if(b.fn) b.fn(); };
+    wrap.appendChild(el);
+  });
+  $('#modal').classList.add('show');
+}
+function closeModal(){ $('#modal').classList.remove('show'); modalTag = null; }
+function pmodal(html, buttons){
+  const box = $('#pbox');
+  box.innerHTML = html + '<div class="btns"></div>';
+  const wrap = box.querySelector('.btns');
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = b.cls || 'b-ok'; el.textContent = b.label;
+    el.onclick = () => { $('#pmodal').classList.remove('show'); b.fn(); };
+    wrap.appendChild(el);
+  });
+  $('#pmodal').classList.add('show');
+}
+
+/* ---------- render ---------- */
+let sentFor = 0, shownPending = 0, overShown = 0, coverMode = false, coverFor = 0, lastPlayRect = null, lastScores = null;
+function render(){
+  const v = VIEW;
+  const inHome = !NET.role || !v;
+  $('#home').classList.toggle('hidden', !inHome);
+  $('#room').classList.toggle('hidden', inHome || v.phase !== 'lobby');
+  $('#game').classList.toggle('hidden', inHome || v.phase === 'lobby');
+  if(inHome) return;
+  if(v.phase === 'lobby') renderRoom(v); else renderGame(v);
+  renderPending(v);
+  renderOver(v);
+}
+function renderRoom(v){
+  $('#roomCode').textContent = v.code || '-----';
+  for(let s=0;s<4;s++){
+    const box = $('#seatBox'+s), x = v.seats[s];
+    box.className = 'seatbox' + (x ? ' taken' : ' free') + (s === v.me ? ' mine' : '');
+    if(x){ box.innerHTML = `${esc(x.name)}${s === v.me ? ' (você)' : ''}${x.host ? ' 👑' : ''}`; box.onclick = null; }
+    else { box.innerHTML = 'Vago — sentar aqui'; box.onclick = () => toHost({t:'sit', seat:s}); }
+  }
+  const isHost = NET.role === 'host';
+  $('#roomMode').value = v.mode; $('#roomDiff').value = v.diff;
+  $('#roomMode').disabled = !isHost; $('#roomDiff').disabled = !isHost;
+  $('#bStart').classList.toggle('hidden', !isHost);
+  const humans = v.seats.filter(Boolean).length;
+  $('#roomMsg').textContent = (isHost
+    ? (humans < 4 ? `${humans} jogador(es) na sala. ${4-humans} lugar(es) serão bots.` : 'Mesa completa!')
+    : 'Aguardando o anfitrião iniciar a partida...')
+    + (isHost && IS_IOS ? ' ⚠️ No iPhone, não troque de app nem bloqueie a tela enquanto for anfitrião: a sala cai.' : '');
+  $('#bCopyLink').classList.toggle('hidden', !/^https?:/.test(location.protocol));
+}
+function renderGame(v){
+  const me = v.me, mt = team(me), Rm = MODES[v.mode];
+  $('#modeLbl').textContent = (v.solo ? 'SOZINHO' : 'SALA ' + v.code) + ' · ' + Rm.name.toUpperCase();
+  // placar
+  const sc = [v.score[mt], v.score[1-mt]];
+  $('#sNos').textContent = Math.min(12, sc[0]);
+  $('#sEles').textContent = Math.min(12, sc[1]);
+  if(lastScores){ if(sc[0] !== lastScores[0]) bump($('#sNos')); if(sc[1] !== lastScores[1]) bump($('#sEles')); }
+  lastScores = sc;
+  [['#tNos',sc[0]],['#tEles',sc[1]]].forEach(([id,n]) => {
+    const el = $(id);
+    if(el.children.length !== 12){ el.innerHTML = ''; for(let i=0;i<12;i++) el.appendChild(document.createElement('i')); }
+    [...el.children].forEach((x,i) => x.classList.toggle('on', i < n));
+  });
+  $('#partidas').textContent = `Partidas ${v.games[mt]} × ${v.games[1-mt]}`;
+  $('#valor').textContent = v.value;
+  const h10 = 'MÃO DE ' + Rm.hand10;
+  $('#nivel').textContent = v.level ? CALLS[v.level] : (v.ferro ? 'MÃO DE FERRO' : (v.m10Team >= 0 ? h10 : (v.noTruco ? 'DECISIVA' : 'Normal')));
+  const dots = $('#dots');
+  if(dots.children.length !== 3){ dots.innerHTML = ''; for(let i=0;i<3;i++) dots.appendChild(document.createElement('span')); }
+  [...dots.children].forEach((s,i) => { const x = v.vazas[i];
+    s.className = x === -1 ? 't' : x === mt ? 'n' : x === 1-mt ? 'e' : ''; });
+
+  // monte + vira
+  const da = $('#deckArea');
+  const dkey = (v.vira ? ck(v.vira) : '-') + v.handTag;
+  if(da.dataset.key !== dkey){
+    da.dataset.key = dkey; da.innerHTML = '';
+    if(v.mode === 'paulista' && v.vira){
+      const w = document.createElement('div'); w.className = 'vira-wrap';
+      const cardV = cardEl(v.vira, false, v);
+      w.innerHTML = '<span class="vira-lbl">VIRA</span>'; w.appendChild(cardV);
+      const lbl = document.createElement('div'); lbl.className = 'mani-lbl';
+      lbl.textContent = 'Manilha: ' + manilhaRank(v.mode, v.vira);
+      w.appendChild(lbl);
+      da.appendChild(w);
+      anim(cardV, [{transform:'rotateY(90deg) scale(.6)', opacity:0},{transform:'rotateY(0) scale(1)', opacity:1}],
+           {duration:500, delay:dealAnim ? 950 : 0, easing:'cubic-bezier(.2,.9,.3,1.3)', fill:'backwards'});
+    }
+  }
+
+  const pend = v.pending;
+  const canPlay = pend && pend.kind === 'play' && sentFor !== pend.id;
+  if(!canPlay || coverFor !== (pend && pend.id)){ if(!canPlay) coverMode = false; }
+  if(pend && coverFor !== pend.id){ coverFor = pend.id; coverMode = false; }
+  const dealerRect = rectOf($('#tag'+posOf(v.dealer)));
+  const dealOrder = pos => (((me + pos) % 4) - (v.dealer + 1) + 8) % 4;
+
+  // minha mão
+  const h0 = $('#hand0');
+  const k0 = v.hand.map(ck).join(',') + '|' + v.handTag;
+  if(h0.dataset.key !== k0){
+    h0.dataset.key = k0; h0.innerHTML = '';
+    v.hand.forEach(c => h0.appendChild(cardEl(c, c === null, v)));
+    if(dealAnim && dealAnim.tag === v.handTag && v.hand.length === 3)
+      [...h0.children].forEach((el,j) => flyFrom(el, dealerRect, {delay:(j*4 + dealOrder(0))*70, dur:380, rot:-30}));
+  }
+  h0.classList.toggle('covering', coverMode && canPlay);
+  [...h0.children].forEach((el,i) => {
+    el.classList.toggle('playable', !!canPlay);
+    el.onclick = canPlay ? () => {
+      lastPlayRect = el.getBoundingClientRect();
+      sentFor = pend.id;
+      toHost({t:'act', a:{type:'card', idx:i, cover: coverMode && v.canCover}});
+      coverMode = false; render();
+    } : null;
+  });
+  // outros jogadores
+  for(const pos of [1,2,3]){
+    const seat = (me + pos) % 4, h = $('#hand'+pos);
+    const reveal = pos === 2 && v.partner;
+    const k = (reveal ? 'R' + v.partner.map(ck).join(',') : 'B' + v.counts[seat]) + '|' + v.handTag;
+    if(h.dataset.key !== k){
+      h.dataset.key = k;
+      h.className = 'hand ' + (reveal ? 'reveal' : 'small'); h.innerHTML = '';
+      if(reveal) v.partner.forEach(c => h.appendChild(cardEl(c, false, v)));
+      else for(let i=0;i<v.counts[seat];i++) h.appendChild(cardEl(null, true));
+      if(dealAnim && dealAnim.tag === v.handTag && v.counts[seat] === 3 && !reveal)
+        [...h.children].forEach((el,j) => flyFrom(el, dealerRect, {delay:(j*4 + dealOrder(pos))*70, dur:380, rot:40}));
+    }
+  }
+  if(dealAnim && dealAnim.tag === v.handTag && v.hand.length) dealAnim = null;
+
+  // mesa
+  for(let pos=0;pos<4;pos++){
+    const seat = (me + pos) % 4, slot = $('#slot'+pos);
+    const e = v.table.find(x => x.seat === seat);
+    const key = e ? `${ck(e.card)}|${e.covered?1:0}|${e.drawn?1:0}|${v.handTag}` : '';
+    if(slot.dataset.key !== key){
+      slot.dataset.key = key; slot.innerHTML = '';
+      if(e){
+        const el = cardEl(e.card, !e.card, v);
+        if(e.covered && e.card) el.classList.add('coberta');
+        slot.appendChild(el);
+        let from = pos === 0 && lastPlayRect ? lastPlayRect : rectOf($('#hand'+pos).lastChild || $('#tag'+pos));
+        if(pos === 0) lastPlayRect = null;
+        flyFrom(el, from, {dur:430, rot: pos === 0 ? -6 : (pos === 1 ? -35 : (pos === 3 ? 35 : 180))});
+      }
+    }
+    const el = slot.firstChild;
+    if(el){ el.classList.toggle('win', v.winSeat === seat); el.classList.toggle('lose', v.winSeat >= 0 && v.winSeat !== seat); }
+  }
+
+  // etiquetas
+  for(let pos=0;pos<4;pos++){
+    const seat = (me + pos) % 4, x = v.seats[seat], t = $('#tag'+pos);
+    t.classList.toggle('vez', v.turn === seat);
+    const icon = !x ? '' : (!x.human ? (x.online ? ' 🤖' : ' 📴') : '');
+    const html = (seat === v.dealer ? '<span class="chip" title="Deu as cartas">D</span>' : '') +
+      esc(x ? x.name : '?') + (pos === 0 ? ' (você)' : '') + icon;
+    if(t.innerHTML !== html) t.innerHTML = html;
+  }
+  // botões
+  const b = $('#btnTruco');
+  b.disabled = !(canPlay && v.canRaise);
+  b.textContent = v.level < 4 && !v.noTruco ? CALLS[v.level+1] + '!' : '—';
+  b.onclick = () => { if(!b.disabled){ sentFor = pend.id; toHost({t:'act', a:{type:'raise'}}); render(); } };
+  const bc = $('#btnCobrir');
+  bc.disabled = !(canPlay && v.canCover);
+  bc.classList.toggle('on', coverMode && !bc.disabled);
+  bc.textContent = coverMode && !bc.disabled ? '🂠 Coberta ✓' : '🂠 Cobrir';
+  bc.onclick = () => { if(!bc.disabled){ coverMode = !coverMode; render(); } };
+  // status
+  let st = '';
+  if(canPlay) st = coverMode ? 'Escolha a carta para jogar COBERTA' : 'Sua vez!';
+  else if(v.waitingNames.length && !pend) st = 'Aguardando ' + v.waitingNames.join(' / ') + '...';
+  const se = $('#status'); se.textContent = st; se.classList.toggle('go', !!canPlay);
+  $('#chatForm').classList.toggle('hidden', v.solo);
+  $('#bVel').classList.toggle('hidden', NET.role === 'guest');
+}
+function renderPending(v){
+  const p = v.pending;
+  if(p && (p.kind === 'respond' || p.kind === 'mao10' || p.kind === 'vote')){
+    if(shownPending === p.id) return;
+    shownPending = p.id;
+    const send = val => toHost({t:'act', a:{value:val}});
+    if(p.kind === 'respond'){
+      const btns = [
+        {label:'Desce! (aceitar)', cls:'b-ok', fn:() => send('accept')},
+        {label:'Correr', cls:'b-no', fn:() => send('run')}
+      ];
+      if(p.canUp) btns.push({label:p.upCall + '!', cls:'b-up', fn:() => send('raise')});
+      pmodal(`<h2>${esc(p.askerName)} pediu ${p.call}!</h2>
+        <p>Se aceitar, a mão passa a valer <b>${p.newValue}</b> ponto(s).<br>Se correr, eles ganham <b>${p.runValue}</b>.</p>
+        ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}`, btns);
+    } else if(p.kind === 'mao10'){
+      pmodal(`<h2>Mão de ${p.h}!</h2>
+        <p>Sua dupla está com ${p.h} pontos. Veja as suas cartas e as do parceiro (lá em cima) e decidam:</p>
+        <p>• <b>Jogar</b>: a mão vale <b>${p.play}</b> e ninguém pode trucar.<br>• <b>Correr</b>: eles ganham <b>${p.run}</b>.</p>`,
+        [{label:'Jogar', cls:'b-ok', fn:() => send(true)}, {label:'Correr', cls:'b-no', fn:() => send(false)}]);
+    } else {
+      pmodal(`<h2>${esc(p.label)} — votação</h2>
+        <p>As duas duplas estão a um passo da vitória. Como vai ser esta mão?</p>
+        <p>• <b>Mão de ferro</b>: todo mundo joga no escuro, sem ver as próprias cartas.<br>
+           • <b>Mão normal</b>: cartas à vista, sem truco.</p>
+        <p class="hint">Maioria decide. Se der 2 × 2, cada um tira uma carta do baralho e vale o voto de quem tirar a maior.</p>`,
+        [{label:'Mão de ferro', cls:'b-up', fn:() => send(true)}, {label:'Mão normal', cls:'b-ok', fn:() => send(false)}]);
+    }
+  } else if(shownPending){
+    shownPending = 0;
+    $('#pmodal').classList.remove('show');
+  }
+}
+function renderOver(v){
+  if(v.phase === 'over' && overShown !== v.gameNo){
+    overShown = v.gameNo;
+    const mt = team(v.me), mine = v.lastWinner === mt;
+    const html = `<h2>${mine ? '🏆 Vocês venceram!' : '😩 Eles venceram...'}</h2>
+      <p>Placar: <b>Nós ${Math.min(12, v.score[mt])}</b> x <b>${Math.min(12, v.score[1-mt])} Eles</b></p>
+      <p>Partidas nesta mesa: ${v.games[mt]} × ${v.games[1-mt]}</p>
+      <p style="font-size:13px;opacity:.8">Seu histórico geral: ${stats.w} vitória(s) · ${stats.l} derrota(s)</p>`;
+    const again = {label:'Jogar de novo', fn:() => toHost({t:'again'})};
+    if(NET.role === 'solo') modal(html, [again, {label:'Menu inicial', cls:'b-no', fn:leave}], 'over');
+    else if(NET.role === 'host') modal(html, [
+      {label:'Nova partida', fn:() => toHost({t:'again'})},
+      {label:'Voltar à sala', cls:'b-no', fn:() => toHost({t:'lobby'})}], 'over');
+    else modal(html + '<p class="hint">Aguardando o anfitrião começar outra partida...</p>', [{label:'OK'}], 'over');
+  } else if(v.phase !== 'over' && modalTag === 'over'){
+    closeModal();
+  }
+}
+
+/* =====================================================================
+   CRIAR / ENTRAR / SOZINHO
+   ===================================================================== */
+const homeMsg = t => $('#homeMsg').textContent = t;
+function getName(){
+  const n = cleanName($('#nameIn').value);
+  if(!n){ homeMsg('Digite seu nome primeiro.'); $('#nameIn').focus(); return null; }
+  lsSet('trucoMineiroNome', n);
+  return n;
+}
+function homeCfg(){
+  S.mode = $('#modeSel').value; S.diff = $('#diffSel').value;
+  lsSet('trucoModo', {mode:S.mode, diff:S.diff});
+}
+function setBusy(b){ ['#bCreate','#bJoin','#bSolo'].forEach(id => $(id).disabled = b); if(!b) checkPeer(); }
+function checkPeer(){
+  if(typeof Peer === 'undefined'){
+    $('#bCreate').disabled = true; $('#bJoin').disabled = true;
+    homeMsg('Sem internet: o modo online está indisponível. O modo sozinho funciona normalmente.');
+    return false;
+  }
+  return true;
+}
+function startSolo(){
+  const name = getName(); if(!name) return;
+  homeCfg();
+  NET.role = 'solo'; NET.code = '';
+  S.seats = [{name, cid:'host', human:true, online:true, wasHuman:true},
+             {name:'Tião', cid:null, human:false, online:true, wasHuman:false},
+             {name:'Zé', cid:null, human:false, online:true, wasHuman:false},
+             {name:'Chico', cid:null, human:false, online:true, wasHuman:false}];
+  S.phase = 'game';
+  gameLoop();
+}
+function createRoom(){
+  const name = getName(); if(!name || !checkPeer()) return;
+  homeCfg();
+  setBusy(true); homeMsg('Criando sala...');
+  const attempt = n => {
+    const code = genCode();
+    const peer = new Peer(PREFIX + code, PEER_OPTS);
+    let opened = false;
+    peer.on('open', () => {
+      opened = true;
+      NET.role = 'host'; NET.peer = peer; NET.code = code;
+      S.phase = 'lobby';
+      S.seats = [{name, cid:'host', human:true, online:true, wasHuman:true}, null, null, null];
+      addLog(`Sala <b>${code}</b> criada. Passe o código para os amigos!`);
+      homeMsg('');
+      try{ history.replaceState(null, '', '#' + code); }catch(_){}
+      sync();
+    });
+    peer.on('connection', onGuestConn);
+    peer.on('disconnected', () => { if(!NET.leaving){ try{ peer.reconnect(); }catch(_){} } });
+    peer.on('error', err => {
+      if(!opened){
+        try{ peer.destroy(); }catch(_){}
+        if(err.type === 'unavailable-id' && n < 4) attempt(n+1);
+        else { setBusy(false); homeMsg('Não foi possível criar a sala (' + err.type + '). Verifique a internet e tente de novo.'); }
+      }
+    });
+  };
+  attempt(0);
+}
+function joinRoom(){
+  const name = getName(); if(!name || !checkPeer()) return;
+  const code = String($('#codeIn').value).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length !== 5){ homeMsg('O código da sala tem 5 caracteres.'); return; }
+  setBusy(true); homeMsg('Conectando na sala ' + code + '...');
+  const peer = new Peer(undefined, PEER_OPTS);
+  let done = false;
+  const fail = msg => {
+    if(done) return; done = true;
+    try{ peer.destroy(); }catch(_){}
+    NET.role = null; VIEW = null; render();
+    setBusy(false); homeMsg(msg);
+  };
+  peer.on('open', () => {
+    const conn = peer.connect(PREFIX + code, {reliable:true, serialization:'json'});
+    const timer = setTimeout(() => { if(!conn.open) fail('Não deu para conectar. A rede pode estar bloqueando a conexão direta — tente outra rede (ex.: Wi-Fi em vez de 4G).'); }, 15000);
+    conn.on('open', () => {
+      clearTimeout(timer); done = true;
+      NET.role = 'guest'; NET.peer = peer; NET.conn = conn; NET.code = code;
+      conn.send({t:'hello', name});
+      homeMsg('');
+      try{ history.replaceState(null, '', '#' + code); }catch(_){}
+    });
+    conn.on('data', m => {
+      if(!m) return;
+      if(m.t === 'view'){ VIEW = m.v; render(); }
+      else if(m.t === 'ev') applyEvent(m.e);
+      else if(m.t === 'reject'){ NET.leaving = true; fail(m.why); }
+    });
+    conn.on('close', hostGone);
+  });
+  peer.on('error', err => {
+    if(err.type === 'peer-unavailable') fail('Sala não encontrada. Confira o código (o anfitrião precisa estar com a sala aberta).');
+    else if(!done) fail('Erro de conexão (' + err.type + ').');
+    else if(NET.role === 'guest' && (err.type === 'network' || err.type === 'disconnected')) hostGone();
+  });
+}
+function hostGone(){
+  if(NET.leaving || NET.role !== 'guest') return;
+  NET.leaving = true;
+  $('#pmodal').classList.remove('show');
+  modal('<h2>Conexão perdida</h2><p>A conexão caiu (no celular isso acontece ao trocar de app ou bloquear a tela) ou o anfitrião saiu. Tente reconectar — o bot devolve o seu lugar.</p>',
+    [{label:'Reconectar', fn:() => {
+        try{ sessionStorage.setItem('trucoAutoJoin', NET.code); }catch(_){}
+        NET.leaving = true; try{ if(NET.peer) NET.peer.destroy(); }catch(_){}
+        location.href = location.href.split('#')[0] + '#' + NET.code; location.reload();
+      }},
+     {label:'Voltar ao início', cls:'b-no', fn:() => leave()}]);
+}
+/* mantém a tela acesa durante o jogo (iPhone com iOS 16.4+ e Android) */
+let wakeLock = null;
+async function keepAwake(){
+  try{
+    if(!('wakeLock' in navigator) || document.visibilityState !== 'visible' || !NET.role) return;
+    if(wakeLock && !wakeLock.released) return;
+    wakeLock = await navigator.wakeLock.request('screen');
+  }catch(_){}
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible') return;
+  keepAwake();
+  if(NET.role === 'host' && NET.peer && NET.peer.disconnected && !NET.peer.destroyed){ try{ NET.peer.reconnect(); }catch(_){} }
+  if(NET.role === 'guest' && NET.conn && !NET.conn.open) hostGone();
+});
+function leave(){
+  NET.leaving = true;
+  try{ if(NET.peer) NET.peer.destroy(); }catch(_){}
+  location.href = location.href.split('#')[0];
+}
+function confirmLeave(){
+  if(NET.role === 'host' && NET.conns.length){
+    modal('<h2>Sair da sala?</h2><p>Você é o anfitrião: se sair, a sala fecha para todos.</p>',
+      [{label:'Sair mesmo', cls:'b-up', fn:leave}, {label:'Ficar', cls:'b-no'}]);
+  } else if(NET.role === 'solo' && S.phase === 'game'){
+    modal('<h2>Sair da partida?</h2><p>A partida atual será abandonada.</p>',
+      [{label:'Sair', cls:'b-up', fn:leave}, {label:'Continuar', cls:'b-no'}]);
+  } else leave();
+}
+
+/* =====================================================================
+   REGRAS / BOTÕES
+   ===================================================================== */
+function regrasHTML(tab){
+  const mani = document.createElement('div'); mani.className = 'manilhas';
+  [{r:'4',s:'♣'},{r:'7',s:'♥'},{r:'A',s:'♠'},{r:'7',s:'♦'}].forEach(c => mani.appendChild(cardEl(c, false, {mode:'mineiro'})));
+  const ex = document.createElement('div'); ex.className = 'manilhas';
+  const vira = {r:'J',s:'♦'};
+  ex.appendChild(cardEl(vira, false, null));
+  [{r:'K',s:'♣'},{r:'K',s:'♥'},{r:'K',s:'♠'},{r:'K',s:'♦'}].forEach(c => ex.appendChild(cardEl(c, false, {mode:'paulista', vira})));
+  const comum = `
+  <h3>Cartas comuns (mais forte → mais fraca)</h3>
+  <p>3 › 2 › A › K › J › Q › 7 › 6 › 5 › 4 (naipe não importa; iguais de duplas diferentes empatam)</p>
+  <h3>Vazas</h3>
+  <ul><li>A mão é disputada em melhor de 3 vazas.</li>
+  <li>Empatou a 1ª: quem ganhar a 2ª leva a mão.</li>
+  <li>Ganhou a 1ª e empatou a 2ª (ou a 3ª): leva quem ganhou a 1ª.</li>
+  <li>Empatou tudo: ninguém pontua.</li></ul>
+  <h3>Carta coberta</h3>
+  <ul><li>A partir da 2ª vaza, na sua vez, aperte <b>🂠 Cobrir</b> e escolha a carta: ela vai virada para baixo.</li>
+  <li>Carta coberta não vale nada (perde para qualquer carta) e ninguém fica sabendo qual era.</li>
+  <li>Serve para esconder o jogo quando a carta não faria diferença na vaza.</li></ul>
+  <h3>Truco</h3>
+  <ul><li>Na sua vez, antes de jogar, você pode pedir aumento. Quem responde pode aceitar, correr ou aumentar de novo.</li>
+  <li>Quem correr entrega o valor que a mão valia antes do pedido.</li>
+  <li>A mesma dupla não pode pedir dois aumentos seguidos.</li></ul>`;
+  const mineiro = `
+  <p>Baralho de 40 cartas (sem 8, 9 e 10). 3 cartas para cada. Vence quem fizer <b>12 pontos</b>.</p>
+  <h3>Manilhas fixas (da mais forte)</h3>${mani.outerHTML}
+  <p style="text-align:center;font-size:13px">Zap (4♣) › Copas (7♥) › Espadilha (A♠) › Pica-fumo (7♦)</p>
+  <h3>Pontos</h3>
+  <ul><li>Mão normal vale <b>2</b>. TRUCO → 4 · SEIS → 8 · NOVE → 10 · DOZE → 12.</li>
+  <li><b>Mão de 10</b>: a dupla com 10 vê as cartas do parceiro e decide jogar (vale 4, sem truco) ou correr (adversário ganha 2).</li>
+  <li><b>10 × 10</b>: todos votam entre mão de ferro (no escuro) e mão normal. Empate: vale o voto de quem tirar a maior carta.</li></ul>`;
+  const paulista = `
+  <p>Baralho de 40 cartas (sem 8, 9 e 10). 3 cartas para cada e uma carta é virada na mesa: a <b>vira</b>. Vence quem fizer <b>12 pontos</b>.</p>
+  <h3>Manilhas pela vira</h3>
+  <p>A manilha é a carta <b>seguinte</b> à vira na ordem 4-5-6-7-Q-J-K-A-2-3 (depois do 3 volta ao 4). Entre as manilhas, vale o naipe: ♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Pica-fumo (ouros).</p>
+  <p style="text-align:center;font-size:13px">Exemplo: vira J♦ → manilhas são os K</p>${ex.outerHTML}
+  <h3>Pontos</h3>
+  <ul><li>Mão normal vale <b>1</b>. TRUCO → 3 · SEIS → 6 · NOVE → 9 · DOZE → 12.</li>
+  <li><b>Mão de 11</b>: a dupla com 11 vê as cartas do parceiro e decide jogar (vale 3, sem truco) ou correr (adversário ganha 1).</li>
+  <li><b>11 × 11</b>: todos votam entre mão de ferro (no escuro) e mão normal. Empate: vale o voto de quem tirar a maior carta.</li></ul>`;
+  const online = `<h3>Online</h3><ul>
+  <li>Quem cria a sala é o anfitrião: o jogo roda no aparelho dele, então ele precisa ficar com a página aberta.</li>
+  <li>Se alguém cair, um bot assume até a pessoa voltar com o mesmo código e nome.</li></ul>`;
+  return `<h2>Regras do Truco</h2>
+    <div class="tabs"><button data-t="mineiro" class="${tab==='mineiro'?'on':''}">Mineiro</button><button data-t="paulista" class="${tab==='paulista'?'on':''}">Paulista</button></div>
+    ${tab === 'paulista' ? paulista : mineiro}${comum}${online}`;
+}
+function showRules(tab){
+  tab = tab || (VIEW && VIEW.mode) || $('#modeSel').value || 'mineiro';
+  modal(regrasHTML(tab), [{label:'Entendi'}]);
+  $('#mbox').querySelectorAll('.tabs button').forEach(b => b.onclick = () => { $('#mbox').innerHTML = ''; showRules(b.dataset.t); });
+}
+$('#bRules1').onclick = () => showRules();
+$('#bRegras').onclick = () => showRules();
+$('#bSolo').onclick = startSolo;
+$('#bCreate').onclick = createRoom;
+$('#bJoin').onclick = joinRoom;
+$('#codeIn').addEventListener('keydown', e => { if(e.key === 'Enter') joinRoom(); });
+$('#bStart').onclick = () => toHost({t:'start'});
+$('#roomMode').onchange = () => toHost({t:'cfg', mode:$('#roomMode').value, diff:$('#roomDiff').value});
+$('#roomDiff').onchange = () => toHost({t:'cfg', mode:$('#roomMode').value, diff:$('#roomDiff').value});
+$('#bLeave1').onclick = confirmLeave;
+$('#bLeave2').onclick = confirmLeave;
+$('#bCopyCode').onclick = () => copy(NET.code, 'Código copiado!');
+$('#bCopyLink').onclick = () => copy(location.href.split('#')[0] + '#' + NET.code, 'Link copiado!');
+function copy(text, ok){
+  const done = () => { $('#roomMsg').textContent = ok; };
+  if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, () => prompt('Copie:', text));
+  else prompt('Copie:', text);
+}
+function sendChat(input){
+  const text = input.value.trim(); if(!text) return;
+  toHost({t:'chat', text}); input.value = '';
+}
+$('#chatForm').onsubmit = e => { e.preventDefault(); sendChat($('#chatIn')); };
+$('#roomChat').onsubmit = e => { e.preventDefault(); sendChat($('#roomChatIn')); };
+const refreshSom = () => { $('#somTxt').textContent = soundOn ? '🔊 Som' : '🔇 Som'; $('#somIco').textContent = soundOn ? '🔊' : '🔇'; };
+$('#bSom').onclick = () => { soundOn = !soundOn; refreshSom(); saveCfg(); };
+$('#bLog2').onclick = () => { const s = $('#side'); s.classList.toggle('open'); $('#bLog2').classList.remove('dot'); };
+$('#mesa').addEventListener('click', e => {
+  const s = $('#side');
+  if(s.classList.contains('open') && !s.contains(e.target) && e.target.id !== 'bLog2') s.classList.remove('open');
+});
+const VELS = [[1,'Normal'],[0.55,'Rápida'],[1.6,'Lenta']];
+const velLabel = () => { const n = (VELS.find(x => x[0] === speed) || VELS[0])[1]; $('#velTxt').textContent = 'Veloc.: ' + n; $('#bVel').title = 'Velocidade: ' + n; };
+$('#bVel').onclick = () => { const i = VELS.findIndex(x => x[0] === speed); speed = VELS[(i+1) % VELS.length][0]; velLabel(); saveCfg(); };
+window.addEventListener('beforeunload', e => {
+  if(NET.role === 'host' && NET.conns.length && !NET.leaving){ e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ---------- início ---------- */
+$('#nameIn').value = lsGet('trucoMineiroNome') || '';
+const savedModo = lsGet('trucoModo');
+if(savedModo){ if(MODES[savedModo.mode]) $('#modeSel').value = savedModo.mode; if(DIFF[savedModo.diff]) $('#diffSel').value = savedModo.diff; }
+if(location.hash.length > 1) $('#codeIn').value = location.hash.slice(1).toUpperCase().slice(0,5);
+$('#histHome').textContent = (stats.w || stats.l) ? `Seu histórico: ${stats.w} vitória(s) · ${stats.l} derrota(s)` : '';
+refreshSom(); velLabel(); checkPeer(); render();
+['click','touchend'].forEach(ev => document.addEventListener(ev, keepAwake, {passive:true}));
+(() => {   // reconexão automática depois de "Reconectar"
+  let code = null;
+  try{ code = sessionStorage.getItem('trucoAutoJoin'); sessionStorage.removeItem('trucoAutoJoin'); }catch(_){}
+  if(code && $('#nameIn').value && typeof Peer !== 'undefined'){ $('#codeIn').value = code; joinRoom(); }
+})();
+</script>
+</body>
+</html>
