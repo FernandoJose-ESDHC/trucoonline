@@ -5,7 +5,7 @@
    ===================================================================== */
 const JOGOS = [
   { id:'truco-mineiro', name:'Truco Mineiro', cat:'truco', icon:'🃏', url:'games/truco.html?mode=mineiro', stats:'truco',
-    players:'4 · duplas', online:true, desc:'O clássico de Minas: Zap, Copas, Espadilha e Pica-fumo. Mão vale 2, truco vale 4.' },
+    players:'4 · duplas', online:true, desc:'O clássico de Minas: Zap, Copas, Espadilha e 7 de Ouros. Mão vale 2, truco vale 4.' },
   { id:'truco-paulista', name:'Truco Paulista', cat:'truco', icon:'🂡', url:'games/truco.html?mode=paulista', stats:'truco',
     players:'4 · duplas', online:true, desc:'Com vira: a manilha muda a cada mão. Mão vale 1, truco vale 3.' },
   { id:'trucao', name:'Trucão', cat:'truco', icon:'🔥', url:'games/truco.html?mode=trucao', stats:'truco',

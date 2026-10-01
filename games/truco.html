@@ -428,7 +428,7 @@ const SUITS = ['♣','♥','♠','♦'];
 const RANKS = ['4','5','6','7','Q','J','K','A','2','3'];           // ordem crescente de força
 const SUIT_RANK = {'♦':0,'♠':1,'♥':2,'♣':3};                      // força dos naipes nas manilhas
 const CALLS = ['', 'TRUCO', 'SEIS', 'NOVE', 'DOZE'];
-const MINEIRO_M = [['4♣','ZAP'],['7♥','COPAS'],['A♠','ESPADILHA'],['7♦','PICA-FUMO']];
+const MINEIRO_M = [['4♣','ZAP'],['7♥','COPAS'],['A♠','ESPADILHA'],['7♦','7 DE OUROS']];
 const DOURA_M = [['Q♦','DOURADINHA'],['J♣','VALETE ♣'],['2♣','DUNGA'],['A♣','PIU'],['5♣','CINQUINHO']].concat(MINEIRO_M);
 const MODES = {
   mineiro:   { name:'Mineiro', values:[2,4,8,10,12], hand10:10, m10Play:4, m10Run:2, vira:false, players:4, manilhas:MINEIRO_M },
@@ -444,7 +444,7 @@ const MANI_MAP = {};
 for(const k in MODES){ const m = MODES[k].manilhas; if(!m) continue; MANI_MAP[k] = {};
   m.forEach(([c,nmx],i) => MANI_MAP[k][c] = {pw: 10 + (m.length - 1 - i), name:nmx}); }
 const maxPow = mode => mode === 'paulista' ? 13 : 9 + MODES[mode].manilhas.length;
-const PAULISTA_NAMES = {13:'ZAP',12:'COPAS',11:'ESPADILHA',10:'PICA-FUMO'};
+const PAULISTA_NAMES = {13:'ZAP',12:'COPAS',11:'ESPADILHA',10:'OUROS'};
 const DIFF = {
   facil:  { name:'Fácil',   N:0,   bluff:0.04, susp:1.00, noise:0.22, cover:0.2 },
   normal: { name:'Normal',  N:160, bluff:0.07, susp:0.86, noise:0.07, cover:0.5 },
@@ -1562,8 +1562,11 @@ function renderPending(v){
         <p>Se aceitar, a mão passa a valer <b>${p.newValue}</b> ponto(s).<br>Se correr, eles ganham <b>${p.runValue}</b>.</p>
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}`, btns);
     } else if(p.kind === 'mao10'){
+      const row = cs => `<div class="manilhas m10">${(cs || []).map(c => cardEl(c, !c, v).outerHTML).join('')}</div>`;
+      const mates = Object.entries(v.partners || {}).map(([s, cs]) => `<h3>${esc(v.seats[s] ? v.seats[s].name : 'Parceiro')}</h3>${row(cs)}`).join('');
       pmodal(`<h2>Mão de ${p.h}!</h2>
-        <p>Sua dupla está com ${p.h} pontos. Veja as suas cartas e as do parceiro (lá em cima) e decidam:</p>
+        <p>Seu time está com ${p.h} pontos. Vejam as cartas do time e decidam:</p>
+        <h3>Suas cartas</h3>${row(v.hand)}${mates}
         <p>• <b>Jogar</b>: a mão vale <b>${p.play}</b> e ninguém pode trucar.<br>• <b>Correr</b>: eles ganham <b>${p.run}</b>.</p>`,
         [{label:'Jogar', cls:'b-ok', fn:() => send(true)}, {label:'Correr', cls:'b-no', fn:() => send(false)}]);
     } else {
@@ -1770,7 +1773,7 @@ function regrasHTML(tab){
   const mineiro = `
   <p>Baralho de 40 cartas (sem 8, 9 e 10). 3 cartas para cada. Vence quem fizer <b>12 pontos</b>.</p>
   <h3>Manilhas fixas (da mais forte)</h3>${mani.outerHTML}
-  <p style="text-align:center;font-size:13px">Zap (4♣) › Copas (7♥) › Espadilha (A♠) › Pica-fumo (7♦)</p>
+  <p style="text-align:center;font-size:13px">Zap (4♣) › Copas (7♥) › Espadilha (A♠) › 7 de Ouros (7♦)</p>
   <h3>Pontos</h3>
   <ul><li>Mão normal vale <b>2</b>. TRUCO → 4 · SEIS → 8 · NOVE → 10 · DOZE → 12.</li>
   <li><b>Mão de 10</b>: a dupla com 10 vê as cartas do parceiro e decide jogar (vale 4, sem truco) ou correr (adversário ganha 2).</li>
@@ -1778,7 +1781,7 @@ function regrasHTML(tab){
   const paulista = `
   <p>Baralho de 40 cartas (sem 8, 9 e 10). 3 cartas para cada e uma carta é virada na mesa: a <b>vira</b>. Vence quem fizer <b>12 pontos</b>.</p>
   <h3>Manilhas pela vira</h3>
-  <p>A manilha é a carta <b>seguinte</b> à vira na ordem 4-5-6-7-Q-J-K-A-2-3 (depois do 3 volta ao 4). Entre as manilhas, vale o naipe: ♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Pica-fumo (ouros).</p>
+  <p>A manilha é a carta <b>seguinte</b> à vira na ordem 4-5-6-7-Q-J-K-A-2-3 (depois do 3 volta ao 4). Entre as manilhas, vale o naipe: ♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Ouros.</p>
   <p style="text-align:center;font-size:13px">Exemplo: vira J♦ → manilhas são os K</p>${ex.outerHTML}
   <h3>Pontos</h3>
   <ul><li>Mão normal vale <b>1</b>. TRUCO → 3 · SEIS → 6 · NOVE → 9 · DOZE → 12.</li>
@@ -1791,10 +1794,10 @@ function regrasHTML(tab){
     <li><b>10 × 10</b>: todos votam entre mão de ferro e mão normal. Empate: vale o voto de quem tirar a maior carta.</li></ul>`;
   const trucao = `<p>O <b>Trucão</b> segue o molde do Truco Mineiro, com 4 manilhas a mais acima do Zap. Joga-se com 6 ou 8 pessoas.</p><p>6 ou 8 jogadores em <b>2 times</b> (3×3 ou 4×4), sentados alternados — um de cada time. Cada um recebe 3 cartas e a vaza é do time da carta mais alta.</p>
     <h3>Manilhas (da mais forte)</h3>${manRow('trucao6')}
-    <p style="text-align:center;font-size:13px">2♦ › Á♦ › 7♣ (7 rato) › 4♠ (catatau) › Zap (4♣) › Copas (7♥) › Espadilha (A♠) › Pica-fumo (7♦)</p>${pontosMG}`;
+    <p style="text-align:center;font-size:13px">2♦ › Á♦ › 7♣ (7 rato) › 4♠ (catatau) › Zap (4♣) › Copas (7♥) › Espadilha (A♠) › 7 de Ouros (7♦)</p>${pontosMG}`;
   const doura = `<p>O <b>Douradinho</b> é uma variante do Mineiro para <b>6 jogadores (3×3)</b>, com 5 manilhas acima do Zap. O <b>Douradão</b> é a versão para <b>8 jogadores (4×4)</b>, com o Rei de Ouros acima de tudo.</p>
     <h3>Douradinho — manilhas (da mais forte)</h3>${manRow('douradinho')}
-    <p style="text-align:center;font-size:13px">Q♦ Douradinha › J♣ › 2♣ Dunga › A♣ Piu › 5♣ Cinquinho › Zap › Copas › Espadilha › Pica-fumo</p>
+    <p style="text-align:center;font-size:13px">Q♦ Douradinha › J♣ › 2♣ Dunga › A♣ Piu › 5♣ Cinquinho › Zap › Copas › Espadilha › 7 de Ouros</p>
     <h3>Douradão</h3><p>Mesma ordem, com o <b>K♦ (Rei de Ouros)</b> acima da Douradinha.</p>${pontosMG}`;
   const online = `<h3>Online</h3><ul>
   <li>Quem cria a sala é o anfitrião: o jogo roda no aparelho dele, então ele precisa ficar com a página aberta.</li>

@@ -34,7 +34,7 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 
 | | Jogo | Jogadores | Destaque |
 |---|---|---|---|
-| 🃏 | **[Truco Mineiro](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=mineiro)** | 4 (duplas) | Manilhas fixas: Zap, Copas, Espadilha e Pica-fumo |
+| 🃏 | **[Truco Mineiro](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=mineiro)** | 4 (duplas) | Manilhas fixas: Zap, Copas, Espadilha e 7 de Ouros |
 | 🂡 | **[Truco Paulista](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=paulista)** | 4 (duplas) | Vira: a manilha muda a cada mão |
 | 🔥 | **[Trucão](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=trucao)** | 6 ou 8 | Molde do Mineiro com 8 manilhas |
 | 👑 | **[Douradinho](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=douradinho)** | 6 (3×3) | A Dama de Ouros acima de tudo |
@@ -138,7 +138,7 @@ Abra **https://fernandojose-esdhc.github.io/trucoonline/**, escolha o jogo e:
 | **Zap** | 4♣ |
 | **Copas** | 7♥ |
 | **Espadilha** | A♠ |
-| **Pica-fumo** | 7♦ |
+| **7 de Ouros** | 7♦ |
 
 Mão normal vale **2**: TRUCO 4 · SEIS 8 · NOVE 10 · DOZE 12. Mão de 10 vale 4; quem corre dela dá 2.
 </details>
@@ -147,7 +147,7 @@ Mão normal vale **2**: TRUCO 4 · SEIS 8 · NOVE 10 · DOZE 12. Mão de 10 vale
 <summary><b>🌆 Truco Paulista</b> — 4 jogadores</summary>
 
 Depois de dar as cartas, uma carta é virada na mesa: a **vira**. A **manilha** é a carta seguinte à vira na ordem `4 → 5 → 6 → 7 → Q → J → K → A → 2 → 3 → (4)`.
-Ex.: vira **J** → manilhas são os **K**. Entre as manilhas vale o naipe: **♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Pica-fumo**.
+Ex.: vira **J** → manilhas são os **K**. Entre as manilhas vale o naipe: **♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Ouros**.
 
 Mão normal vale **1**: TRUCO 3 · SEIS 6 · NOVE 9 · DOZE 12. Mão de 11 vale 3; quem corre dela dá 1.
 </details>
@@ -166,7 +166,7 @@ Molde do Mineiro, com quatro manilhas acima do Zap:
 | 5 | 4♣ | Zap |
 | 6 | 7♥ | Copas |
 | 7 | A♠ | Espadilha |
-| 8 | 7♦ | Pica-fumo |
+| 8 | 7♦ | 7 de Ouros |
 
 Pontos iguais ao Mineiro.
 </details>
@@ -184,7 +184,7 @@ Pontos iguais ao Mineiro.
 | 6 | 4♣ | Zap |
 | 7 | 7♥ | Copas |
 | 8 | A♠ | Espadilha |
-| 9 | 7♦ | Pica-fumo |
+| 9 | 7♦ | 7 de Ouros |
 
 No **Douradão**, o **K♦ (Rei de Ouros)** fica acima da Douradinha. Pontos iguais ao Mineiro.
 </details>
