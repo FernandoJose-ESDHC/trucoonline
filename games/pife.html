@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Pife</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px;gap:8px}
+.opps{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.opp{background:rgba(0,0,0,.3);border:2px solid transparent;border-radius:12px;padding:6px 10px;text-align:center;font-weight:800;font-size:13px;min-width:92px}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.opp .fan{display:flex;justify-content:center;margin-top:4px}
+.opp .fan .card{--cw:18px;--ch:26px;margin-left:-9px;border-width:2px} .opp .fan .card:first-child{margin-left:0}
+.opp .fan .card::after{font-size:8px}
+.mid{display:flex;gap:24px;align-items:center;justify-content:center}
+.pilebox{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#cfe;font-weight:700}
+.pilebox .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.myhand{display:flex;justify-content:center;flex-wrap:nowrap;padding-top:16px;max-width:100%}
+.myhand .card{margin-left:calc(var(--cw)*-.28);cursor:pointer} .myhand .card:first-child{margin-left:0}
+.myhand .card.ingrp{box-shadow:0 0 0 3px rgba(62,207,122,.85),0 3px 8px rgba(0,0,0,.4)}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:44px}
+.ctl button{padding:11px 16px;border-radius:12px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.score{font-size:13px;font-weight:800;color:#ffe6a6}
+.melds{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.melds .grp{display:flex}.melds .grp .card{margin-left:-20px}.melds .grp .card:first-child{margin-left:0}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/melds.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================ PIFE ================================ */
+function newRound(st){
+  st.deck = shuffle(makeDeck({ranks:RANKS13, decks:2}));
+  st.hands = st.names.map(() => st.deck.splice(0, 9));
+  st.lixo = [st.deck.pop()];
+  st.drew = false; st.phase = 'play'; st.winnerMelds = null; st.lastDraw = null;
+  st.turn = (st.starter) % st.names.length;
+}
+function canBater(hand){
+  if(hand.length !== 10) return null;
+  for(const c of hand){
+    const rest = hand.filter(x => x !== c);
+    const b = pifeBest(rest);
+    if(b.n === 9) return {discard:c, sets:b.sets};
+  }
+  return null;
+}
+function sortHand(h, mode){
+  const so = {'♣':0,'♥':1,'♠':2,'♦':3};
+  return h.slice().sort((a,b) => mode === 'r' ? (RV13(a.r) - RV13(b.r) || so[a.s] - so[b.s]) : (so[a.s] - so[b.s] || RV13(a.r) - RV13(b.r)));
+}
+function botDecide(st, seat){
+  const h = st.hands[seat];
+  if(!st.drew){
+    const top = st.lixo[st.lixo.length-1];
+    if(top){
+      const with10 = h.concat([top]);
+      if(canBater(with10)) return {t:'lixo'};
+      const base = pifeBest(h).n, after = Math.max(...h.map(x => pifeBest(with10.filter(y => y !== x)).n));
+      if(after > base) return {t:'lixo'};
+    }
+    return {t:'monte'};
+  }
+  const b = canBater(h); if(b) return {t:'bater', id:b.discard.id};
+  // descarta a carta cuja saída deixa a mão mais forte
+  let best = null;
+  for(const c of h){
+    if(st.lastDraw && st.lastDraw.from === 'lixo' && st.lastDraw.id === c.id) continue;
+    const sc = pifeScore(h.filter(x => x !== c)) - RV13(c.r) * 0.05 + Math.random()*0.5;
+    if(!best || sc > best.sc) best = {c, sc};
+  }
+  return {t:'discard', id:best.c.id};
+}
+Mesa.run({
+  id:'pife', name:'Pife', icon:'🀄', tagline:'Forme três jogos e bata!',
+  options:[
+    {key:'seats', label:'Jogadores', default:'3', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'meta', label:'Partida até', default:'3', choices:[['1','1 batida'],['3','3 batidas'],['5','5 batidas']]}
+  ],
+  seats: o => +o.seats || 3,
+  seatLabel: s => 'Jogador ' + (s+1),
+  modeLabel: o => 'ATÉ ' + o.meta + ' BATIDA' + (o.meta === '1' ? '' : 'S'),
+  setup(players, o){ const st = {names:players.map(p => p.name), wins:players.map(() => 0), meta:+o.meta || 3, starter:Math.floor(Math.random()*players.length), round:1}; newRound(st); return st; },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Rodada 1 — começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){ return st.phase === 'play' ? [st.turn] : st.phase === 'roundEnd' ? [0] : []; },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const mx = Math.max(...st.wins); const w = st.wins.map((x,i) => x === mx ? i : -1).filter(i => i >= 0);
+    return {winners:w, text:'Batidas: ' + st.names.map((n,i) => `${esc(n)} <b>${st.wins[i]}</b>`).join(' · ')};
+  },
+  apply(st, seat, a){
+    if(!a) return {ok:false};
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(st.wins.some(w => w >= st.meta)){ st.phase = 'end'; return {events:[]}; }
+      st.round++; st.starter++; newRound(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Rodada ${st.round} — começa ${esc(st.names[st.turn])}.`}]};
+    }
+    if(seat !== st.turn) return {ok:false};
+    const h = st.hands[seat], ev = [];
+    if(!st.drew){
+      if(a.t === 'monte'){
+        if(!st.deck.length){ const top = st.lixo.pop(); st.deck = shuffle(st.lixo); st.lixo = [top]; ev.push({k:'log', text:'O monte acabou: o lixo foi embaralhado.'}); }
+        const c = st.deck.pop(); h.push(c); st.lastDraw = {from:'monte', id:c.id};
+      } else if(a.t === 'lixo'){
+        if(!st.lixo.length) return {ok:false, err:'O lixo está vazio.'};
+        const c = st.lixo.pop(); h.push(c); st.lastDraw = {from:'lixo', id:c.id};
+        ev.push({k:'log', text:`${esc(st.names[seat])} pegou ${c.r}${c.s} do lixo.`});
+      } else return {ok:false, err:'Primeiro compre uma carta (monte ou lixo).'};
+      st.drew = true;
+      return {events:ev.concat([{k:'snd', s:'card'}])};
+    }
+    if(a.t === 'discard' || a.t === 'bater'){
+      const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false};
+      if(a.t === 'discard' && st.lastDraw && st.lastDraw.from === 'lixo' && st.lastDraw.id === a.id && h.length > 1) return {ok:false, err:'Não pode devolver ao lixo a carta que acabou de pegar dele.'};
+      if(a.t === 'bater'){
+        const rest = h.filter(c => c.id !== a.id);
+        const b = pifeBest(rest);
+        if(b.n !== 9) return {ok:false, err:'Ainda não dá para bater: as 9 cartas precisam formar jogos.'};
+        const [out] = h.splice(i,1); st.lixo.push(out);
+        st.wins[seat]++; st.phase = 'roundEnd'; st.winnerMelds = {seat, sets:b.sets};
+        return {events:[{k:'banner', text:`${st.names[seat]} BATEU!`}, {k:'snd', s:'win'}, {k:'log', text:`<b>${esc(st.names[seat])}</b> bateu! (${st.wins[seat]} de ${st.meta})`}]};
+      }
+      const [c] = h.splice(i,1); st.lixo.push(c);
+      st.drew = false; st.turn = (st.turn + 1) % st.names.length; st.lastDraw = null;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    return {ok:false};
+  },
+  bot(st, seat){ if(st.phase === 'roundEnd') return {t:'next'}; return botDecide(st, seat); },
+  botDelay(st){ return st.phase === 'roundEnd' ? 3200 : st.drew ? 650 : 600; },
+  view(st, seat){
+    const reveal = st.phase !== 'play';
+    return {names:st.names, wins:st.wins, meta:st.meta, turn:st.turn, drew:st.drew, phase:st.phase, round:st.round,
+      hand: seat >= 0 ? st.hands[seat] : [], counts:st.hands.map(h => h.length), deck:st.deck.length,
+      lixo:st.lixo.slice(-3), lixoN:st.lixo.length, winnerMelds:st.winnerMelds, lastDraw: seat === st.turn ? st.lastDraw : null,
+      canBater: seat === st.turn && st.drew ? !!canBater(st.hands[seat]) : false};
+  },
+  topInfo(g){ return `<div class="score">Rodada ${g.round} · meta ${g.meta} batida${g.meta>1?'s':''}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Ser o primeiro a <b>bater</b>: juntar as 9 cartas da mão em <b>jogos</b> e descartar a 10ª.</p>
+  <h3>Baralho e cartas</h3><p>Dois baralhos (104 cartas, sem coringa). Cada jogador recebe 9 cartas; uma carta vai aberta para o lixo.</p>
+  <h3>Jogos válidos</h3><ul><li><b>Trinca</b>: 3 ou 4 cartas do mesmo valor e naipes diferentes (ex.: 7♣ 7♥ 7♠).</li>
+  <li><b>Sequência</b>: 3 ou mais cartas seguidas do mesmo naipe (ex.: 4♦ 5♦ 6♦). O Ás vale antes do 2 (A-2-3) ou depois do Rei (Q-K-A), mas não vira (K-A-2 não vale).</li></ul>
+  <p>As 9 cartas podem ser 3 jogos de 3, ou 4+5, 3+6 etc.</p>
+  <h3>Sua vez</h3><ol><li><b>Compre</b> uma carta: do monte ou a de cima do lixo.</li><li><b>Descarte</b> uma carta (não vale devolver a que acabou de pegar do lixo).</li>
+  <li>Se depois de comprar suas cartas formarem os jogos, aperte <b>Bater!</b> escolhendo a carta que sobra.</li></ol>
+  <p>Cada batida vale 1 ponto. Vence quem chegar primeiro na meta de batidas escolhida.</p>
+  <h3>Dicas da tela</h3><p>As cartas que já formam jogo ficam com contorno verde. Use <b>Ordenar</b> para alternar entre naipe e valor.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me;
+    const W = st.clientWidth;
+    const cw = Math.floor(clamp((W - 30) / (g.hand.length * 0.72 + 0.6), 40, 76)); st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.opps')){
+      st.innerHTML = `<div class="opps" id="opps"></div><div class="mid">
+        <div class="pilebox"><div id="pMonte"></div><span id="nMonte"></span></div>
+        <div class="pilebox"><div id="pLixo"></div><span id="nLixo"></span></div></div>
+        <div id="wm" class="melds"></div>
+        <div class="status" id="st"></div><div class="myhand" id="mh" data-seat="${me}"></div><div class="ctl" id="ctl"></div>`;
+      psel = null;
+    }
+    const n = g.names.length;
+    let oh = '';
+    for(let k=1;k<n;k++){ const i = (me + k) % n;
+      oh += `<div class="opp ${g.turn === i && g.phase === 'play' ? 'vez' : ''}" data-seat="${i}">${esc(g.names[i])}<div style="font-size:11px;color:#ffe6a6">🏆 ${g.wins[i]}</div>
+        <div class="fan">${'<div class="card back"></div>'.repeat(Math.min(g.counts[i], 10))}</div></div>`; }
+    $('#opps').innerHTML = oh;
+    const myTurn = v.waiting.includes(me) && g.phase === 'play';
+    const pm = $('#pMonte'); pm.innerHTML = ''; const mc = cardEl(null, {back:true}); if(myTurn && !g.drew){ mc.classList.add('go'); mc.onclick = () => ui.act({t:'monte'}); } pm.appendChild(mc);
+    $('#nMonte').textContent = `Monte (${g.deck})`;
+    const pl = $('#pLixo'); pl.innerHTML = ''; const top = g.lixo[g.lixo.length-1];
+    const lc = top ? cardEl(top) : Object.assign(document.createElement('div'), {className:'card slot'});
+    if(top && myTurn && !g.drew){ lc.classList.add('go'); lc.onclick = () => ui.act({t:'lixo'}); }
+    pl.appendChild(lc); $('#nLixo').textContent = `Lixo (${g.lixoN})`;
+    // jogos de quem bateu
+    const wm = $('#wm');
+    if(g.winnerMelds){ wm.innerHTML = `<div style="width:100%;text-align:center;font-weight:800;color:var(--gold)">${esc(g.names[g.winnerMelds.seat])} bateu com:</div>` +
+      g.winnerMelds.sets.map(s => `<div class="grp sm">${s.map(c => cardEl(c).outerHTML).join('')}</div>`).join(''); }
+    else wm.innerHTML = '';
+    // minha mão
+    const hand = sortHand(g.hand, sortMode);
+    const best = pifeBest(g.hand); const inGrp = new Set(); best.sets.forEach(s => s.forEach(c => inGrp.add(c.id)));
+    const mh = $('#mh'); const prevIds = new Set($$('.card', mh).map(e => e.dataset.id));
+    mh.innerHTML = '';
+    if(psel && !g.hand.some(c => c.id === psel)) psel = null;
+    hand.forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      if(inGrp.has(c.id)) el.classList.add('ingrp');
+      if(c.id === psel) el.classList.add('sel');
+      if(g.lastDraw && g.lastDraw.id === c.id) el.classList.add('hl');
+      el.onclick = () => { if(!(myTurn && g.drew)){ return; } if(psel === c.id) { ui.act({t:'discard', id:c.id}); psel = null; } else { psel = c.id; ui.rerender(); } };
+      mh.appendChild(el);
+      if(prevIds.size && !prevIds.has(c.id)) flyFrom(el, (g.lastDraw && g.lastDraw.from === 'lixo' ? $('#pLixo') : $('#pMonte')).getBoundingClientRect());
+    });
+    let s = '';
+    if(g.phase === 'roundEnd') s = 'Fim da rodada';
+    else if(myTurn) s = g.drew ? (psel ? 'Toque de novo na carta para descartar' : 'Escolha uma carta para descartar') : 'Sua vez: compre do monte ou do lixo';
+    else s = 'Vez de ' + (g.names[g.turn] || '');
+    $('#st').textContent = s;
+    let ch = `<button class="tbtn" id="bSort">⇅ Ordenar por ${sortMode === 'r' ? 'naipe' : 'valor'}</button>`;
+    if(myTurn && g.drew){
+      if(g.canBater) ch += `<button class="b-y" id="bBat">🏆 Bater!</button>`;
+      if(psel) ch += `<button class="b-no" id="bDis">Descartar</button>`;
+    }
+    if(g.phase === 'roundEnd' && v.waiting.includes(me)) ch += `<button class="b-ok" id="bNext">Próxima rodada ▶</button>`;
+    $('#ctl').innerHTML = ch;
+    $('#bSort').onclick = () => { sortMode = sortMode === 'r' ? 's' : 'r'; ui.rerender(); };
+    if($('#bDis')) $('#bDis').onclick = () => { ui.act({t:'discard', id:psel}); psel = null; };
+    if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+    if($('#bBat')) $('#bBat').onclick = () => {
+      // descarta a selecionada se ela for a que sobra; senão, a sobra automática
+      const rest = psel ? g.hand.filter(c => c.id !== psel) : null;
+      if(rest && pifeBest(rest).n === 9) ui.act({t:'bater', id:psel});
+      else { for(const c of g.hand){ if(pifeBest(g.hand.filter(x => x !== c)).n === 9){ ui.act({t:'bater', id:c.id}); break; } } }
+    };
+  }
+});
+let psel = null, sortMode = 's';
+</script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>21</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:10px;gap:10px;overflow:auto}
+.dealer{display:flex;flex-direction:column;align-items:center;gap:6px}
+.hand{display:flex;gap:0;min-height:var(--ch)}
+.hand .card{margin-left:calc(var(--cw)*-.45)} .hand .card:first-child{margin-left:0}
+.tot{font-weight:900;font-size:15px;background:rgba(0,0,0,.45);border-radius:14px;padding:2px 10px}
+.tot.bust{background:var(--red)} .tot.bj{background:var(--gold);color:#3a2600}
+.seats21{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;width:100%}
+.p21{background:rgba(0,0,0,.28);border:2px solid transparent;border-radius:14px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:130px}
+.p21.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.p21.me{background:rgba(0,0,0,.42)}
+.p21 .nm{font-weight:800;font-size:14px}
+.chips{font-weight:800;color:#ffe6a6;font-size:13px}
+.res{font-weight:900;font-size:13px;border-radius:10px;padding:2px 8px}
+.res.win{background:var(--nos);color:#06301a} .res.lose{background:var(--red)} .res.push{background:#888}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:52px;align-items:center}
+.ctl button{padding:12px 18px;border-radius:12px;border:none;font-weight:900;font-size:16px;cursor:pointer}
+.bet{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.coin{width:58px;height:58px;border-radius:50%;border:4px dashed rgba(255,255,255,.7);font-weight:900;font-size:15px;cursor:pointer;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.coin.c10{background:#2b6cb0} .coin.c25{background:#2f855a} .coin.c50{background:#c05621} .coin.c100{background:#1a1a1a} .coin.c250{background:#6b46c1}
+.shoe{font-size:12px;color:#cfe}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================ 21 (contra a banca) ============================ */
+const RANKS = RANKS13;
+const cval = c => c.r === 'A' ? 11 : ['J','Q','K','10'].includes(c.r) ? 10 : +c.r;
+function total(cards){
+  let t = 0, aces = 0;
+  for(const c of cards){ t += cval(c); if(c.r === 'A') aces++; }
+  while(t > 21 && aces){ t -= 10; aces--; }
+  return {t, soft: aces > 0};
+}
+const isBJ = cards => cards.length === 2 && total(cards).t === 21;
+const START = 1000;
+function newShoe(){ return shuffle(makeDeck({ranks:RANKS, decks:4})); }
+function draw(st){ if(st.shoe.length < 52){ st.shoe = newShoe(); st.reshuffled = true; } return st.shoe.pop(); }
+
+function basicStrategy(cards, up){
+  const {t, soft} = total(cards), u = cval(up) === 11 ? 11 : cval(up);
+  if(soft){ if(t >= 19) return 'stand'; if(t === 18) return u >= 9 ? 'hit' : (cards.length === 2 && u >= 3 && u <= 6 ? 'double' : 'stand');
+    if(cards.length === 2 && t >= 15 && u >= 4 && u <= 6) return 'double'; return 'hit'; }
+  if(t >= 17) return 'stand';
+  if(t >= 13) return u <= 6 ? 'stand' : 'hit';
+  if(t === 12) return (u >= 4 && u <= 6) ? 'stand' : 'hit';
+  if(t === 11 && cards.length === 2) return 'double';
+  if(t === 10 && cards.length === 2 && u <= 9) return 'double';
+  return 'hit';
+}
+
+Mesa.run({
+  id:'21', name:'21', icon:'🎰', tagline:'Vinte-e-um contra a banca',
+  options:[
+    {key:'seats', label:'Jogadores', default:'3', choices:[['1','1'],['2','2'],['3','3'],['4','4'],['5','5']]},
+    {key:'rounds', label:'Rodadas', default:'10', choices:[['5','5 rodadas'],['10','10 rodadas'],['20','20 rodadas']]}
+  ],
+  seats: o => +o.seats || 3,
+  seatLabel: s => 'Jogador ' + (s+1),
+  modeLabel: o => o.rounds + ' RODADAS',
+  setup(players, o){
+    return {names:players.map(p => p.name), chips:players.map(() => START), bets:players.map(() => 0), hands:players.map(() => []),
+      done:players.map(() => false), doubled:players.map(() => false), res:players.map(() => null), lastBet:players.map(() => 25),
+      dealer:[], hole:true, phase:'bet', round:1, rounds:+o.rounds || 10, turn:-1, shoe:newShoe(), broke:players.map(() => false)};
+  },
+  startEvents(st){ return [{k:'log', text:`Cada jogador começa com ${START} fichas. ${st.rounds} rodadas — quem terminar com mais fichas vence.`}]; },
+  waiting(st){
+    if(st.phase === 'bet') return st.names.map((_,i) => i).filter(i => !st.bets[i] && !st.broke[i]);
+    if(st.phase === 'play') return st.turn >= 0 ? [st.turn] : [];
+    if(st.phase === 'result') return [0];
+    return [];
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const best = Math.max(...st.chips), w = st.chips.map((c,i) => c === best ? i : -1).filter(i => i >= 0);
+    return {winners:w, text:'Fichas finais: ' + st.names.map((n,i) => `${esc(n)} <b>${st.chips[i]}</b>`).join(' · ')};
+  },
+  apply(st, seat, a){
+    if(!a) return {ok:false};
+    const ev = [];
+    if(st.phase === 'bet'){
+      const v = Math.floor(+a.bet || 0);
+      if(a.t !== 'bet' || v < 10 || v > st.chips[seat]) return {ok:false, err:'Aposta inválida.'};
+      st.bets[seat] = v; st.lastBet[seat] = v; st.chips[seat] -= v;
+      ev.push({k:'snd', s:'card'}, {k:'log', text:`${esc(st.names[seat])} apostou ${v}`});
+      if(st.names.every((_,i) => st.bets[i] || st.broke[i])){
+        // distribui
+        st.hands = st.names.map((_,i) => st.broke[i] ? [] : [draw(st), draw(st)]); st.dealer = [draw(st), draw(st)]; st.hole = true;
+        st.res = st.names.map(() => null); st.done = st.names.map((_,i) => st.broke[i]); st.doubled = st.names.map(() => false);
+        ev.push({k:'snd', s:'deal'});
+        if(st.reshuffled){ ev.push({k:'log', text:'Baralho embaralhado de novo.'}); st.reshuffled = false; }
+        st.hands.forEach((h,i) => { if(isBJ(h)){ st.done[i] = true; ev.push({k:'say', seat:i, text:'21 de mão!'}); } });
+        st.phase = 'play'; nextTurn(st, ev);
+        return {events:ev, pause:700};
+      }
+      return {events:ev};
+    }
+    if(st.phase === 'play'){
+      if(seat !== st.turn) return {ok:false};
+      const h = st.hands[seat];
+      if(a.t === 'hit'){ h.push(draw(st)); ev.push({k:'snd', s:'card'});
+        const t = total(h).t; if(t > 21){ st.done[seat] = true; ev.push({k:'say', seat, text:'Estourou!'}); } else if(t === 21) st.done[seat] = true; }
+      else if(a.t === 'stand'){ st.done[seat] = true; }
+      else if(a.t === 'double'){
+        if(h.length !== 2 || st.chips[seat] < st.bets[seat]) return {ok:false, err:'Não dá para dobrar agora.'};
+        st.chips[seat] -= st.bets[seat]; st.bets[seat] *= 2; st.doubled[seat] = true; h.push(draw(st)); st.done[seat] = true;
+        ev.push({k:'snd', s:'card'}, {k:'say', seat, text:'Dobro!'});
+        if(total(h).t > 21) ev.push({k:'say', seat, text:'Estourou!'});
+      } else return {ok:false};
+      if(st.done[seat]) nextTurn(st, ev);
+      return {events:ev, pause: st.phase === 'result' ? 600 : 0};
+    }
+    if(st.phase === 'result' && a.t === 'next'){
+      st.round++;
+      st.names.forEach((_,i) => { if(st.chips[i] < 10) st.broke[i] = true; });
+      if(st.round > st.rounds || st.broke.every(Boolean)){ st.phase = 'end'; return {events:[]}; }
+      st.bets = st.names.map(() => 0); st.hands = st.names.map(() => []); st.dealer = []; st.phase = 'bet';
+      return {events:[{k:'log', text:`— Rodada ${st.round} de ${st.rounds}`}]};
+    }
+    return {ok:false};
+  },
+  bot(st, seat){
+    if(st.phase === 'bet'){ const c = st.chips[seat]; const b = Math.max(10, Math.min(c, pick([10,25,25,50,50,100]))); return {t:'bet', bet: Math.min(b, c)}; }
+    if(st.phase === 'play'){ let m = basicStrategy(st.hands[seat], st.dealer[0]); if(m === 'double' && (st.hands[seat].length !== 2 || st.chips[seat] < st.bets[seat])) m = 'hit'; return {t:m}; }
+    if(st.phase === 'result') return {t:'next'};
+  },
+  botDelay(st){ return st.phase === 'result' ? 2600 : st.phase === 'bet' ? 450 : 750; },
+  view(st, seat){
+    return {names:st.names, chips:st.chips, bets:st.bets, hands:st.hands, res:st.res, phase:st.phase, turn:st.turn, round:st.round, rounds:st.rounds, broke:st.broke,
+      dealer: st.hole && st.dealer.length ? [st.dealer[0], null] : st.dealer, hole:st.hole, lastBet:st.lastBet, doubled:st.doubled, shoe:st.shoe.length,
+      tots: st.hands.map(h => h.length ? total(h).t : 0), dtot: st.dealer.length ? (st.hole ? cval(st.dealer[0]) : total(st.dealer).t) : 0};
+  },
+  topInfo(g){ return `<div class="status">Rodada ${Math.min(g.round, g.rounds)} de ${g.rounds}</div>`; },
+  onEvent(e, v){ if(e.k === 'start') lastBetSent = 0; },
+  rules:`<h3>Objetivo</h3><p>Fazer mais pontos que a <b>banca</b> sem passar de <b>21</b>. Cada jogador joga só contra a banca.</p>
+  <h3>Valor das cartas</h3><ul><li>2 a 10: o próprio número.</li><li>J, Q, K: 10.</li><li>Ás: 11 ou 1 (o que for melhor).</li></ul>
+  <h3>Rodada</h3><ol><li>Todos apostam (mínimo 10 fichas).</li><li>Cada um recebe 2 cartas abertas; a banca recebe uma aberta e uma fechada.</li>
+  <li>Na sua vez: <b>Pedir</b> (mais uma carta), <b>Parar</b>, ou <b>Dobrar</b> (dobra a aposta, recebe só mais 1 carta — só com 2 cartas).</li>
+  <li>Passou de 21, <b>estourou</b> e perde na hora.</li><li>A banca vira a carta e pede até ter 17 ou mais.</li></ol>
+  <h3>Pagamento</h3><ul><li>Ganhou da banca: recebe o valor apostado.</li><li><b>21 de mão</b> (Ás + carta de 10 nas 2 primeiras): paga 3 por 2.</li><li>Empate: aposta devolvida.</li></ul>
+  <p>Começa com ${START} fichas; vence quem tiver mais fichas no fim das rodadas.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me;
+    const cw = st.clientWidth < 520 ? 48 : 66; st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.dealer')){
+      st.innerHTML = `<div class="dealer"><div class="tot" id="dtot">Banca</div><div class="hand" id="dh"></div><div class="shoe" id="shoe"></div></div>
+        <div class="seats21" id="seats"></div><div class="ctl" id="ctl"></div>`;
+    }
+    const dh = $('#dh'); const dk = JSON.stringify(g.dealer);
+    if(dh.dataset.k !== dk){ const old = dh.children.length; dh.dataset.k = dk; dh.innerHTML = ''; g.dealer.forEach((c,i) => { const el = cardEl(c, {back:!c}); dh.appendChild(el); if(i >= old) flyFrom(el, {left:innerWidth/2, top:-60, width:cw, height:cw*1.4}, {delay:(i-old)*120}); }); }
+    const dt = $('#dtot'); dt.textContent = g.dealer.length ? 'Banca: ' + g.dtot + (g.hole ? '+?' : '') : 'Banca';
+    dt.className = 'tot' + (!g.hole && g.dtot > 21 ? ' bust' : '');
+    $('#shoe').textContent = `🂠 ${g.shoe} cartas no sapato`;
+    let html = '';
+    const order = [...g.names.keys()];
+    order.forEach(i => {
+      const t = g.tots[i], h = g.hands[i];
+      const r = g.res[i];
+      html += `<div class="p21 ${i === me ? 'me' : ''} ${g.turn === i && g.phase === 'play' ? 'vez' : ''}" data-seat="${i}">
+        <div class="nm">${esc(g.names[i])}${i === me ? ' (você)' : ''}</div>
+        <div class="hand" data-k="${esc(JSON.stringify(h))}" id="h${i}"></div>
+        ${h.length ? `<div class="tot ${t > 21 ? 'bust' : (h.length === 2 && t === 21 ? 'bj' : '')}">${h.length === 2 && t === 21 ? '21 de mão!' : t > 21 ? 'Estourou (' + t + ')' : t}</div>` : ''}
+        <div class="chips">💰 ${g.chips[i]}${g.bets[i] ? ` · aposta ${g.bets[i]}${g.doubled[i] ? ' (dobro)' : ''}` : ''}${g.broke[i] ? ' · sem fichas' : ''}</div>
+        ${r ? `<div class="res ${r.cls}">${r.txt}</div>` : ''}</div>`;
+    });
+    const prevHands = {}; $$('#seats .hand').forEach(el => prevHands[el.id] = el.children.length);
+    $('#seats').innerHTML = html;
+    order.forEach(i => { const hEl = $('#h' + i); const old = prevHands['h' + i] || 0;
+      g.hands[i].forEach((c,k) => { const el = cardEl(c); hEl.appendChild(el); if(k >= old && hEl.closest('.p21')) flyFrom(el, $('#dh').getBoundingClientRect(), {delay:(k-old)*120}); }); });
+    // controles
+    const ctl = $('#ctl'), myTurn = v.waiting.includes(me);
+    let ch = '';
+    if(g.phase === 'bet' && myTurn){
+      const maxB = g.chips[me];
+      ch = `<div style="text-align:center;width:100%"><div class="status">Faça sua aposta (você tem ${maxB})</div><div class="bet">
+        ${[10,25,50,100,250].filter(x => x <= maxB).map(x => `<button class="coin c${x}" data-b="${x}">${x}</button>`).join('')}
+        ${g.lastBet[me] <= maxB ? `<button class="tbtn" data-b="${g.lastBet[me]}">Repetir ${g.lastBet[me]}</button>` : ''}
+        <button class="tbtn" data-b="${maxB}">Tudo (${maxB})</button></div></div>`;
+    } else if(g.phase === 'bet') ch = `<div class="status">Aguardando apostas...</div>`;
+    else if(g.phase === 'play' && myTurn){
+      const h = g.hands[me];
+      ch = `<button class="b-ok" data-a="hit">Pedir</button><button class="b-no" data-a="stand">Parar</button>` +
+           (h.length === 2 && g.chips[me] >= g.bets[me] ? `<button class="b-y" data-a="double">Dobrar</button>` : '');
+    } else if(g.phase === 'play') ch = `<div class="status">Vez de ${esc(g.names[g.turn] || 'banca')}...</div>`;
+    else if(g.phase === 'result') ch = (v.waiting.includes(me) ? `<button class="b-ok" data-a="next">Próxima rodada ▶</button>` : `<div class="status">Próxima rodada já já...</div>`);
+    ctl.innerHTML = ch;
+    $$('[data-b]', ctl).forEach(b => b.onclick = () => ui.act({t:'bet', bet:+b.dataset.b}));
+    $$('[data-a]', ctl).forEach(b => b.onclick = () => ui.act({t:b.dataset.a}));
+  }
+});
+let lastBetSent = 0;
+function nextTurn(st, ev){
+  let i = st.turn + 1;
+  while(i < st.names.length && st.done[i]) i++;
+  if(i < st.names.length){ st.turn = i; return; }
+  st.turn = -1;
+  // banca joga
+  st.hole = false;
+  const alive = st.hands.some((h,k) => !st.broke[k] && h.length && total(h).t <= 21 && !isBJ(h));
+  if(alive) while(total(st.dealer).t < 17) st.dealer.push(draw(st));
+  const d = total(st.dealer).t, dbj = isBJ(st.dealer);
+  st.hands.forEach((h,i) => {
+    if(st.broke[i] || !h.length) return;
+    const t = total(h).t, bet = st.bets[i];
+    let r;
+    if(t > 21) r = {cls:'lose', txt:`Perdeu ${bet}`};
+    else if(isBJ(h) && !dbj){ const w = Math.floor(bet*1.5); st.chips[i] += bet + w; r = {cls:'win', txt:`21 de mão! +${w}`}; }
+    else if(dbj && !isBJ(h)) r = {cls:'lose', txt:`Banca com 21 de mão: −${bet}`};
+    else if(d > 21 || t > d){ st.chips[i] += bet*2; r = {cls:'win', txt:`Ganhou +${bet}`}; }
+    else if(t === d){ st.chips[i] += bet; r = {cls:'push', txt:'Empate'}; }
+    else r = {cls:'lose', txt:`Perdeu ${bet}`};
+    st.res[i] = r;
+  });
+  ev.push({k:'snd', s:'deal'}, {k:'log', text:`Banca fez ${d > 21 ? d + ' e estourou' : d}.`});
+  st.phase = 'result';
+}
+</script>
+</body>
+</html>

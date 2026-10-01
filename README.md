@@ -1,246 +1,286 @@
 <p align="center">
-  <img src="docs/img/banner.png" alt="Truco — Mineiro e Paulista, online e offline" width="100%">
+  <img src="docs/img/banner.png" alt="Central de Jogos — truco, cartas e tabuleiro, online e offline" width="100%">
 </p>
 
 <p align="center">
   <a href="https://fernandojose-esdhc.github.io/trucoonline/"><b>▶️ JOGAR AGORA</b></a>
-  &nbsp;·&nbsp; <a href="#-regras-do-truco-mineiro">Regras do Mineiro</a>
-  &nbsp;·&nbsp; <a href="#-regras-do-truco-paulista">Regras do Paulista</a>
+  &nbsp;·&nbsp; <a href="#-os-jogos">Os jogos</a>
+  &nbsp;·&nbsp; <a href="#-regras">Regras</a>
   &nbsp;·&nbsp; <a href="#-como-jogar-online">Como jogar online</a>
+  &nbsp;·&nbsp; <a href="docs/ADICIONAR-JOGO.md">Adicionar um jogo</a>
 </p>
 
 <p align="center">
-  <img alt="HTML único" src="https://img.shields.io/badge/arquivo-HTML%20%C3%BAnico-e7b43a">
+  <img alt="11 jogos" src="https://img.shields.io/badge/jogos-11-e7b43a">
   <img alt="Sem cadastro" src="https://img.shields.io/badge/cadastro-n%C3%A3o%20precisa-3ecf7a">
-  <img alt="Offline" src="https://img.shields.io/badge/modo%20sozinho-offline-11603a">
+  <img alt="Offline" src="https://img.shields.io/badge/contra%20bots-funciona%20offline-11603a">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
 </p>
 
 ---
 
-# 🃏 Truco Online — Mineiro & Paulista
+# 🎲 Central de Jogos — Truco e muito mais
 
-Truco completo no navegador, feito em **um único arquivo HTML**.
-Jogue com os amigos em **salas online sem cadastro** ou **sozinho, offline**, contra bots que contam cartas, blefam e sabem a hora de correr.
+Uma central de jogos no navegador, feita com HTML, CSS e JavaScript puros.
+Jogue com os amigos em **salas online sem cadastro** ou **contra bots**, inclusive sem internet.
 
-Funciona no **PC, Android e iPhone**, sem instalar nada.
+Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instalar como app (*Compartilhar → Adicionar à Tela de Início*).
 
 <p align="center">
-  <img src="docs/img/mesa-mineiro.png" alt="Mesa do Truco Mineiro" width="100%">
+  <img src="docs/img/central.png" alt="Tela da Central de Jogos" width="100%">
 </p>
+
+## 🃏 Os jogos
+
+| | Jogo | Jogadores | Destaque |
+|---|---|---|---|
+| 🃏 | **[Truco Mineiro](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=mineiro)** | 4 (duplas) | Manilhas fixas: Zap, Copas, Espadilha e Pica-fumo |
+| 🂡 | **[Truco Paulista](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=paulista)** | 4 (duplas) | Vira: a manilha muda a cada mão |
+| 🔥 | **[Trucão](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=trucao)** | 6 ou 8 | Molde do Mineiro com 8 manilhas |
+| 👑 | **[Douradinho](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=douradinho)** | 6 (3×3) | A Dama de Ouros acima de tudo |
+| 💰 | **[Douradão](https://fernandojose-esdhc.github.io/trucoonline/games/truco.html?mode=douradao)** | 8 (4×4) | O Rei de Ouros acima da Douradinha |
+| 🎴 | **[Canastra](https://fernandojose-esdhc.github.io/trucoonline/games/canastra.html)** | 2 ou 4 | Sequências, coringa no 2, morto, canastra limpa e suja |
+| 🀄 | **[Pife](https://fernandojose-esdhc.github.io/trucoonline/games/pife.html)** | 2 a 6 | Três jogos com 9 cartas e bata primeiro |
+| 🎰 | **[21](https://fernandojose-esdhc.github.io/trucoonline/games/21.html)** | 1 a 5 | Contra a banca, com fichas e dobrar |
+| 🂮 | **[Paciência](https://fernandojose-esdhc.github.io/trucoonline/games/paciencia.html)** | 1 | Klondike, virando 1 ou 3, com desfazer |
+| ♟️ | **[Xadrez](https://fernandojose-esdhc.github.io/trucoonline/games/xadrez.html)** | 2 | Regras completas e bot em 3 níveis |
+| ⛀ | **[Damas](https://fernandojose-esdhc.github.io/trucoonline/games/damas.html)** | 2 | Damas brasileiras: lei da maioria e dama voadora |
+
+Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
 
 ## ✨ Destaques
 
 | | |
 |---|---|
-| 🌐 **Online com salas** | Crie uma sala, passe o código de 5 letras e jogue. Sem login, sem servidor próprio: os aparelhos se conectam direto (WebRTC). |
-| 🎴 **Dois modos** | **Truco Mineiro** (manilhas fixas, mão vale 2) e **Truco Paulista** (vira e manilhas variáveis, mão vale 1). |
-| 🤖 **Bots inteligentes** | Três níveis. No Normal e no Difícil eles simulam centenas de jogadas por decisão (Monte Carlo), contam as cartas que já saíram, levam o placar em conta e desconfiam de quem pede truco. |
-| 🂠 **Carta coberta** | A partir da 2ª vaza, jogue uma carta virada para esconder o jogo. |
-| 🗳️ **Votação no 10×10** | Quando as duas duplas chegam a 10 (ou 11 no Paulista), todos votam: mão de ferro ou mão normal. Empate? Vale o voto de quem tirar a maior carta. |
-| 🔌 **Caiu? Volta.** | Se alguém perder a conexão, um bot assume o lugar até a pessoa reconectar. |
-| 💬 **Chat na mesa** | As mensagens aparecem em balões em cima de quem falou. |
-| 🎬 **Animações** | Distribuição das cartas, carta voando para a mesa, vaza recolhida, tremor no truco e confete na vitória. |
+| 🌐 **Salas online sem cadastro** | Crie a sala, passe o código de 5 letras (ou o link) e jogue. Os aparelhos se conectam direto (WebRTC), sem servidor próprio. |
+| 🤖 **Bots de verdade** | Truco com simulação de centenas de finais por jogada (Monte Carlo), blefe e leitura de quem pediu truco. Xadrez com busca alfa-beta, Damas com minimax, 21 com a estratégia básica. |
+| 🔌 **Caiu? Volta.** | Se alguém perder a conexão, um bot assume até a pessoa voltar com o mesmo nome. |
+| 🙈 **Ninguém espia** | Cada jogador recebe só o que pode ver: cartas dos outros e carta coberta nunca saem do aparelho de quem cria a sala. |
+| 📱 **Celular primeiro** | Layout para tela de celular, áreas seguras do iPhone, tela acesa durante o jogo, som liberado no primeiro toque. |
+| 📶 **Offline** | Depois da primeira visita, o modo contra bots abre até sem internet. |
+| ➕ **Feita para crescer** | Cada jogo é um arquivo. As salas, os bots e a sala de espera vêm prontos ([veja como adicionar](docs/ADICIONAR-JOGO.md)). |
 
 ## 📸 Telas
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/mesa-paulista.png" alt="Truco Paulista com vira"><br><sub><b>Truco Paulista</b>: a vira fica no canto e define a manilha</sub></td>
-    <td width="50%"><img src="docs/img/truco.png" alt="Pedido de truco"><br><sub><b>Pediram truco!</b> Aceitar, correr ou aumentar (com a dica do parceiro)</sub></td>
+    <td width="50%"><img src="docs/img/mesa-trucao8.png" alt="Trucão com 8 jogadores"><br><sub><b>Trucão / Douradão</b>: mesa para 8, com as manilhas destacadas</sub></td>
+    <td width="50%"><img src="docs/img/mesa-paulista.png" alt="Truco Paulista"><br><sub><b>Truco Paulista</b>: a vira define a manilha</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/img/sala-online.png" alt="Sala online"><br><sub><b>Sala online</b>: escolha a dupla, o modo e o nível dos bots</sub></td>
+    <td><img src="docs/img/canastra.png" alt="Canastra"><br><sub><b>Canastra</b>: jogos das duas duplas na mesa</sub></td>
+    <td><img src="docs/img/pife.png" alt="Pife"><br><sub><b>Pife</b>: as cartas que já formam jogo ficam marcadas</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/xadrez.png" alt="Xadrez"><br><sub><b>Xadrez</b>: lances anotados e peças capturadas</sub></td>
+    <td><img src="docs/img/damas.png" alt="Damas"><br><sub><b>Damas</b>: as peças que podem jogar piscam</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/21.png" alt="21"><br><sub><b>21</b>: contra a banca, com fichas</sub></td>
+    <td><img src="docs/img/paciencia.png" alt="Paciência"><br><sub><b>Paciência</b>: toque na carta e ela vai sozinha para o lugar certo</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/truco.png" alt="Pedido de truco"><br><sub><b>Pediram truco!</b> Aceitar, correr ou aumentar</sub></td>
     <td><img src="docs/img/votacao.png" alt="Votação no 10 a 10"><br><sub><b>10 × 10</b>: votação entre mão de ferro e mão normal</sub></td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="docs/img/celular-paulista.png" alt="No celular — Paulista" width="32%">
-  &nbsp;
-  <img src="docs/img/celular-mineiro.png" alt="No celular — Mineiro" width="32%">
-  &nbsp;
-  <img src="docs/img/tela-inicial.png" alt="Tela inicial" width="32%">
+  <img src="docs/img/central-celular.png" alt="Central no celular" width="24%">
+  <img src="docs/img/celular-douradinho.png" alt="Douradinho no celular" width="24%">
+  <img src="docs/img/celular-canastra.png" alt="Canastra no celular" width="24%">
+  <img src="docs/img/celular-paulista.png" alt="Truco Paulista no celular" width="24%">
 </p>
 
 ---
 
 ## 🚀 Como jogar
 
-### Pelo link (recomendado)
-Abra **https://fernandojose-esdhc.github.io/trucoonline/** no navegador do PC ou do celular.
+Abra **https://fernandojose-esdhc.github.io/trucoonline/**, escolha o jogo e:
 
-> 📱 **Dica:** no celular, use *Compartilhar → Adicionar à Tela de Início* para abrir como um app, em tela cheia.
-
-### Sozinho, sem internet
-Baixe o arquivo [`index.html`](index.html) e abra no navegador (no Android e no PC funciona direto do arquivo). Escolha o modo, o nível dos bots e clique em **Jogar sozinho contra bots**.
+- **Contra bots:** escolha as opções (modo, nível dos bots, nº de jogadores) e toque em **Jogar contra bots**.
+- **Online:** veja abaixo.
 
 ### 🌐 Como jogar online
-1. Digite seu nome, escolha o modo e clique em **Criar sala online**.
+1. Digite seu nome, escolha o jogo e as opções e toque em **Criar sala online**.
 2. Aparece um **código de 5 letras**. Mande para os amigos (ou use **Copiar link**).
-3. Os amigos abrem o jogo, digitam o código e clicam em **Entrar**.
-4. Cada um clica num lugar vago para escolher a dupla. Lugares vazios viram bots, então dá para jogar com 2, 3 ou 4 pessoas.
-5. Quem criou a sala clica em **Iniciar partida**.
+3. Os amigos abrem o mesmo jogo (ou a Central, no campo *Recebeu um código?*), digitam o código e tocam em **Entrar**.
+4. Cada um escolhe o lugar/time. Lugares vazios viram bots.
+5. Quem criou a sala toca em **Iniciar partida**.
 
-> ⚠️ O jogo roda no aparelho de quem criou a sala. Se o anfitrião fechar a página, a sala acaba. De preferência, crie a sala num **PC ou Android**: no iPhone, trocar de app ou bloquear a tela derruba a sala.
-> Em algumas redes 4G/corporativas a conexão direta pode ser bloqueada; trocar para Wi-Fi costuma resolver.
-
-### Controles
-| Ação | Como |
-|---|---|
-| Jogar uma carta | Toque/clique na carta quando aparecer **Sua vez!** |
-| Pedir truco / aumentar | Botão vermelho **TRUCO!** (vira SEIS!, NOVE!, DOZE!) |
-| Jogar coberta | Botão **🂠 Cobrir** e depois a carta (a partir da 2ª vaza) |
-| Histórico e chat (celular) | Botão **💬** no topo |
+> ⚠️ O jogo roda no aparelho de quem criou a sala: se o anfitrião fechar a página, a sala acaba. De preferência, crie a sala num **PC ou Android** (no iPhone, trocar de app derruba a sala).
+> Em algumas redes 4G/corporativas a conexão direta é bloqueada; trocar para Wi-Fi costuma resolver.
 
 ---
 
-## 📖 Regras comuns
+# 📖 Regras
 
-- **4 jogadores** em **2 duplas**; os parceiros sentam frente a frente.
-- **Baralho de 40 cartas**: sem 8, 9 e 10 (e sem coringas).
-- Cada jogador recebe **3 cartas**. Vence a partida quem fizer **12 pontos**.
-- Quem começa a mão é o jogador seguinte a quem deu as cartas; nas vazas seguintes, começa quem ganhou a anterior. A cada mão, o próximo jogador dá as cartas.
+<details open>
+<summary><b>🃏 Truco — regras comuns a todos os modos</b></summary>
 
-### Força das cartas comuns
-Da mais forte para a mais fraca (o naipe não importa):
+- Baralho de **40 cartas** (sem 8, 9 e 10). Cada jogador recebe **3 cartas**. Vence quem fizer **12 pontos**.
+- Os jogadores formam **dois times**, sentados alternados (um de cada time em volta da mesa).
+- **Cartas comuns**, da mais forte para a mais fraca (o naipe não importa): `3 › 2 › A › K › J › Q › 7 › 6 › 5 › 4`. Acima delas ficam as **manilhas** de cada modo.
+- Cartas iguais de times diferentes **empatam** a vaza ("cangou").
+- **Vazas** (melhor de 3): empatou a 1ª, leva quem ganhar a 2ª; ganhou a 1ª e empatou outra, leva quem ganhou a 1ª; empatou tudo, ninguém pontua.
+- **Truco**: na sua vez, antes de jogar, peça aumento. Quem responde aceita ("Desce!"), corre ou aumenta (SEIS → NOVE → DOZE). Quem corre entrega o valor de antes do pedido. O mesmo time não pede dois aumentos seguidos.
+- **Carta coberta**: a partir da 2ª vaza, dá para jogar uma carta **virada para baixo**. Ela não vale nada e ninguém fica sabendo qual era.
+- **Mão de 10** (11 no Paulista): o time que chega lá vê as cartas dos parceiros e decide jogar (a mão vale mais e não tem truco) ou correr.
+- **10 × 10** (11 × 11): todos **votam** entre **mão de ferro** (todo mundo joga no escuro) e **mão normal** (cartas à vista, sem truco). Empate na votação: cada um tira uma carta e vale o voto de **quem tirar a maior**.
 
-```
-3  ›  2  ›  A  ›  K  ›  J  ›  Q  ›  7  ›  6  ›  5  ›  4
-```
+</details>
 
-Duas cartas iguais de **duplas diferentes** empatam a vaza ("cangou").
+<details>
+<summary><b>⛰️ Truco Mineiro</b> — 4 jogadores</summary>
 
-### Vazas (quem leva a mão)
-A mão é uma **melhor de 3 vazas**:
-
-| Situação | Quem ganha |
+| Manilha (da mais forte) | Carta |
 |---|---|
-| Uma dupla ganha 2 vazas | Essa dupla |
-| Empatou a 1ª | Quem ganhar a 2ª |
-| Ganhou a 1ª e empatou a 2ª | Quem ganhou a 1ª |
-| 1ª e 2ª divididas, 3ª empatada | Quem ganhou a 1ª |
-| Empatou tudo | Ninguém pontua |
+| **Zap** | 4♣ |
+| **Copas** | 7♥ |
+| **Espadilha** | A♠ |
+| **Pica-fumo** | 7♦ |
 
-### Truco e aumentos
-- Na sua vez, **antes de jogar**, você pode pedir **TRUCO**.
-- A outra dupla responde: **aceitar** ("Desce!"), **correr** ou **aumentar** (SEIS → NOVE → DOZE).
-- Quem **corre** dá para a outra dupla o valor que a mão valia **antes** do pedido.
-- A mesma dupla **não pode pedir dois aumentos seguidos**: o próximo aumento é sempre da outra dupla.
+Mão normal vale **2**: TRUCO 4 · SEIS 8 · NOVE 10 · DOZE 12. Mão de 10 vale 4; quem corre dela dá 2.
+</details>
 
-### 🂠 Carta coberta
-- A partir da **2ª vaza**, na sua vez, você pode jogar uma carta **virada para baixo**.
-- A carta coberta **não vale nada**: perde para qualquer carta aberta.
-- Ninguém fica sabendo qual carta era. Serve para **esconder o jogo** quando a carta não faria diferença na vaza.
-- Na 1ª vaza e na mão de ferro não se cobre.
+<details>
+<summary><b>🌆 Truco Paulista</b> — 4 jogadores</summary>
 
----
+Depois de dar as cartas, uma carta é virada na mesa: a **vira**. A **manilha** é a carta seguinte à vira na ordem `4 → 5 → 6 → 7 → Q → J → K → A → 2 → 3 → (4)`.
+Ex.: vira **J** → manilhas são os **K**. Entre as manilhas vale o naipe: **♣ Zap › ♥ Copas › ♠ Espadilha › ♦ Pica-fumo**.
 
-## ⛰️ Regras do Truco Mineiro
+Mão normal vale **1**: TRUCO 3 · SEIS 6 · NOVE 9 · DOZE 12. Mão de 11 vale 3; quem corre dela dá 1.
+</details>
 
-**Manilhas fixas** (da mais forte para a mais fraca), acima de todas as outras cartas:
+<details>
+<summary><b>🔥 Trucão</b> — 6 (3×3) ou 8 (4×4) jogadores</summary>
 
-| | Carta | Nome |
+Molde do Mineiro, com quatro manilhas acima do Zap:
+
+| # | Carta | Nome |
 |---|---|---|
-| 1ª | 4 de paus ♣ | **Zap** |
-| 2ª | 7 de copas ♥ | **Copas** (7 copas) |
-| 3ª | Ás de espadas ♠ | **Espadilha** |
-| 4ª | 7 de ouros ♦ | **Pica-fumo** |
+| 1 | 2♦ | 2 de ouro |
+| 2 | A♦ | Ás de ouro |
+| 3 | 7♣ | 7 rato |
+| 4 | 4♥ | Catatu |
+| 5 | 4♣ | Zap |
+| 6 | 7♥ | Copas |
+| 7 | A♠ | Espadilha |
+| 8 | 7♦ | Pica-fumo |
 
-**Pontos:**
+Pontos iguais ao Mineiro.
+</details>
 
-| Mão | Vale |
-|---|---|
-| Normal | **2** |
-| TRUCO | 4 |
-| SEIS | 8 |
-| NOVE | 10 |
-| DOZE | 12 |
+<details>
+<summary><b>👑 Douradinho</b> (6 jogadores, 3×3) e <b>💰 Douradão</b> (8 jogadores, 4×4)</summary>
 
-**Mão de 10:** a dupla que chega a **10 pontos** vê as próprias cartas **e as do parceiro** e decide:
-- **Jogar**: a mão vale **4** e ninguém pode trucar;
-- **Correr**: a outra dupla ganha **2**.
+| # | Douradinho | Nome |
+|---|---|---|
+| 1 | Q♦ | Douradinha |
+| 2 | J♣ | Valete de paus |
+| 3 | 2♣ | Dunga |
+| 4 | A♣ | Piu |
+| 5 | 5♣ | Cinquinho |
+| 6 | 4♣ | Zap |
+| 7 | 7♥ | Copas |
+| 8 | A♠ | Espadilha |
+| 9 | 7♦ | Pica-fumo |
 
-**10 × 10:** veja [Votação da mão de ferro](#-votação-da-mão-de-ferro-10--10--11--11).
+No **Douradão**, o **K♦ (Rei de Ouros)** fica acima da Douradinha. Pontos iguais ao Mineiro.
+</details>
+
+<details>
+<summary><b>🎴 Canastra</b> — 2 ou 4 jogadores</summary>
+
+- **Dois baralhos** (104 cartas). 11 cartas para cada; separam-se **dois mortos** de 11 cartas.
+- **Jogos**: só **sequências do mesmo naipe** com 3+ cartas (A-2-3 ou Q-K-A valem).
+- O **2 é curinga**, no máximo **um por jogo**. Um 2 do mesmo naipe na posição dele é natural.
+- **Canastra** = jogo com 7+ cartas: **limpa** (sem curinga) +200, **suja** +100.
+- **Sua vez**: compre 1 carta do monte **ou** pegue o lixo inteiro → baixe/encaixe jogos → descarte 1.
+- Quem acaba as cartas pega o **morto** do time. Para **bater** (+100), o time precisa ter pego o morto e ter **uma canastra limpa**. Sem isso, guarde pelo menos 2 cartas.
+- **Pontos das cartas**: A 15 · 2 10 · 8 a K 10 · 3 a 7 5. Somam as baixadas, diminuem as que sobraram na mão. Time que não pegou o morto perde 100.
+- Partida até 1.000, 1.500 ou 3.000 pontos.
+</details>
+
+<details>
+<summary><b>🀄 Pife</b> — 2 a 6 jogadores</summary>
+
+- **Dois baralhos** sem coringa. Cada um recebe **9 cartas**.
+- **Jogos**: **trinca** (3 ou 4 cartas do mesmo valor e naipes diferentes) ou **sequência** (3+ cartas seguidas do mesmo naipe; A-2-3 e Q-K-A valem, K-A-2 não).
+- **Sua vez**: compre do monte ou pegue a carta de cima do lixo, depois descarte uma (não vale devolver a que pegou do lixo).
+- **Bater**: quando as 9 cartas formam jogos, descarte a 10ª e aperte **Bater!**. Cada batida é 1 ponto; partida até 1, 3 ou 5 batidas.
+</details>
+
+<details>
+<summary><b>🎰 21</b> — 1 a 5 jogadores contra a banca</summary>
+
+- Cartas: 2 a 10 pelo número, J/Q/K valem 10, Ás vale 11 ou 1.
+- Todos apostam (mínimo 10), recebem 2 cartas; a banca tem uma aberta e uma fechada.
+- **Pedir**, **Parar** ou **Dobrar** (dobra a aposta e recebe só mais 1 carta). Passou de 21, estourou.
+- A banca pede até ter 17 ou mais. Ganhou: recebe a aposta; **21 de mão** paga 3 por 2; empate devolve.
+- Todos começam com 1.000 fichas; vence quem tiver mais no fim das rodadas (5, 10 ou 20).
+</details>
+
+<details>
+<summary><b>🂮 Paciência</b> (Klondike) — 1 jogador</summary>
+
+- Monte as **quatro pilhas** de cada naipe, do **Ás ao Rei**.
+- Nas 7 colunas, empilhe em ordem decrescente **alternando cores** (vermelho sobre preto). Só **Rei** vai para coluna vazia.
+- Vire do monte **1 ou 3 cartas** por vez.
+- Toque numa carta e ela vai sozinha para o melhor lugar. Tem **desfazer** e **completar automático**.
+</details>
+
+<details>
+<summary><b>♟️ Xadrez</b> — 2 jogadores</summary>
+
+Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoção** (dama, torre, bispo ou cavalo), **xeque-mate**, e empates por **afogamento**, **3 repetições**, **50 lances** e **material insuficiente**. Contra o computador, escolha a cor e o nível (o Difícil calcula 3 lances à frente com análise de trocas).
+</details>
+
+<details>
+<summary><b>⛀ Damas</b> (regras brasileiras) — 2 jogadores</summary>
+
+- Tabuleiro 8×8, só nas casas escuras, 12 pedras para cada. Brancas começam.
+- **Pedra** anda 1 casa para frente na diagonal e **captura para frente e para trás**.
+- **Captura obrigatória** e **lei da maioria**: é obrigatório o lance que captura mais peças.
+- A pedra que **termina** a jogada na última fileira vira **dama**. A dama anda e captura **à distância**.
+- Vence quem deixar o adversário sem peças ou sem lances. Empate após 20 lances seguidos de cada lado só com damas e sem captura.
+</details>
 
 ---
 
-## 🌆 Regras do Truco Paulista
+## ➕ Adicionar um jogo
 
-**A vira:** depois de dar as cartas, uma carta do monte é virada na mesa. A **manilha** é a carta **seguinte** à vira na ordem:
+A Central foi pensada para crescer: cada jogo é um arquivo em `games/` que descreve só as regras. Salas online, bots, sala de espera, reconexão e fim de partida vêm prontos da **Mesa** (`shared/mesa.js`).
 
-```
-4 → 5 → 6 → 7 → Q → J → K → A → 2 → 3 → (volta ao 4)
-```
+1. Copie o modelo [`games/modelo-jogo-da-velha.html`](games/modelo-jogo-da-velha.html) (um jogo da velha completo, online e com bot).
+2. Troque as regras.
+3. Acrescente uma linha em [`games/registry.js`](games/registry.js).
 
-> Exemplo: saiu **J** na vira → as manilhas são os quatro **K**.
-> Saiu **3** na vira → as manilhas são os quatro **4**.
-
-**Entre as manilhas, vale o naipe:**
-
-```
-♣ Paus (Zap)  ›  ♥ Copas  ›  ♠ Espadas (Espadilha)  ›  ♦ Ouros (Pica-fumo)
-```
-
-**Pontos:**
-
-| Mão | Vale |
-|---|---|
-| Normal | **1** |
-| TRUCO | 3 |
-| SEIS | 6 |
-| NOVE | 9 |
-| DOZE | 12 |
-
-**Mão de 11:** a dupla que chega a **11 pontos** vê as cartas do parceiro e decide:
-- **Jogar**: a mão vale **3** e ninguém pode trucar;
-- **Correr**: a outra dupla ganha **1**.
-
-**11 × 11:** veja a votação abaixo.
-
----
-
-## 🗳️ Votação da mão de ferro (10 × 10 / 11 × 11)
-
-Quando **as duas duplas** estão a um passo da vitória (10 × 10 no Mineiro, 11 × 11 no Paulista), antes de dar as cartas **os quatro jogadores votam**:
-
-- 🔥 **Mão de ferro**: todo mundo joga **no escuro**, sem ver as próprias cartas. Sem truco.
-- 🃏 **Mão normal**: cartas à vista, sem truco.
-
-A **maioria** decide. Se der **2 × 2**, cada jogador **tira uma carta** do baralho e vale o voto de **quem tirar a maior** (pela força natural 3 › 2 › A › … › 4; em cartas iguais, desempata o naipe ♣ › ♥ › ♠ › ♦).
-
-Quem ganhar essa mão leva a partida.
-
----
-
-## 🤖 Os bots
-
-| Nível | Como joga |
-|---|---|
-| **Fácil** | Regras simples, erra de vez em quando, blefa pouco. Bom para aprender. |
-| **Normal** | Simula ~160 finais possíveis a cada decisão, conta as cartas já vistas e decide truco pelo valor esperado da partida. |
-| **Difícil** | Simula ~450 finais, quase não erra, **segura a manilha** para pegar o adversário, blefa na hora certa e cobre carta para esconder o jogo. |
-
-Os bots também pensam no placar: aceitam truco quando correr entregaria o jogo, e desconfiam de quem pede aumento (mas sabem que às vezes é blefe).
-
----
+O passo a passo completo está em **[docs/ADICIONAR-JOGO.md](docs/ADICIONAR-JOGO.md)**.
 
 ## 🛠️ Detalhes técnicos
 
-- **Um arquivo só** (`index.html`): HTML, CSS e JavaScript puros, sem build e sem dependências para o modo offline.
-- **Online:** [PeerJS](https://peerjs.com/) (WebRTC) carregado de CDN. O navegador de quem cria a sala é a "mesa": ele roda o jogo e envia a cada jogador **só o que ele pode ver**, então ninguém consegue espiar a mão do outro nem a carta coberta.
-- **Sem cadastro e sem banco de dados.** Nome, preferências e histórico de vitórias ficam só no seu navegador (localStorage).
-- Testado com partidas simuladas automaticamente (os dois modos, carta coberta, votação, queda e reconexão) e em navegador Chromium, em tela de PC e de celular. Tem ajustes específicos para iPhone (som, zoom, áreas seguras e tela acesa).
+```
+index.html            → a Central (lista de jogos, busca, entrar com código)
+games/registry.js     → lista dos jogos (é só adicionar uma linha)
+games/*.html          → um arquivo por jogo
+shared/core.js|css    → cartas, sons, modais, animações, estatísticas
+shared/mesa.js        → salas online + bots + sala de espera para qualquer jogo
+shared/melds.js       → trincas/sequências (Pife) e canastras
+sw.js, manifest.json  → funciona offline e pode ser instalado como app
+```
+
+- HTML, CSS e JavaScript puros, **sem build e sem dependências** (só o [PeerJS](https://peerjs.com/) para o online).
+- O navegador de quem cria a sala é a "mesa": ele roda o jogo e manda a cada jogador **só o que ele pode ver**.
+- Sem cadastro e sem banco de dados: nome, preferências e histórico ficam só no seu navegador.
+- Testado com partidas simuladas inteiras de cada jogo (bots contra bots), salas online simuladas com queda e reconexão, e validação do gerador de lances do xadrez (*perft*).
 
 ### Rodar localmente
 ```bash
 git clone https://github.com/FernandoJose-ESDHC/trucoonline.git
 cd trucoonline
-# abra o index.html no navegador, ou sirva a pasta:
 python -m http.server 8000   # e acesse http://localhost:8000
 ```
-
----
 
 ## 📄 Licença
 

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Paciência</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:10px 6px}
+.board{width:100%;max-width:820px;display:flex;flex-direction:column;gap:14px}
+.toprow,.tabrow{display:grid;grid-template-columns:repeat(7,var(--cw));justify-content:space-between}
+.pile{position:relative;width:var(--cw);height:var(--ch)}
+.pile .card{position:absolute;left:0;top:0}
+.pile.empty::before{content:attr(data-l);position:absolute;inset:0;border:2px dashed rgba(255,255,255,.25);border-radius:calc(var(--cw)*.12);display:grid;place-items:center;
+  color:rgba(255,255,255,.35);font-size:calc(var(--cw)*.36);font-weight:900}
+.col{position:relative;width:var(--cw);min-height:var(--ch)}
+.col .card{position:absolute;left:0}
+.col.empty::before{content:"K";position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);border:2px dashed rgba(255,255,255,.18);border-radius:calc(var(--cw)*.12);
+  display:grid;place-items:center;color:rgba(255,255,255,.25);font-size:calc(var(--cw)*.36);font-weight:900}
+.card.face{cursor:pointer}
+.pile.stock{cursor:pointer}
+.pile.stock.empty::before{content:"↻";font-size:calc(var(--cw)*.5)}
+.waste3 .card{position:absolute}
+.ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.info{display:flex;gap:14px;font-weight:800;font-size:14px;color:#ffe6a6}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+const RV = r => RANKS13.indexOf(r) + 1;           // A=1 … K=13
+const FOUND_SUITS = ['♥','♠','♦','♣'];
+function dealKlondike(){
+  const d = shuffle(makeDeck({ranks:RANKS13}));
+  const tab = [];
+  for(let i=0;i<7;i++){ const col = []; for(let j=0;j<=i;j++) col.push({c:d.pop(), up:j===i}); tab.push(col); }
+  return {stock:d.map(c => ({c, up:false})), waste:[], found:[[],[],[],[]], tab, moves:0, start:Date.now(), hist:[], score:0, passes:0};
+}
+const lastOf = a => a[a.length-1];
+const canFound = (st, card) => {
+  const f = st.found[FOUND_SUITS.indexOf(card.s)];
+  return f.length ? RV(lastOf(f).c.r) === RV(card.r) - 1 : card.r === 'A';
+};
+const canTab = (col, card) => {
+  if(!col.length) return card.r === 'K';
+  const t = lastOf(col); return t.up && isRed(t.c) !== isRed(card) && RV(t.c.r) === RV(card.r) + 1;
+};
+const snapshot = st => JSON.stringify({stock:st.stock, waste:st.waste, found:st.found, tab:st.tab, moves:st.moves, score:st.score, passes:st.passes});
+function pushHist(st){ st.hist.push(snapshot(st)); if(st.hist.length > 200) st.hist.shift(); }
+function flipTops(st){ st.tab.forEach(col => { if(col.length && !lastOf(col).up){ lastOf(col).up = true; st.score += 5; } }); }
+function canAuto(st){ return !st.stock.length && !st.waste.length && st.tab.every(col => col.every(x => x.up)); }
+function bestTarget(st, from){
+  // retorna destino para a(s) carta(s) a partir de from = {p, i, k}
+  let cards;
+  if(from.p === 'w') cards = [lastOf(st.waste)];
+  else if(from.p === 'f') cards = [lastOf(st.found[from.i])];
+  else cards = st.tab[from.i].slice(from.k);
+  if(!cards.length || !cards[0] || !cards.every(x => x.up)) return null;
+  const c = cards[0].c;
+  if(cards.length === 1 && from.p !== 'f' && canFound(st, c)) return {p:'f', i:FOUND_SUITS.indexOf(c.s)};
+  // prefere coluna não vazia; rei vai para vazia (se não estiver já no fundo de uma coluna)
+  const order = [...Array(7).keys()].filter(i => !(from.p === 't' && i === from.i));
+  for(const i of order) if(st.tab[i].length && canTab(st.tab[i], c)) return {p:'t', i};
+  if(!(from.p === 't' && from.k === 0)) for(const i of order) if(!st.tab[i].length && canTab(st.tab[i], c)) return {p:'t', i};
+  return null;
+}
+function doMove(st, from, to){
+  let cards;
+  if(from.p === 'w') cards = [st.waste.pop()];
+  else if(from.p === 'f') cards = [st.found[from.i].pop()];
+  else cards = st.tab[from.i].splice(from.k);
+  if(to.p === 'f'){ st.found[to.i].push(...cards); st.score += 10; }
+  else { st.tab[to.i].push(...cards); if(from.p === 'w') st.score += 5; if(from.p === 'f') st.score = Math.max(0, st.score - 15); }
+  st.moves++;
+  flipTops(st);
+}
+
+Mesa.run({
+  id:'paciencia', name:'Paciência', icon:'🂮', solo:true, players:1, tagline:'Klondike — para jogar sozinho',
+  options:[{key:'draw', label:'Virar do monte', default:'1', choices:[['1','1 carta (mais fácil)'],['3','3 cartas (clássico)']]}],
+  modeLabel: o => o.draw === '3' ? 'VIRA 3' : 'VIRA 1',
+  setup(){ return dealKlondike(); },
+  waiting(st){ return [0]; },
+  over(st){
+    if(st.found.every(f => f.length === 13)){
+      const secs = Math.round((Date.now() - st.start)/1000);
+      return {winners:[0], text:`Você completou em <b>${st.moves}</b> jogadas e <b>${Math.floor(secs/60)}min ${secs%60}s</b>. Pontos: <b>${st.score}</b>.`};
+    }
+    return null;
+  },
+  apply(st, seat, a, opts){
+    if(!a) return {ok:false};
+    const n = opts.draw === '3' ? 3 : 1;
+    if(a.t === 'draw'){
+      pushHist(st);
+      if(!st.stock.length){
+        if(!st.waste.length){ st.hist.pop(); return {ok:false, err:'O monte acabou.'}; }
+        st.stock = st.waste.reverse().map(x => ({c:x.c, up:false})); st.waste = []; st.passes++;
+        if(n === 1) st.score = Math.max(0, st.score - 100);
+        return {events:[{k:'snd', s:'deal'}]};
+      }
+      for(let i=0;i<n && st.stock.length;i++){ const x = st.stock.pop(); x.up = true; st.waste.push(x); }
+      st.moves++;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    if(a.t === 'tap'){
+      const from = a.from; if(!from || !['w','t','f'].includes(from.p)) return {ok:false};
+      if(from.p === 'w' && !st.waste.length) return {ok:false};
+      if(from.p === 't' && (!st.tab[from.i] || !st.tab[from.i][from.k] || !st.tab[from.i][from.k].up)) return {ok:false};
+      if(from.p === 'f' && !st.found[from.i].length) return {ok:false};
+      const to = a.to || bestTarget(st, from);
+      if(!to) return {ok:false, err:'Essa carta não tem para onde ir.'};
+      // valida destino explícito
+      const card = from.p === 'w' ? lastOf(st.waste).c : from.p === 'f' ? lastOf(st.found[from.i]).c : st.tab[from.i][from.k].c;
+      const many = from.p === 't' ? st.tab[from.i].length - from.k : 1;
+      if(to.p === 'f' && (many > 1 || !canFound(st, card))) return {ok:false, err:'Não pode ir para essa pilha.'};
+      if(to.p === 't' && !canTab(st.tab[to.i], card)) return {ok:false, err:'Não pode ir para essa coluna.'};
+      pushHist(st); doMove(st, from, to);
+      return {events:[{k:'snd', s: to.p === 'f' ? 'move' : 'card'}, {k:'moved', to}]};
+    }
+    if(a.t === 'undo'){
+      const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
+      Object.assign(st, JSON.parse(h)); st.score = Math.max(0, st.score - 2);
+      return {events:[]};
+    }
+    if(a.t === 'auto'){
+      if(!canAuto(st)) return {ok:false};
+      let best = null;
+      for(let i=0;i<7;i++){ const col = st.tab[i]; if(col.length && canFound(st, lastOf(col).c) && (!best || RV(lastOf(col).c.r) < best.v)) best = {i, v:RV(lastOf(col).c.r)}; }
+      if(!best) return {ok:false};
+      doMove(st, {p:'t', i:best.i, k:st.tab[best.i].length-1}, {p:'f', i:FOUND_SUITS.indexOf(lastOf(st.tab[best.i]).c.s)});
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    return {ok:false};
+  },
+  bot(){ return null; },
+  view(st){
+    return { stock:st.stock.length, waste:st.waste.map(x => x.c), found:st.found.map(f => f.map(x => x.c)),
+      tab:st.tab.map(col => col.map(x => x.up ? x.c : null)), moves:st.moves, score:st.score, start:st.start, undo:st.hist.length > 0, auto:canAuto(st) };
+  },
+  topInfo(g){ return `<div class="info"><span>🃏 ${g.moves} jogadas</span><span>⭐ ${g.score}</span><span id="clock"></span></div>`; },
+  onEvent(e){ if(e.k === 'start'){ lastKeys = {}; } },
+  render(g, v, ui){
+    const st = ui.stage;
+    const W = Math.min(st.clientWidth - 12, 820);
+    const cw = Math.floor(clamp((W - 6*8) / 7, 38, 96));
+    st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.board')){
+      st.innerHTML = `<div class="board"><div class="toprow">
+          <div class="pile stock" id="pStock" data-l="↻"></div><div class="pile waste3" id="pWaste"></div><div></div>
+          ${[0,1,2,3].map(i => `<div class="pile found" id="pF${i}" data-l="${FOUND_SUITS[i]}"></div>`).join('')}
+        </div><div class="tabrow">${[0,1,2,3,4,5,6].map(i => `<div class="col" id="pT${i}"></div>`).join('')}</div>
+        <div class="ctrl"><button class="tbtn" id="bUndo">↶ Desfazer</button><button class="tbtn" id="bAuto">⚡ Completar</button><button class="tbtn" id="bNew">🔄 Novo jogo</button></div></div>`;
+      $('#pStock').onclick = () => ui.act({t:'draw'});
+      $('#bUndo').onclick = () => ui.act({t:'undo'});
+      $('#bAuto').onclick = () => autoRun(ui);
+      $('#bNew').onclick = () => modal('<h2>Novo jogo?</h2><p>O jogo atual será abandonado.</p>', [{label:'Novo jogo', fn:() => location.reload()}, {label:'Continuar', cls:'b-no'}]);
+      clearInterval(window._clk);
+      window._clk = setInterval(() => { const c = $('#clock'); if(c && ui.view && ui.view.game){ const s = Math.round((Date.now() - ui.view.game.start)/1000); c.textContent = `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; } }, 1000);
+    }
+    // monte
+    const ps = $('#pStock'); ps.innerHTML = ''; ps.classList.toggle('empty', !g.stock);
+    if(g.stock) ps.appendChild(cardEl(null, {back:true}));
+    // descarte (mostra até 3 em leque)
+    const pw = $('#pWaste'); const show = g.waste.slice(-3); pw.innerHTML = ''; pw.classList.toggle('empty', !g.waste.length); pw.dataset.l = '';
+    show.forEach((c,i) => { const el = cardEl(c, {cls:'face'}); el.style.left = (i * cw * 0.22) + 'px'; if(i === show.length-1) el.onclick = () => ui.act({t:'tap', from:{p:'w'}}); else el.style.pointerEvents = 'none'; pw.appendChild(el); });
+    // fundações
+    g.found.forEach((f,i) => { const p = $('#pF' + i); p.innerHTML = ''; p.classList.toggle('empty', !f.length);
+      if(f.length){ const el = cardEl(f[f.length-1], {cls:'face'}); el.onclick = () => ui.act({t:'tap', from:{p:'f', i}}); p.appendChild(el); } });
+    // colunas
+    const ch = Math.round(cw*1.43);
+    g.tab.forEach((col,i) => {
+      const p = $('#pT' + i); p.innerHTML = ''; p.classList.toggle('empty', !col.length);
+      let y = 0;
+      col.forEach((c,k) => {
+        const el = cardEl(c, {back:!c, cls: c ? 'face' : ''}); el.style.top = y + 'px';
+        if(c) el.onclick = e => { e.stopPropagation(); ui.act({t:'tap', from:{p:'t', i, k}}); };
+        p.appendChild(el);
+        y += c ? Math.round(ch*0.28) : Math.round(ch*0.12);
+      });
+      p.style.height = (y + ch) + 'px';
+    });
+    $('#bUndo').disabled = !g.undo;
+    $('#bAuto').classList.toggle('hidden', !g.auto);
+    if(g.auto && !window._autoOffered){ window._autoOffered = true; toast('Tudo aberto! Toque em ⚡ Completar.'); }
+  }
+});
+let lastKeys = {};
+function autoRun(ui){
+  const tick = () => { const g = ui.view && ui.view.game; if(!g || !g.auto || ui.view.phase !== 'game') return; ui.act({t:'auto'}); setTimeout(tick, 110); };
+  tick();
+}
+</script>
+</body>
+</html>

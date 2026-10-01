@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Canastra</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;gap:6px;padding:6px 8px;overflow:auto}
+.opps{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.opp{background:rgba(0,0,0,.3);border:2px solid transparent;border-radius:12px;padding:4px 10px;font-weight:800;font-size:12.5px;text-align:center}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.opp.t0{color:#bff5d4} .opp.t1{color:#ffd0d0}
+.area{background:rgba(0,0,0,.22);border-radius:12px;padding:6px 8px;min-height:56px}
+.area h4{font-size:12px;letter-spacing:1px;margin-bottom:4px;display:flex;justify-content:space-between}
+.area.nos h4{color:var(--nos)} .area.eles h4{color:var(--eles)}
+.mrow{display:flex;gap:10px;flex-wrap:wrap}
+.meld{display:flex;align-items:flex-end;position:relative;padding:3px;border-radius:8px;border:2px solid transparent}
+.meld .card{--cw:30px;--ch:43px;margin-left:-16px} .meld .card:first-child{margin-left:0}
+.meld .card .mid{display:none}
+.meld.can{border-color:var(--blue);cursor:pointer;background:rgba(90,176,255,.12)}
+.meld .tagc{position:absolute;top:-8px;right:-4px;font-size:9px;font-weight:900;border-radius:6px;padding:1px 4px;background:#555}
+.meld .tagc.limpa{background:var(--gold);color:#3a2600} .meld .tagc.suja{background:#8a6a10}
+.mid{display:flex;gap:18px;justify-content:center;align-items:flex-end}
+.pilebox{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:#cfe;font-weight:700}
+.pilebox .card{--cw:48px;--ch:69px}
+.pilebox .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.lixofan{display:flex}.lixofan .card{margin-left:-30px}.lixofan .card:first-child{margin-left:0}
+.myhand{display:flex;overflow-x:auto;padding:16px 4px 4px;justify-content:safe center;min-height:calc(var(--ch) + 22px)}
+.myhand .card{margin-left:calc(var(--cw)*-.42);cursor:pointer} .myhand .card:first-child{margin-left:0}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.ctl button{padding:10px 14px;border-radius:12px;border:none;font-weight:900;font-size:14.5px;cursor:pointer}
+.ctl button:disabled{opacity:.4}
+.sc{font-weight:800;font-size:13px;color:#ffe6a6;text-align:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/melds.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================== CANASTRA ==============================
+   Estilo "buraco": 2 baralhos sem coringas, o 2 é curinga. Só sequências
+   do mesmo naipe. Morto, canastra limpa (200) e suja (100), batida (100).
+   ===================================================================== */
+const teamOfN = (seat, n) => n === 4 ? seat % 2 : seat;
+const hasLimpa = melds => melds.some(m => m.length >= 7 && !canastraMeld(m).wild);
+function newRound(st){
+  st.monte = shuffle(makeDeck({ranks:RANKS13, decks:2}));
+  st.hands = st.names.map(() => st.monte.splice(0, 11));
+  st.mortos = [st.monte.splice(0, 11), st.monte.splice(0, 11)];
+  st.mortoTaken = [false, false];
+  st.melds = [[], []];
+  st.lixo = [st.monte.pop()];
+  st.phase = 'draw'; st.turn = st.starter % st.n; st.batida = -1; st.breakdown = null; st.lastLixo = null;
+}
+function sortH(h){ const so = {'♣':0,'♥':1,'♠':2,'♦':3}; return h.slice().sort((a,b) => (a.r === '2') - (b.r === '2') || so[a.s] - so[b.s] || RV13(a.r) - RV13(b.r)); }
+function endRound(st, ev){
+  const bd = [0,1].map(t => {
+    const melds = st.melds[t];
+    const meldPts = melds.reduce((s,m) => s + m.reduce((x,c) => x + canastraPts(c), 0), 0);
+    let bonus = 0; melds.forEach(m => { if(m.length >= 7) bonus += canastraMeld(m).wild ? 100 : 200; });
+    const handPts = st.hands.reduce((s,h,i) => s + (teamOfN(i, st.n) === t ? h.reduce((x,c) => x + canastraPts(c), 0) : 0), 0);
+    const bat = st.batida === t ? 100 : 0, morto = st.mortoTaken[t] ? 0 : -100;
+    const total = meldPts + bonus + bat - handPts + morto;
+    return {meldPts, bonus, handPts, bat, morto, total};
+  });
+  bd.forEach((b,t) => st.scores[t] += b.total);
+  st.breakdown = bd; st.phase = 'roundEnd';
+  ev.push({k:'log', text:`Fim da rodada: Nós/Eles ${bd.map(b => (b.total >= 0 ? '+' : '') + b.total).join(' × ')}`});
+}
+// mão ficou vazia: pega o morto ou bate
+function onEmpty(st, seat, ev, viaDiscard){
+  const t = teamOfN(seat, st.n);
+  if(!st.mortoTaken[t] && st.mortos.length){
+    st.hands[seat] = st.mortos.shift(); st.mortoTaken[t] = true;
+    ev.push({k:'banner', text:'PEGOU O MORTO!'}, {k:'log', text:`${esc(st.names[seat])} pegou o morto.`});
+    return 'morto';
+  }
+  st.batida = t;
+  ev.push({k:'banner', text:`${st.names[seat]} BATEU!`}, {k:'snd', s:'win'});
+  endRound(st, ev);
+  return 'bateu';
+}
+// pode esvaziar a mão? (morto disponível ou batida permitida)
+function canEmpty(st, seat, meldsAfter){
+  const t = teamOfN(seat, st.n);
+  if(!st.mortoTaken[t] && st.mortos.length) return true;
+  return hasLimpa(meldsAfter || st.melds[t]);
+}
+function takeIds(hand, ids){
+  const out = [];
+  for(const id of ids){ const c = hand.find(x => x.id === id); if(!c || out.includes(c)) return null; out.push(c); }
+  return out;
+}
+/* ---------------------------- bot ---------------------------- */
+function runsIn(cards){
+  // sequências naturais (sem 2 coringa) de 3+ por naipe
+  const res = [];
+  for(const s of ['♣','♥','♠','♦']){
+    const bys = {}; cards.filter(c => c.s === s && c.r !== '2').forEach(c => { const v = RV13(c.r); if(!bys[v]) bys[v] = c; });
+    const twoNat = cards.find(c => c.s === s && c.r === '2'); if(twoNat && !bys[2]) bys[2] = twoNat;
+    if(bys[1]) bys[14] = bys[1];
+    let run = [];
+    for(let v=1; v<=15; v++){
+      if(bys[v] && !(v === 14 && run.length && run[0] === bys[1])) run.push(bys[v]);
+      else { if(run.length >= 3) res.push(run); run = bys[v] ? [bys[v]] : []; }
+    }
+  }
+  return res.sort((a,b) => b.length - a.length);
+}
+function botPlay(st, seat){
+  const h = st.hands[seat], t = teamOfN(seat, st.n), melds = st.melds[t], opp = st.melds[1-t];
+  if(st.phase === 'roundEnd') return {t:'next'};
+  if(st.phase === 'draw'){
+    const top = st.lixo[st.lixo.length-1];
+    if(top){
+      const fits = melds.some(m => canastraMeld(m.concat([top]))) && top.r !== '2';
+      const forms = runsIn(h.concat([top])).some(r => r.includes(top));
+      if(fits || forms || (st.lixo.length >= 5 && h.length < 14)) return {t:'lixo'};
+    }
+    return {t:'monte'};
+  }
+  const okLeave = (k, after) => h.length - k >= 2 || canEmpty(st, seat, after);
+  // 1) encaixar cartas naturais nos nossos jogos
+  for(let mi=0; mi<melds.length; mi++){
+    for(const c of h){ if(c.r === '2') continue;
+      const r = canastraMeld(melds[mi].concat([c])); if(r && !(r.wild && !canastraMeld(melds[mi]).wild && melds[mi].length < 6)){
+        const after = melds.map((x,i) => i === mi ? x.concat([c]) : x);
+        if(!okLeave(1, after)) continue;
+        return {t:'add', m:mi, ids:[c.id]}; } }
+  }
+  // 2) baixar sequências novas
+  const runs = runsIn(h);
+  for(const r of runs){ if(okLeave(r.length, melds.concat([r]))) return {t:'meld', ids:r.map(c => c.id)}; }
+  // 3) usar curinga para completar/aproximar canastra
+  const two = h.find(c => c.r === '2');
+  if(two && h.length > 2){
+    for(let mi=0; mi<melds.length; mi++){ const m = melds[mi];
+      if(m.length >= 5 && !canastraMeld(m).wild && (hasLimpa(melds) || m.length >= 6) && canastraMeld(m.concat([two])) && okLeave(1, melds.map((x,i) => i === mi ? x.concat([two]) : x))) return {t:'add', m:mi, ids:[two.id]}; }
+    // dois naturais com buraco de 1 + curinga
+    for(const s of ['♣','♥','♠','♦']){ const cs = h.filter(c => c.s === s && c.r !== '2');
+      for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++){ const g = canastraMeld([cs[i], cs[j], two]); if(g && h.length > 6 && okLeave(3, melds.concat([[cs[i], cs[j], two]]))) return {t:'meld', ids:[cs[i].id, cs[j].id, two.id]}; } }
+  }
+  // 4) descartar
+  let best = null;
+  for(const c of h){
+    let sc = 0;
+    if(c.r === '2') sc += 100;
+    if(opp.some(m => canastraMeld(m.concat([c])))) sc += 60;
+    if(melds.some(m => canastraMeld(m.concat([c])))) sc += 40;
+    h.forEach(o => { if(o !== c && o.s === c.s && o.r !== '2'){ const d = Math.abs(RV13(o.r) - RV13(c.r)); if(d === 1) sc += 14; else if(d === 2) sc += 7; } });
+    sc -= canastraPts(c) * 0.3; sc += Math.random();
+    if(!best || sc < best.sc) best = {c, sc};
+  }
+  return {t:'discard', id:best.c.id};
+}
+/* ---------------------------- jogo ---------------------------- */
+Mesa.run({
+  id:'canastra', name:'Canastra', icon:'🎴', tagline:'Em duplas ou mano a mano',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['4','4 (duplas)'],['2','2 (mano a mano)']]},
+    {key:'meta', label:'Partida até', default:'1500', choices:[['1000','1.000 pontos'],['1500','1.500 pontos'],['3000','3.000 pontos']]}
+  ],
+  seats: o => +o.seats === 2 ? 2 : 4,
+  team: (s, n) => teamOfN(s, n),
+  seatLabel: (s, n) => n === 4 ? 'Dupla ' + (s % 2 + 1) : 'Jogador ' + (s+1),
+  modeLabel: o => 'ATÉ ' + o.meta,
+  setup(players, o){ const st = {names:players.map(p => p.name), n:players.length, scores:[0,0], meta:+o.meta || 1500, round:1, starter:Math.floor(Math.random()*players.length)}; newRound(st); return st; },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Rodada 1 — começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){ return (st.phase === 'draw' || st.phase === 'play') ? [st.turn] : st.phase === 'roundEnd' ? [0] : []; },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = st.scores[0] === st.scores[1] ? null : (st.scores[0] > st.scores[1] ? 0 : 1);
+    const seats = w == null ? [] : st.names.map((_,i) => i).filter(i => teamOfN(i, st.n) === w);
+    return {winners:seats, draw:w == null, text:`Placar final: <b>${st.scores[0]}</b> × <b>${st.scores[1]}</b>`};
+  },
+  apply(st, seat, a){
+    if(!a) return {ok:false};
+    const ev = [];
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(st.scores.some(s => s >= st.meta)){ st.phase = 'end'; return {events:[]}; }
+      st.round++; st.starter++; newRound(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Rodada ${st.round} — começa ${esc(st.names[st.turn])}.`}]};
+    }
+    if(seat !== st.turn) return {ok:false};
+    const h = st.hands[seat], t = teamOfN(seat, st.n);
+    if(st.phase === 'draw'){
+      if(a.t === 'monte'){
+        if(!st.monte.length){
+          if(st.mortos.length){ st.monte = st.mortos.shift(); ev.push({k:'log', text:'O monte acabou: um morto virou monte.'}); }
+          else { ev.push({k:'log', text:'O monte acabou.'}); endRound(st, ev); return {events:ev}; }
+        }
+        const c = st.monte.pop(); h.push(c); st.lastDraw = [c.id];
+      } else if(a.t === 'lixo'){
+        if(!st.lixo.length) return {ok:false, err:'O lixo está vazio.'};
+        st.lastDraw = st.lixo.map(c => c.id);
+        ev.push({k:'log', text:`${esc(st.names[seat])} pegou o lixo (${st.lixo.length} carta${st.lixo.length>1?'s':''}).`});
+        h.push(...st.lixo); st.lixo = [];
+      } else return {ok:false, err:'Primeiro compre: monte ou lixo.'};
+      st.phase = 'play';
+      return {events:ev.concat([{k:'snd', s:'card'}])};
+    }
+    // fase de jogar
+    if(a.t === 'meld' || a.t === 'add'){
+      const cards = takeIds(h, a.ids || []); if(!cards || !cards.length) return {ok:false};
+      let after;
+      if(a.t === 'meld'){ if(!canastraMeld(cards)) return {ok:false, err:'Jogo inválido: precisa de 3+ cartas seguidas do mesmo naipe (no máximo um 2 como curinga).'}; after = st.melds[t].concat([cards]); }
+      else { const m = st.melds[t][a.m]; if(!m) return {ok:false}; if(!canastraMeld(m.concat(cards))) return {ok:false, err:'Essas cartas não encaixam nesse jogo.'};
+        after = st.melds[t].map((x,i) => i === a.m ? x.concat(cards) : x); }
+      if(h.length - cards.length < 2 && !canEmpty(st, seat, after)) return {ok:false, err:'Guarde pelo menos 2 cartas (uma para descartar): para bater a dupla precisa ter pego o morto e ter uma canastra limpa.'};
+      cards.forEach(c => h.splice(h.indexOf(c), 1));
+      const before = a.t === 'add' ? st.melds[t][a.m].length : 0;
+      st.melds[t] = after;
+      const now = a.t === 'add' ? after[a.m] : cards;
+      ev.push({k:'snd', s:'card'});
+      if(now.length >= 7 && before < 7) ev.push({k:'banner', text: canastraMeld(now).wild ? 'CANASTRA SUJA!' : 'CANASTRA LIMPA!'}, {k:'snd', s:'win'});
+      if(!h.length) onEmpty(st, seat, ev, false);
+      return {events:ev};
+    }
+    if(a.t === 'discard'){
+      const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false};
+      if(h.length === 1 && !canEmpty(st, seat)) return {ok:false, err:'Não dá para descartar a última carta: para bater precisa ter pego o morto e ter uma canastra limpa.'};
+      const [c] = h.splice(i,1); st.lixo.push(c); ev.push({k:'snd', s:'card'});
+      if(!h.length){ const r = onEmpty(st, seat, ev, true); if(r === 'bateu') return {events:ev}; }
+      st.phase = 'draw'; st.turn = (st.turn + 1) % st.n; st.lastDraw = null;
+      return {events:ev};
+    }
+    return {ok:false};
+  },
+  bot(st, seat){ return botPlay(st, seat); },
+  botDelay(st){ return st.phase === 'roundEnd' ? 4200 : st.phase === 'draw' ? 700 : 520; },
+  view(st, seat){
+    const t = seat >= 0 ? teamOfN(seat, st.n) : 0;
+    return {names:st.names, n:st.n, team:t, turn:st.turn, phase:st.phase, round:st.round, scores:st.scores, meta:st.meta,
+      hand: seat >= 0 ? st.hands[seat] : [], counts:st.hands.map(h => h.length), monte:st.monte.length, mortos:st.mortos.length, mortoTaken:st.mortoTaken,
+      melds:st.melds, lixo:st.lixo.slice(-3), lixoN:st.lixo.length, breakdown:st.breakdown, lastDraw: seat === st.turn ? st.lastDraw : null,
+      canEmptyNow: seat >= 0 ? canEmpty(st, seat) : false};
+  },
+  topInfo(g){ return `<div class="sc">Nós <span style="color:var(--nos)">${g.scores[g.team]}</span> × <span style="color:var(--eles)">${g.scores[1-g.team]}</span> Eles · até ${g.meta}</div>`; },
+  rules:`<p>Versão brasileira no estilo <b>buraco</b>.</p>
+  <h3>Cartas</h3><p>Dois baralhos (104 cartas). Cada jogador recebe 11 cartas, e são separados <b>dois mortos</b> de 11 cartas. Uma carta abre o lixo.</p>
+  <h3>Jogos</h3><ul><li>Só valem <b>sequências do mesmo naipe</b> com 3 ou mais cartas (ex.: 5♥ 6♥ 7♥). O Ás vale como A-2-3 ou Q-K-A.</li>
+  <li>O <b>2 é curinga</b>: pode ocupar o lugar de qualquer carta, mas só <b>um curinga por jogo</b>. Um 2 do mesmo naipe na posição dele (A-2-3) é natural.</li>
+  <li><b>Canastra</b> = jogo com 7 cartas ou mais: <b>limpa</b> (sem curinga) vale +200, <b>suja</b> (com curinga) +100.</li></ul>
+  <h3>Sua vez</h3><ol><li>Compre <b>uma carta do monte</b> ou pegue <b>o lixo inteiro</b>.</li><li>Baixe jogos novos e/ou encaixe cartas nos jogos da sua dupla (toque nas cartas e depois no jogo).</li><li>Descarte uma carta.</li></ol>
+  <h3>Morto e batida</h3><ul><li>Quem acabar com as cartas primeiro pega o <b>morto</b> da dupla e continua jogando com ele.</li>
+  <li>Para <b>bater</b> (acabar as cartas de vez), a dupla precisa já ter pego o morto e ter pelo menos <b>uma canastra limpa</b>. Batida vale +100.</li>
+  <li>A rodada também acaba se o monte terminar (os mortos que sobrarem viram monte antes).</li></ul>
+  <h3>Pontos</h3><table><tr><td>Ás</td><td>15</td></tr><tr><td>2 (curinga)</td><td>10</td></tr><tr><td>8, 9, 10, J, Q, K</td><td>10</td></tr><tr><td>3 a 7</td><td>5</td></tr></table>
+  <p>Somam as cartas baixadas + bônus de canastras + batida. Diminuem as cartas que ficaram na mão, e a dupla que não pegou o morto perde 100.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me, myT = g.team;
+    const W = st.clientWidth;
+    const cw = Math.floor(clamp((W - 24) / (Math.max(g.hand.length, 8) * 0.58 + 0.5), 38, 70)); st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.opps')){
+      st.innerHTML = `<div class="opps" id="opps"></div>
+        <div class="area eles"><h4><span>JOGOS DELES</span><span id="mtE"></span></h4><div class="mrow" id="mE"></div></div>
+        <div class="mid"><div class="pilebox"><div id="pM"></div><span id="nM"></span></div><div class="pilebox"><div class="lixofan" id="pL"></div><span id="nL"></span></div></div>
+        <div class="area nos"><h4><span>NOSSOS JOGOS</span><span id="mtN"></span></h4><div class="mrow" id="mN"></div></div>
+        <div class="status" id="st"></div><div class="myhand" id="mh" data-seat="${me}"></div><div class="ctl" id="ctl"></div>`;
+      csel = new Set();
+    }
+    const myTurn = v.waiting.includes(me) && (g.phase === 'draw' || g.phase === 'play');
+    csel = new Set([...csel].filter(id => g.hand.some(c => c.id === id)));
+    if(!myTurn || g.phase !== 'play') { if(g.phase !== 'play') csel.clear(); }
+    let oh = '';
+    for(let k=1;k<g.n;k++){ const i = (me + k) % g.n; const ti = teamOfN(i, g.n);
+      oh += `<div class="opp t${ti === myT ? 0 : 1} ${g.turn === i ? 'vez' : ''}" data-seat="${i}">${esc(g.names[i])}${g.n === 4 && ti === myT ? ' (parceiro)' : ''} · 🂠 ${g.counts[i]}</div>`; }
+    $('#opps').innerHTML = oh;
+    const meldHTML = (melds, mine) => melds.map((m,mi) => { const r = canastraMeld(m) || {order:m, wild:false};
+      const tag = m.length >= 7 ? `<span class="tagc ${r.wild ? 'suja' : 'limpa'}">${r.wild ? 'SUJA' : 'LIMPA'}</span>` : `<span class="tagc">${m.length}</span>`;
+      return `<div class="meld" data-m="${mi}" data-mine="${mine?1:0}">${r.order.map(c => cardEl(c).outerHTML).join('')}${tag}</div>`; }).join('') || '<span style="font-size:12px;opacity:.5">nenhum jogo ainda</span>';
+    $('#mN').innerHTML = meldHTML(g.melds[myT], true); $('#mE').innerHTML = meldHTML(g.melds[1-myT], false);
+    $('#mtN').textContent = g.mortoTaken[myT] ? '✓ pegou o morto' : (g.mortos ? 'morto disponível' : '');
+    $('#mtE').textContent = g.mortoTaken[1-myT] ? '✓ pegou o morto' : '';
+    // selecionadas cabem em qual jogo?
+    const selCards = g.hand.filter(c => csel.has(c.id));
+    $$('#mN .meld').forEach(el => { const m = g.melds[myT][+el.dataset.m];
+      if(myTurn && g.phase === 'play' && selCards.length && canastraMeld(m.concat(selCards))){ el.classList.add('can'); el.onclick = () => { ui.act({t:'add', m:+el.dataset.m, ids:selCards.map(c => c.id)}); csel.clear(); }; } });
+    // monte e lixo
+    const pm = $('#pM'); pm.innerHTML = ''; const mc = cardEl(null, {back:true}); if(myTurn && g.phase === 'draw'){ mc.classList.add('go'); mc.onclick = () => ui.act({t:'monte'}); } pm.appendChild(mc);
+    $('#nM').textContent = `Monte ${g.monte} · Mortos ${g.mortos}`;
+    const pl = $('#pL'); pl.innerHTML = '';
+    if(g.lixo.length) g.lixo.forEach((c,i) => { const el = cardEl(c); if(i === g.lixo.length-1 && myTurn && g.phase === 'draw'){ el.classList.add('go'); el.onclick = () => ui.act({t:'lixo'}); } pl.appendChild(el); });
+    else pl.appendChild(Object.assign(document.createElement('div'), {className:'card slot'}));
+    $('#nL').textContent = `Lixo (${g.lixoN})`;
+    // mão
+    const mh = $('#mh'); const prev = new Set($$('.card', mh).map(e => e.dataset.id)); mh.innerHTML = '';
+    sortH(g.hand).forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      if(csel.has(c.id)) el.classList.add('sel');
+      if(g.lastDraw && g.lastDraw.includes(c.id)) el.classList.add('hl');
+      el.onclick = () => { if(!(myTurn && g.phase === 'play')) return; csel.has(c.id) ? csel.delete(c.id) : csel.add(c.id); ui.rerender(); };
+      mh.appendChild(el);
+      if(prev.size && !prev.has(c.id)) flyFrom(el, $('#pM').getBoundingClientRect());
+    });
+    // status e botões
+    let s = '';
+    if(g.phase === 'roundEnd'){
+      const b = g.breakdown; const row = (lbl, k) => `<tr><td>${lbl}</td><td>${b[myT][k]}</td><td>${b[1-myT][k]}</td></tr>`;
+      s = 'Fim da rodada';
+      if(modalTag !== 'round' && b){ modal(`<h2>Fim da rodada ${g.round}</h2><table><tr><th></th><th>Nós</th><th>Eles</th></tr>${row('Cartas baixadas','meldPts')}${row('Canastras','bonus')}${row('Batida','bat')}${row('Cartas na mão (−)','handPts')}${row('Morto','morto')}
+        <tr><th>Rodada</th><th>${b[myT].total}</th><th>${b[1-myT].total}</th></tr><tr><th>Placar</th><th>${g.scores[myT]}</th><th>${g.scores[1-myT]}</th></tr></table>`,
+        v.waiting.includes(me) ? [{label:'Próxima rodada ▶', fn:() => ui.act({t:'next'})}] : [{label:'OK'}], 'round'); }
+    } else if(modalTag === 'round') closeModal();
+    if(g.phase === 'draw') s = myTurn ? 'Sua vez: compre do monte ou pegue o lixo' : 'Vez de ' + g.names[g.turn];
+    if(g.phase === 'play') s = myTurn ? (csel.size ? `${csel.size} selecionada(s): baixe um jogo, toque num jogo azul ou descarte` : 'Selecione cartas para baixar, encaixar ou descartar') : 'Vez de ' + g.names[g.turn];
+    $('#st').textContent = s;
+    let ch = '';
+    if(myTurn && g.phase === 'play'){
+      const valid = selCards.length >= 3 && !!canastraMeld(selCards);
+      ch += `<button class="b-ok" id="bMeld" ${valid ? '' : 'disabled'}>Baixar jogo</button>`;
+      ch += `<button class="b-no" id="bDisc" ${selCards.length === 1 ? '' : 'disabled'}>Descartar</button>`;
+      if(csel.size) ch += `<button class="tbtn" id="bClr">Limpar</button>`;
+    }
+    $('#ctl').innerHTML = ch;
+    if($('#bMeld')) $('#bMeld').onclick = () => { ui.act({t:'meld', ids:selCards.map(c => c.id)}); csel.clear(); };
+    if($('#bDisc')) $('#bDisc').onclick = () => { ui.act({t:'discard', id:selCards[0].id}); csel.clear(); };
+    if($('#bClr')) $('#bClr').onclick = () => { csel.clear(); ui.rerender(); };
+  }
+});
+let csel = new Set();
+</script>
+</body>
+</html>

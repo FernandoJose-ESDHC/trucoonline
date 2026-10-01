@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Xadrez</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;gap:16px;padding:10px;flex-wrap:wrap;overflow:auto}
+.bwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.board{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:6px solid #3b2a18;border-radius:6px;box-shadow:0 14px 30px rgba(0,0,0,.5)}
+.sq{width:var(--sq);height:var(--sq);position:relative;display:grid;place-items:center;cursor:pointer;font-size:calc(var(--sq)*.78);line-height:1}
+.sq.l{background:#eedab4} .sq.d{background:#b07d4f}
+.sq.last{box-shadow:inset 0 0 0 100px rgba(231,180,58,.38)}
+.sq.sel{box-shadow:inset 0 0 0 100px rgba(90,176,255,.55)}
+.sq.chk{background:radial-gradient(circle,#ff4d4d 0%,#c0182b 45%,transparent 75%)}
+.sq.tg::after{content:"";width:28%;height:28%;border-radius:50%;background:rgba(10,65,40,.45)}
+.sq.tg.cap::after{width:88%;height:88%;background:transparent;border:5px solid rgba(10,65,40,.45);box-sizing:border-box}
+.pc{position:relative;z-index:1;pointer-events:none;user-select:none}
+.pc.w{color:#fff;text-shadow:0 0 1px #000,0 0 1px #000,0 0 2px #000,0 2px 3px rgba(0,0,0,.6)}
+.pc.b{color:#1d1d1d;text-shadow:0 0 1px #fff4,0 2px 3px rgba(0,0,0,.5)}
+.coord{position:absolute;font-size:calc(var(--sq)*.17);font-weight:800;opacity:.75;pointer-events:none}
+.coord.f{right:3px;bottom:1px} .coord.r{left:3px;top:1px}
+.sq.l .coord{color:#b07d4f} .sq.d .coord{color:#eedab4}
+.pbar{display:flex;align-items:center;gap:8px;width:calc(var(--sq)*8 + 12px);justify-content:space-between}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.caps{font-size:calc(var(--sq)*.36);letter-spacing:-2px;min-height:1em}
+.side{width:230px;max-height:calc(var(--sq)*8);display:flex;flex-direction:column;gap:8px}
+.mlist{background:rgba(0,0,0,.3);border-radius:10px;padding:8px;overflow:auto;font-size:13.5px;line-height:1.6;flex:1;min-height:60px;font-family:ui-monospace,monospace}
+.mlist span{display:inline-block;min-width:62px}
+@media (max-width:760px){ .side{width:calc(var(--sq)*8 + 12px);max-height:120px} }
+.promo{display:flex;gap:10px;justify-content:center;font-size:52px}
+.promo button{background:#eedab4;border:none;border-radius:10px;width:70px;height:70px;cursor:pointer;font-size:52px;line-height:1}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================ MOTOR DE XADREZ ============================ */
+const N=-8,S=8,E=1,W=-1;
+const DIRS = {N:[-17,-15,-10,-6,6,10,15,17], B:[-9,-7,7,9], R:[-8,-1,1,8], Q:[-9,-8,-7,-1,1,7,8,9], K:[-9,-8,-7,-1,1,7,8,9]};
+const colOf = p => p ? (p === p.toUpperCase() ? 'w' : 'b') : null;
+const fileOf = i => i & 7, rankOf = i => i >> 3;
+const sqName = i => 'abcdefgh'[fileOf(i)] + (8 - rankOf(i));
+const VAL = {P:100,N:320,B:330,R:500,Q:900,K:0};
+// tabelas de posição (ponto de vista das brancas, índice 0 = a8)
+const PST = {
+P:[0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+N:[-50,-40,-30,-30,-30,-30,-40,-50,-40,-20,0,0,0,0,-20,-40,-30,0,10,15,15,10,0,-30,-30,5,15,20,20,15,5,-30,-30,0,15,20,20,15,0,-30,-30,5,10,15,15,10,5,-30,-40,-20,0,5,5,0,-20,-40,-50,-40,-30,-30,-30,-30,-40,-50],
+B:[-20,-10,-10,-10,-10,-10,-10,-20,-10,0,0,0,0,0,0,-10,-10,0,5,10,10,5,0,-10,-10,5,5,10,10,5,5,-10,-10,0,10,10,10,10,0,-10,-10,10,10,10,10,10,10,-10,-10,5,0,0,0,0,5,-10,-20,-10,-10,-10,-10,-10,-10,-20],
+R:[0,0,0,0,0,0,0,0,5,10,10,10,10,10,10,5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,0,0,0,5,5,0,0,0],
+Q:[-20,-10,-10,-5,-5,-10,-10,-20,-10,0,0,0,0,0,0,-10,-10,0,5,5,5,5,0,-10,-5,0,5,5,5,5,0,-5,0,0,5,5,5,5,0,-5,-10,5,5,5,5,5,0,-10,-10,0,5,0,0,0,0,-10,-20,-10,-10,-5,-5,-10,-10,-20],
+K:[-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-20,-30,-30,-40,-40,-30,-30,-20,-10,-20,-20,-20,-20,-20,-20,-10,20,20,0,0,0,0,20,20,20,30,10,0,0,10,30,20]
+};
+function initial(){
+  const b = Array(64).fill('');
+  'rnbqkbnr'.split('').forEach((p,i) => { b[i] = p; b[56+i] = p.toUpperCase(); b[8+i] = 'p'; b[48+i] = 'P'; });
+  return {b, turn:'w', castle:{K:true,Q:true,k:true,q:true}, ep:-1, half:0, full:1, keys:[], san:[], last:null, caps:{w:[],b:[]}, result:null};
+}
+const keyOf = st => st.b.join(',') + st.turn + Object.entries(st.castle).filter(x=>x[1]).map(x=>x[0]).join('') + st.ep;
+function attacked(b, sq, by){
+  const f = fileOf(sq);
+  // peões
+  const pd = by === 'w' ? 8 : -8, pawn = by === 'w' ? 'P' : 'p';
+  for(const df of [-1,1]){ const s = sq + pd + df; if(s>=0 && s<64 && Math.abs(fileOf(s)-f) === 1 && b[s] === pawn) return true; }
+  const kn = by === 'w' ? 'N' : 'n';
+  for(const d of DIRS.N){ const s = sq + d; if(s>=0 && s<64 && Math.abs(fileOf(s)-f) <= 2 && b[s] === kn) return true; }
+  const kg = by === 'w' ? 'K' : 'k';
+  for(const d of DIRS.K){ const s = sq + d; if(s>=0 && s<64 && Math.abs(fileOf(s)-f) <= 1 && b[s] === kg) return true; }
+  const slide = (dirs, pcs) => { for(const d of dirs){ let s = sq, pf = f; while(true){ s += d; if(s<0||s>63||Math.abs(fileOf(s)-pf)>1) break; pf = fileOf(s);
+      if(b[s]){ if(colOf(b[s]) === by && pcs.includes(b[s].toUpperCase())) return true; break; } } } return false; };
+  return slide(DIRS.B, 'BQ') || slide(DIRS.R, 'RQ');
+}
+function pseudo(st){
+  const b = st.b, me = st.turn, out = [];
+  for(let i=0;i<64;i++){
+    const p = b[i]; if(!p || colOf(p) !== me) continue;
+    const t = p.toUpperCase(), f = fileOf(i);
+    if(t === 'P'){
+      const d = me === 'w' ? -8 : 8, start = me === 'w' ? 6 : 1, last = me === 'w' ? 0 : 7;
+      const add = (to, flag) => { if(rankOf(to) === last) ['Q','R','B','N'].forEach(pr => out.push({from:i, to, promo:pr, flag})); else out.push({from:i, to, flag}); };
+      if(!b[i+d]){ add(i+d); if(rankOf(i) === start && !b[i+2*d]) out.push({from:i, to:i+2*d, flag:'double'}); }
+      for(const df of [-1,1]){ const to = i + d + df; if(to<0||to>63||Math.abs(fileOf(to)-f) !== 1) continue;
+        if(b[to] && colOf(b[to]) !== me) add(to, 'cap'); else if(to === st.ep) out.push({from:i, to, flag:'ep'}); }
+    } else if(t === 'N' || t === 'K'){
+      for(const d of DIRS[t]){ const to = i + d; if(to<0||to>63||Math.abs(fileOf(to)-f) > (t==='N'?2:1)) continue;
+        if(!b[to] || colOf(b[to]) !== me) out.push({from:i, to, flag:b[to] ? 'cap' : ''}); }
+      if(t === 'K'){
+        const opp = me === 'w' ? 'b' : 'w', home = me === 'w' ? 60 : 4, c = st.castle;
+        if(i === home && !attacked(b, i, opp)){
+          const K = me === 'w' ? 'K' : 'k', Q = me === 'w' ? 'Q' : 'q';
+          if(c[K] && !b[i+1] && !b[i+2] && b[i+3] === (me==='w'?'R':'r') && !attacked(b,i+1,opp) && !attacked(b,i+2,opp)) out.push({from:i, to:i+2, flag:'castle'});
+          if(c[Q] && !b[i-1] && !b[i-2] && !b[i-3] && b[i-4] === (me==='w'?'R':'r') && !attacked(b,i-1,opp) && !attacked(b,i-2,opp)) out.push({from:i, to:i-2, flag:'castle'});
+        }
+      }
+    } else {
+      for(const d of DIRS[t]){ let s = i, pf = f; while(true){ s += d; if(s<0||s>63||Math.abs(fileOf(s)-pf)>1) break; pf = fileOf(s);
+        if(!b[s]) out.push({from:i, to:s, flag:''}); else { if(colOf(b[s]) !== me) out.push({from:i, to:s, flag:'cap'}); break; } } }
+    }
+  }
+  return out;
+}
+function make(st, m){
+  const b = st.b.slice(), me = st.turn, p = b[m.from];
+  let cap = b[m.to];
+  b[m.to] = m.promo ? (me === 'w' ? m.promo : m.promo.toLowerCase()) : p; b[m.from] = '';
+  if(m.flag === 'ep'){ const cs = m.to + (me === 'w' ? 8 : -8); cap = b[cs]; b[cs] = ''; }
+  if(m.flag === 'castle'){ if(m.to > m.from){ b[m.to-1] = b[m.to+1]; b[m.to+1] = ''; } else { b[m.to+1] = b[m.to-2]; b[m.to-2] = ''; } }
+  const castle = Object.assign({}, st.castle);
+  if(p === 'K'){ castle.K = castle.Q = false; } if(p === 'k'){ castle.k = castle.q = false; }
+  [[63,'K'],[56,'Q'],[7,'k'],[0,'q']].forEach(([s,k]) => { if(m.from === s || m.to === s) castle[k] = false; });
+  return {b, turn: me === 'w' ? 'b' : 'w', castle, ep: m.flag === 'double' ? (m.from + m.to)/2 : -1,
+          half: (p.toUpperCase() === 'P' || cap) ? 0 : st.half + 1, full: st.full + (me === 'b' ? 1 : 0), cap};
+}
+const kingSq = (b, c) => b.indexOf(c === 'w' ? 'K' : 'k');
+function legal(st){
+  return pseudo(st).filter(m => { const n = make(st, m); return !attacked(n.b, kingSq(n.b, st.turn), n.turn); });
+}
+const inCheck = st => attacked(st.b, kingSq(st.b, st.turn), st.turn === 'w' ? 'b' : 'w');
+function insufficient(b){
+  const ps = b.filter(Boolean).map(x => x.toUpperCase()).filter(x => x !== 'K');
+  return ps.length === 0 || (ps.length === 1 && (ps[0] === 'B' || ps[0] === 'N'));
+}
+function sanOf(st, m, all){
+  const p = st.b[m.from].toUpperCase();
+  if(m.flag === 'castle') return m.to > m.from ? 'O-O' : 'O-O-O';
+  let s = '';
+  const cap = st.b[m.to] || m.flag === 'ep';
+  if(p === 'P') s = (cap ? 'abcdefgh'[fileOf(m.from)] + 'x' : '') + sqName(m.to) + (m.promo ? '=' + m.promo : '');
+  else {
+    const amb = all.filter(o => o !== m && o.to === m.to && st.b[o.from] === st.b[m.from]);
+    let dis = ''; if(amb.length) dis = amb.some(o => fileOf(o.from) === fileOf(m.from)) ? String(8 - rankOf(m.from)) : 'abcdefgh'[fileOf(m.from)];
+    s = p + dis + (cap ? 'x' : '') + sqName(m.to);
+  }
+  const n = Object.assign({}, st, make(st, m)); const ls = legal(n);
+  if(inCheck(n)) s += ls.length ? '+' : '#';
+  return s;
+}
+/* -------- bot: negamax alfa-beta com quiescência -------- */
+function evalB(b){
+  let s = 0;
+  for(let i=0;i<64;i++){ const p = b[i]; if(!p) continue; const t = p.toUpperCase();
+    if(p === t) s += VAL[t] + PST[t][i]; else s -= VAL[t] + PST[t][(7 - rankOf(i))*8 + fileOf(i)]; }
+  return s;
+}
+const mvv = (b, m) => (m.flag === 'cap' || m.flag === 'ep' ? 10*VAL[(b[m.to]||'P').toUpperCase()] - VAL[b[m.from].toUpperCase()] : 0) + (m.promo === 'Q' ? 800 : 0);
+let nodes = 0;
+function quiesce(st, alpha, beta, sign, depth){
+  nodes++;
+  const stand = sign * evalB(st.b);
+  if(stand >= beta) return beta; if(stand > alpha) alpha = stand;
+  if(depth <= 0) return alpha;
+  const ms = pseudo(st).filter(m => m.flag === 'cap' || m.flag === 'ep' || m.promo === 'Q').sort((x,y) => mvv(st.b,y) - mvv(st.b,x));
+  for(const m of ms){
+    const n = make(st, m); if(attacked(n.b, kingSq(n.b, st.turn), n.turn)) continue;
+    const sc = -quiesce(n, -beta, -alpha, -sign, depth-1);
+    if(sc >= beta) return beta; if(sc > alpha) alpha = sc;
+  }
+  return alpha;
+}
+function negamax(st, depth, alpha, beta, sign, ply){
+  nodes++;
+  if(depth === 0) return quiesce(st, alpha, beta, sign, 4);
+  const ms = legal(st);
+  if(!ms.length) return inCheck(st) ? -100000 + ply : 0;
+  ms.sort((x,y) => mvv(st.b,y) - mvv(st.b,x));
+  for(const m of ms){
+    const sc = -negamax(make(st, m), depth-1, -beta, -alpha, -sign, ply+1);
+    if(sc >= beta) return beta; if(sc > alpha) alpha = sc;
+  }
+  return alpha;
+}
+function botMove(st, diff){
+  const ms = legal(st); if(!ms.length) return null;
+  const depth = diff === 'facil' ? 1 : diff === 'normal' ? 2 : 3;
+  const sign = st.turn === 'w' ? 1 : -1;
+  nodes = 0;
+  let scored = ms.map(m => { const n = make(st, m); n.keys = st.keys;
+    let sc = -negamax(n, depth-1, -1e9, 1e9, -sign, 1);
+    if(st.keys.filter(k => k === keyOf(Object.assign({}, st, n))).length >= 2) sc = Math.min(sc, 0); // evita repetir quando está ganhando
+    return {m, sc: sc + Math.random()*(diff === 'facil' ? 120 : 8)}; });
+  scored.sort((a,b) => b.sc - a.sc);
+  if(diff === 'facil' && Math.random() < 0.25) return pick(scored.slice(0, 4)).m;
+  return scored[0].m;
+}
+/* ============================ DEFINIÇÃO DO JOGO ============================ */
+const GLYPH = {K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'};
+const glyph = p => GLYPH[p.toUpperCase()] + '︎';
+const colorOfSeat = (st, seat) => st.colors[seat];
+
+Mesa.run({
+  id:'xadrez', name:'Xadrez', icon:'♟️', players:2, tagline:'Online ou contra o computador',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'cor', label:'Você joga de', default:'w', choices:[['w','Brancas'],['b','Pretas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? (s ? 'Jogador 2' : 'Jogador 1') : ((s === 0) === (o.cor !== 'b') ? 'Brancas' : 'Pretas'),
+  setup(players, o){
+    const st = initial();
+    let c0 = o.cor === 'b' ? 'b' : o.cor === 'r' ? pick(['w','b']) : 'w';
+    st.colors = [c0, c0 === 'w' ? 'b' : 'w']; st.names = players.map(p => p.name);
+    st.keys = [keyOf(st)];
+    return st;
+  },
+  startEvents(st){ return [{k:'log', text:`${esc(st.names[st.colors.indexOf('w')])} joga de brancas.`}]; },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a) return {ok:false};
+    if(a.t === 'resign'){
+      const win = 1 - seat;
+      st.result = {winners:[win], text:`${esc(st.names[seat])} abandonou. Vitória de ${esc(st.names[win])}.`};
+      return {events:[{k:'log', text:`${esc(st.names[seat])} abandonou a partida.`}]};
+    }
+    const ms = legal(st);
+    const m = ms.find(x => x.from === a.from && x.to === a.to && (!x.promo || x.promo === (a.promo || 'Q')));
+    if(!m) return {ok:false, err:'Movimento inválido.'};
+    const san = sanOf(st, m, ms);
+    const n = make(st, m);
+    if(n.cap) st.caps[st.turn].push(n.cap);
+    Object.assign(st, {b:n.b, turn:n.turn, castle:n.castle, ep:n.ep, half:n.half, full:n.full});
+    st.last = {from:m.from, to:m.to};
+    st.san.push(san);
+    const k = keyOf(st); st.keys.push(k);
+    const ls = legal(st), ev = [{k:'snd', s: n.cap ? 'capture' : 'move'}];
+    const mover = 1 - st.colors.indexOf(st.turn);
+    if(!ls.length){
+      if(inCheck(st)) st.result = {winners:[mover], text:`<b>Xeque-mate!</b> ${esc(st.names[mover])} venceu com ${st.turn === 'w' ? 'as pretas' : 'as brancas'}.`};
+      else st.result = {draw:true, winners:[], text:'<b>Afogamento</b> (rei sem lances e fora de xeque): empate.'};
+    } else if(st.half >= 100) st.result = {draw:true, winners:[], text:'Empate pela regra dos 50 lances.'};
+    else if(st.keys.filter(x => x === k).length >= 3) st.result = {draw:true, winners:[], text:'Empate por repetição de posição (3 vezes).'};
+    else if(insufficient(st.b)) st.result = {draw:true, winners:[], text:'Empate: material insuficiente para dar mate.'};
+    else if(inCheck(st)) ev.push({k:'banner', text:'XEQUE!'}, {k:'snd', s:'alert'});
+    return {events:ev};
+  },
+  bot(st, seat, o){ const m = botMove(st, o.diff); return m ? {from:m.from, to:m.to, promo:m.promo} : {t:'resign'}; },
+  botDelay(st, s, o){ return o.diff === 'dificil' ? 250 : 550; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 'w';
+    return { b:st.b, turn:st.turn, my, last:st.last, check: inCheck(st) ? kingSq(st.b, st.turn) : -1, san:st.san, caps:st.caps, names:st.names, colors:st.colors,
+      moves: (seat >= 0 && st.turn === my && !st.result) ? legal(st).map(m => [m.from, m.to, m.promo || '']) : [] };
+  },
+  topInfo(g){ return `<div class="status">${g.turn === g.my ? 'Sua vez' : 'Vez do adversário'} · lance ${Math.floor(g.san.length/2)+1}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Dar <b>xeque-mate</b>: atacar o rei adversário de forma que ele não tenha como escapar.</p>
+  <h3>Movimentos</h3><ul>
+  <li><b>Rei</b>: uma casa em qualquer direção.</li><li><b>Dama</b>: quantas casas quiser em linha reta ou diagonal.</li>
+  <li><b>Torre</b>: linha reta. <b>Bispo</b>: diagonal. <b>Cavalo</b>: em "L", pulando peças.</li>
+  <li><b>Peão</b>: anda 1 casa para frente (2 no primeiro lance) e captura na diagonal.</li></ul>
+  <h3>Lances especiais</h3><ul>
+  <li><b>Roque</b>: rei anda 2 casas para o lado da torre, que pula para o outro lado dele. Só se nenhum dos dois se moveu, sem peças no meio e o rei não estiver em xeque nem passar por casa atacada.</li>
+  <li><b>En passant</b>: se um peão adversário avança 2 casas e para ao lado do seu, você pode capturá-lo como se tivesse andado 1, só no lance seguinte.</li>
+  <li><b>Promoção</b>: peão que chega na última fileira vira dama, torre, bispo ou cavalo.</li></ul>
+  <h3>Empates</h3><ul><li>Afogamento (sem lances legais e fora de xeque).</li><li>Mesma posição 3 vezes.</li><li>50 lances sem captura nem movimento de peão.</li><li>Material insuficiente (só reis, ou rei + bispo/cavalo).</li></ul>
+  <h3>Como jogar aqui</h3><p>Toque numa peça sua para ver os lances possíveis e toque no destino. O botão 🏳️ abandona a partida.</p>`,
+  render(g, v, ui){
+    const st = ui.stage;
+    const avail = Math.min(st.clientWidth - (st.clientWidth > 760 ? 270 : 20), st.clientHeight - (st.clientWidth > 760 ? 90 : 230));
+    const sq = Math.floor(clamp(avail / 8 - 1.5, 30, 80));
+    st.style.setProperty('--sq', sq + 'px');
+    const flip = g.my === 'b';
+    if(!st.querySelector('.board')){
+      st.innerHTML = `<div class="bwrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="caps" id="capTop"></span></div>
+        <div class="board" id="bd"></div><div class="pbar"><span class="nm" id="nmBot"></span><span class="caps" id="capBot"></span></div></div>
+        <div class="side"><div class="mlist" id="ml"></div><button class="tbtn" id="bRes">🏳️ Abandonar</button></div>`;
+      $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      sel = -1;
+    }
+    const myTurn = g.moves.length > 0;
+    if(!myTurn) sel = -1;
+    const targets = sel >= 0 ? g.moves.filter(m => m[0] === sel) : [];
+    let html = '';
+    for(let vi=0; vi<64; vi++){
+      const i = flip ? 63 - vi : vi;
+      const light = (fileOf(i) + rankOf(i)) % 2 === 0, p = g.b[i];
+      const cls = ['sq', light ? 'l' : 'd'];
+      if(g.last && (g.last.from === i || g.last.to === i)) cls.push('last');
+      if(i === sel) cls.push('sel');
+      if(i === g.check) cls.push('chk');
+      const t = targets.find(m => m[1] === i); if(t){ cls.push('tg'); if(p || (g.b[sel] || '').toUpperCase() === 'P' && fileOf(i) !== fileOf(sel)) cls.push('cap'); }
+      const vf = vi & 7, vr = vi >> 3;
+      html += `<div class="${cls.join(' ')}" data-i="${i}">${p ? `<span class="pc ${colOf(p)}">${glyph(p)}</span>` : ''}` +
+        (vr === 7 ? `<span class="coord f">${'abcdefgh'[fileOf(i)]}</span>` : '') + (vf === 0 ? `<span class="coord r">${8 - rankOf(i)}</span>` : '') + `</div>`;
+    }
+    const bd = $('#bd'); bd.innerHTML = html;
+    $$('.sq', bd).forEach(el => el.onclick = () => {
+      const i = +el.dataset.i;
+      if(!myTurn) return;
+      const t = targets.filter(m => m[1] === i);
+      if(t.length){
+        if(t.length > 1 || t[0][2]){
+          const c = g.my;
+          pmodal(`<h2>Promover para:</h2><div class="promo">${['Q','R','B','N'].map(x => `<button data-p="${x}"><span class="pc ${c}">${glyph(c === 'w' ? x : x.toLowerCase())}</span></button>`).join('')}</div>`, []);
+          $$('#pbox .promo button').forEach(b => b.onclick = () => { closePModal(); ui.act({from:sel, to:i, promo:b.dataset.p}); sel = -1; });
+          return;
+        }
+        ui.act({from:sel, to:i}); sel = -1; return;
+      }
+      if(g.b[i] && colOf(g.b[i]) === g.my){ sel = sel === i ? -1 : i; ui.rerender(); return; }
+      sel = -1; ui.rerender();
+    });
+    const meSeat = v.me, opSeat = 1 - meSeat;
+    const turnSeat = g.colors.indexOf(g.turn);
+    $('#nmBot').textContent = (g.my === 'w' ? '♔ ' : '♚ ') + (v.seats[meSeat] ? v.seats[meSeat].name : 'Você') + ' (você)';
+    $('#nmTop').textContent = (g.my === 'w' ? '♚ ' : '♔ ') + (v.seats[opSeat] ? v.seats[opSeat].name : '');
+    $('#nmBot').classList.toggle('vez', turnSeat === meSeat && v.phase === 'game');
+    $('#nmTop').classList.toggle('vez', turnSeat === opSeat && v.phase === 'game');
+    $('#nmBot').dataset.seat = meSeat; $('#nmTop').dataset.seat = opSeat;
+    const opC = g.my === 'w' ? 'b' : 'w';
+    $('#capBot').innerHTML = g.caps[g.my].map(p => `<span class="pc ${opC}">${glyph(p)}</span>`).join('');
+    $('#capTop').innerHTML = g.caps[opC].map(p => `<span class="pc ${g.my}">${glyph(p)}</span>`).join('');
+    let ml = ''; for(let k=0;k<g.san.length;k+=2) ml += `<div><b>${k/2+1}.</b> <span>${g.san[k]}</span> <span>${g.san[k+1] || ''}</span></div>`;
+    const mlEl = $('#ml'); mlEl.innerHTML = ml || '<i style="opacity:.6">Os lances aparecem aqui.</i>'; mlEl.scrollTop = mlEl.scrollHeight;
+    $('#bRes').disabled = v.phase !== 'game';
+  }
+});
+let sel = -1;
+</script>
+</body>
+</html>

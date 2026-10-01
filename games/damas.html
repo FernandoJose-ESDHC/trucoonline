@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Damas</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:10px;flex-direction:column;gap:8px}
+.board{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:6px solid #3b2a18;border-radius:6px;box-shadow:0 14px 30px rgba(0,0,0,.5)}
+.sq{width:var(--sq);height:var(--sq);position:relative;display:grid;place-items:center}
+.sq.l{background:#eedab4} .sq.d{background:#7a5233;cursor:pointer}
+.sq.last{box-shadow:inset 0 0 0 100px rgba(231,180,58,.35)}
+.sq.path{box-shadow:inset 0 0 0 100px rgba(90,176,255,.28)}
+.sq.tg::after{content:"";position:absolute;width:30%;height:30%;border-radius:50%;background:rgba(62,207,122,.85);box-shadow:0 0 8px rgba(62,207,122,.9)}
+.pz{width:78%;height:78%;border-radius:50%;position:relative;z-index:1;transition:transform .15s}
+.pz.w{background:radial-gradient(circle at 35% 30%,#fff,#e9e0cf 55%,#bfb29a);box-shadow:0 4px 0 #9c8f78,0 6px 10px rgba(0,0,0,.5)}
+.pz.b{background:radial-gradient(circle at 35% 30%,#d33b3b,#9b1620 60%,#5e0a10);box-shadow:0 4px 0 #3e070b,0 6px 10px rgba(0,0,0,.5)}
+.pz::before{content:"";position:absolute;inset:18%;border-radius:50%;border:2px solid rgba(0,0,0,.15)}
+.pz.k::after{content:"♛";position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--sq)*.42);color:#e7b43a;text-shadow:0 1px 2px #000}
+.pz.sel{transform:scale(1.1);box-shadow:0 0 0 4px var(--blue),0 8px 14px rgba(0,0,0,.5)}
+.pz.can{animation:pulse 1.3s infinite}
+.pbar{display:flex;justify-content:space-between;align-items:center;width:calc(var(--sq)*8 + 12px);gap:8px}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.cnt{font-weight:800;color:#ffe6a6;font-size:14px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ====================== MOTOR — DAMAS BRASILEIRAS ======================
+   Tabuleiro 8×8, casas escuras. Brancas embaixo e começam.
+   Pedra anda 1 casa para frente na diagonal e captura para frente E para trás.
+   Captura é obrigatória e vale a LEI DA MAIORIA: deve-se fazer a sequência
+   que captura mais peças. Dama anda e captura à distância ("dama voadora").
+   ===================================================================== */
+const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const inB = (r,c) => r>=0 && r<8 && c>=0 && c<8;
+const own = (p, me) => p && p.toLowerCase() === me;
+function initial(){
+  const b = Array(64).fill('');
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++) if((r+c)%2 === 1){ if(r < 3) b[r*8+c] = 'b'; else if(r > 4) b[r*8+c] = 'w'; }
+  return {b, turn:'w', last:null, quiet:0, result:null, hist:[]};
+}
+// todas as sequências de captura a partir de sq
+function captures(b, sq, me, isKing){
+  const res = [];
+  const opp = me === 'w' ? 'b' : 'w';
+  function rec(cur, taken, path){
+    let ext = false;
+    const r0 = cur >> 3, c0 = cur & 7;
+    for(const [dr,dc] of DIAG){
+      if(isKing){
+        let r = r0+dr, c = c0+dc;
+        while(inB(r,c) && !b[r*8+c]) { r += dr; c += dc; }
+        if(!inB(r,c)) continue;
+        const mid = r*8+c;
+        if(!own(b[mid], opp) || taken.includes(mid)) continue;
+        let lr = r+dr, lc = c+dc;
+        while(inB(lr,lc) && (!b[lr*8+lc] || lr*8+lc === path[0])){
+          const land = lr*8+lc;
+          if(b[land] && land !== path[0]) break;
+          ext = true; rec(land, taken.concat(mid), path.concat(land));
+          lr += dr; lc += dc;
+        }
+      } else {
+        const mr = r0+dr, mc = c0+dc, lr = r0+2*dr, lc = c0+2*dc;
+        if(!inB(lr,lc)) continue;
+        const mid = mr*8+mc, land = lr*8+lc;
+        if(own(b[mid], opp) && !taken.includes(mid) && (!b[land] || land === path[0])){ ext = true; rec(land, taken.concat(mid), path.concat(land)); }
+      }
+    }
+    if(!ext && taken.length) res.push({path, taken});
+  }
+  rec(sq, [], [sq]);
+  return res;
+}
+function legalMoves(st){
+  const b = st.b, me = st.turn;
+  let caps = [];
+  for(let i=0;i<64;i++) if(own(b[i], me)) caps = caps.concat(captures(b, i, me, b[i] === b[i].toUpperCase()));
+  if(caps.length){
+    const mx = Math.max(...caps.map(m => m.taken.length));
+    return caps.filter(m => m.taken.length === mx);
+  }
+  const out = [], fwd = me === 'w' ? -1 : 1;
+  for(let i=0;i<64;i++){
+    if(!own(b[i], me)) continue;
+    const king = b[i] === b[i].toUpperCase(), r0 = i >> 3, c0 = i & 7;
+    for(const [dr,dc] of DIAG){
+      if(!king && dr !== fwd) continue;
+      let r = r0+dr, c = c0+dc;
+      while(inB(r,c) && !b[r*8+c]){ out.push({path:[i, r*8+c], taken:[]}); if(!king) break; r += dr; c += dc; }
+    }
+  }
+  return out;
+}
+function applyMove(st, m){
+  const b = st.b.slice(), from = m.path[0], to = m.path[m.path.length-1];
+  let p = b[from]; b[from] = '';
+  m.taken.forEach(t => b[t] = '');
+  const last = st.turn === 'w' ? 0 : 7;
+  if((to >> 3) === last && p === p.toLowerCase()) p = p.toUpperCase();
+  b[to] = p;
+  const wasKingMove = st.b[from] === st.b[from].toUpperCase();
+  return {b, turn: st.turn === 'w' ? 'b' : 'w', quiet: (m.taken.length || !wasKingMove) ? 0 : st.quiet + 1};
+}
+/* ---- bot: negamax com alfa-beta ---- */
+function evalD(b){
+  let s = 0;
+  for(let i=0;i<64;i++){ const p = b[i]; if(!p) continue; const r = i >> 3, c = i & 7;
+    const center = (c >= 2 && c <= 5) ? 4 : 0;
+    if(p === 'w') s += 100 + (7 - r) * 6 + center + (r === 7 ? 8 : 0);
+    else if(p === 'b') s -= 100 + r * 6 + center + (r === 0 ? 8 : 0);
+    else if(p === 'W') s += 320; else if(p === 'B') s -= 320; }
+  return s;
+}
+function negamax(st, d, a, beta, sign){
+  const ms = legalMoves(st);
+  if(!ms.length) return -100000 - d;
+  if(d === 0 && !ms[0].taken.length) return sign * evalD(st.b);
+  if(d <= -4) return sign * evalD(st.b);
+  for(const m of ms){
+    const n = applyMove(st, m);
+    const sc = -negamax(n, d-1, -beta, -a, -sign);
+    if(sc >= beta) return beta; if(sc > a) a = sc;
+  }
+  return a;
+}
+function botMove(st, diff){
+  const ms = legalMoves(st); if(ms.length <= 1) return ms[0];
+  const depth = diff === 'facil' ? 2 : diff === 'normal' ? 4 : 6;
+  const sign = st.turn === 'w' ? 1 : -1;
+  const sc = ms.map(m => ({m, s: -negamax(applyMove(st, m), depth-1, -1e9, 1e9, -sign) + Math.random()*(diff === 'facil' ? 60 : 4)}));
+  sc.sort((x,y) => y.s - x.s);
+  if(diff === 'facil' && Math.random() < 0.3) return pick(sc.slice(0,3)).m;
+  return sc[0].m;
+}
+const count = (b, c) => b.filter(p => p && p.toLowerCase() === c).length;
+
+Mesa.run({
+  id:'damas', name:'Damas', icon:'⛀', players:2, tagline:'Damas brasileiras — online ou contra o computador',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'cor', label:'Você joga com', default:'w', choices:[['w','Brancas (começa)'],['b','Vermelhas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : ((s === 0) === (o.cor !== 'b') ? 'Brancas' : 'Vermelhas'),
+  setup(players, o){
+    const st = initial();
+    const c0 = o.cor === 'b' ? 'b' : o.cor === 'r' ? pick(['w','b']) : 'w';
+    st.colors = [c0, c0 === 'w' ? 'b' : 'w']; st.names = players.map(p => p.name);
+    return st;
+  },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a) return {ok:false};
+    if(a.t === 'resign'){ const w = 1 - seat; st.result = {winners:[w], text:`${esc(st.names[seat])} abandonou.`}; return {events:[]}; }
+    const ms = legalMoves(st);
+    const m = ms.find(x => x.path[0] === a.from && x.path[x.path.length-1] === a.to && (!a.taken || a.taken.join() === x.taken.join())) ||
+              ms.find(x => x.path[0] === a.from && x.path[x.path.length-1] === a.to);
+    if(!m){
+      if(ms.length && ms[0].taken.length) return {ok:false, err:`Captura obrigatória! (lei da maioria: ${ms[0].taken.length} peça${ms[0].taken.length>1?'s':''})`};
+      return {ok:false, err:'Movimento inválido.'};
+    }
+    const mover = seat;
+    const n = applyMove(st, m);
+    const promoted = st.b[m.path[0]] !== n.b[m.path[m.path.length-1]];
+    Object.assign(st, n); st.last = {path:m.path, taken:m.taken};
+    const ev = [{k:'snd', s: m.taken.length ? 'capture' : 'move'}];
+    if(m.taken.length > 1) ev.push({k:'banner', text:`${m.taken.length} de uma vez!`});
+    if(promoted) ev.push({k:'banner', text:'DAMA!'});
+    const next = legalMoves(st);
+    if(!next.length){
+      const reason = count(st.b, st.turn) ? 'ficou sem lances' : 'ficou sem peças';
+      st.result = {winners:[mover], text:`${esc(st.names[1-mover])} ${reason}. Vitória de <b>${esc(st.names[mover])}</b>!`};
+    } else if(st.quiet >= 40) st.result = {draw:true, winners:[], text:'Empate: 20 lances seguidos só com damas, sem captura.'};
+    return {events:ev};
+  },
+  bot(st, seat, o){ const m = botMove(st, o.diff); return {from:m.path[0], to:m.path[m.path.length-1], taken:m.taken}; },
+  botDelay(st, s, o){ return 600; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 'w';
+    return {b:st.b, turn:st.turn, my, last:st.last, colors:st.colors,
+      moves: (seat >= 0 && st.turn === my && !st.result) ? legalMoves(st).map(m => ({path:m.path, taken:m.taken})) : [],
+      cnt:{w:count(st.b,'w'), b:count(st.b,'b')}};
+  },
+  topInfo(g){ return `<div class="status">${g.turn === g.my ? 'Sua vez' : 'Vez do adversário'}${g.moves.length && g.moves[0].taken.length ? ' · captura obrigatória!' : ''}</div>`; },
+  rules:`<p>Regras das <b>damas brasileiras</b> (as mais jogadas no Brasil).</p>
+  <h3>Tabuleiro</h3><p>8×8, joga-se só nas casas escuras. Cada um começa com 12 pedras. As brancas começam.</p>
+  <h3>Pedras</h3><ul><li>Andam 1 casa na diagonal, <b>só para frente</b>.</li><li>Capturam pulando uma peça adversária vizinha para a casa vazia logo atrás — <b>para frente e para trás</b>.</li>
+  <li>Dá para emendar capturas na mesma jogada.</li></ul>
+  <h3>Captura obrigatória e lei da maioria</h3><ul><li>Se puder capturar, <b>tem que capturar</b>.</li><li>Havendo mais de um jeito, é obrigatório o que captura <b>mais peças</b>.</li>
+  <li>As peças capturadas só saem no fim da jogada e não podem ser puladas duas vezes.</li></ul>
+  <h3>Dama</h3><ul><li>A pedra que <b>termina a jogada</b> na última fileira vira dama (se só passar por ela no meio de uma captura, não vira).</li>
+  <li>A dama anda <b>quantas casas quiser</b> na diagonal, para frente e para trás, e captura à distância, podendo parar em qualquer casa vazia depois da peça capturada.</li></ul>
+  <h3>Fim</h3><ul><li>Vence quem capturar todas as peças do adversário ou deixá-lo sem lances.</li><li>Empate após 20 lances seguidos de cada lado só com damas e sem capturas.</li></ul>
+  <h3>Como jogar aqui</h3><p>Toque na sua peça (as que podem jogar piscam) e depois no destino marcado em verde.</p>`,
+  render(g, v, ui){
+    const st = ui.stage;
+    const sq = Math.floor(clamp(Math.min(st.clientWidth - 24, st.clientHeight - 110) / 8 - 1.5, 32, 80));
+    st.style.setProperty('--sq', sq + 'px');
+    const flip = g.my === 'b';
+    if(!st.querySelector('.board')){
+      st.innerHTML = `<div class="pbar"><span class="nm" id="nmTop"></span><span class="cnt" id="cTop"></span></div><div class="board" id="bd"></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><span class="cnt" id="cBot"></span><button class="tbtn" id="bRes">🏳️ Abandonar</button></div>`;
+      $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      dsel = -1;
+    }
+    if(!g.moves.length) dsel = -1;
+    const movable = new Set(g.moves.map(m => m.path[0]));
+    const mine = g.moves.filter(m => m.path[0] === dsel);
+    const tgs = new Map(mine.map(m => [m.path[m.path.length-1], m]));
+    const lastPath = g.last ? new Set(g.last.path) : new Set();
+    let html = '';
+    for(let vi=0; vi<64; vi++){
+      const i = flip ? 63 - vi : vi, dark = ((i>>3) + (i&7)) % 2 === 1, p = g.b[i];
+      const cls = ['sq', dark ? 'd' : 'l'];
+      if(lastPath.has(i)) cls.push('last');
+      if(tgs.has(i)) cls.push('tg');
+      if(dsel >= 0 && mine.some(m => m.path.includes(i) && i !== dsel && !tgs.has(i))) cls.push('path');
+      const pz = p ? `<div class="pz ${p.toLowerCase()} ${p === p.toUpperCase() ? 'k' : ''} ${i === dsel ? 'sel' : ''} ${movable.has(i) && dsel < 0 && g.moves.length ? 'can' : ''}"></div>` : '';
+      html += `<div class="${cls.join(' ')}" data-i="${i}">${pz}</div>`;
+    }
+    $('#bd').innerHTML = html;
+    $$('#bd .sq.d').forEach(el => el.onclick = () => {
+      const i = +el.dataset.i;
+      if(!g.moves.length) return;
+      if(tgs.has(i)){ const m = tgs.get(i); ui.act({from:dsel, to:i, taken:m.taken}); dsel = -1; return; }
+      if(movable.has(i)){ dsel = dsel === i ? -1 : i; ui.rerender(); return; }
+      if(g.b[i] && g.b[i].toLowerCase() === g.my){ toast(g.moves[0].taken.length ? 'Captura obrigatória com outra peça!' : 'Essa peça não tem lances.'); }
+      dsel = -1; ui.rerender();
+    });
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn);
+    const opc = g.my === 'w' ? 'b' : 'w';
+    $('#nmBot').textContent = (v.seats[me] ? v.seats[me].name : 'Você') + ' (você)'; $('#nmTop').textContent = v.seats[op] ? v.seats[op].name : '';
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', ts === me && v.phase === 'game'); $('#nmTop').classList.toggle('vez', ts === op && v.phase === 'game');
+    $('#cBot').textContent = (g.my === 'w' ? '⚪ ' : '🔴 ') + g.cnt[g.my] + ' peças'; $('#cTop').textContent = (opc === 'w' ? '⚪ ' : '🔴 ') + g.cnt[opc] + ' peças';
+    $('#bRes').disabled = v.phase !== 'game';
+  }
+});
+let dsel = -1;
+</script>
+</body>
+</html>

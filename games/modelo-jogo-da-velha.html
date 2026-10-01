@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<title>Jogo da Velha (modelo)</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+/* MODELO: um jogo completo em ~80 linhas. Copie este arquivo para criar um jogo novo. */
+#stage{display:grid;place-items:center}
+.velha{display:grid;grid-template-columns:repeat(3,96px);gap:8px}
+.velha button{width:96px;height:96px;border-radius:14px;border:none;background:rgba(0,0,0,.35);color:#fff;font-size:56px;font-weight:900;cursor:pointer}
+.velha button.x{color:var(--gold)} .velha button.o{color:var(--blue)}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const winner = b => { for(const [a,c,d] of LINES) if(b[a] && b[a] === b[c] && b[a] === b[d]) return b[a]; return null; };
+
+Mesa.run({
+  id:'velha', name:'Jogo da Velha', icon:'⭕', players:2,            // id único, nome, ícone e nº de lugares
+  seatLabel: s => s ? 'O' : 'X',
+  // 1) estado inicial da partida (roda só no anfitrião)
+  setup(players){ return {b:Array(9).fill(''), turn:0, names:players.map(p => p.name)}; },
+  // 2) quem precisa jogar agora (lista de lugares)
+  waiting(st){ return [st.turn]; },
+  // 3) aplica a jogada; devolve {ok:false, err} se for inválida
+  apply(st, seat, a){
+    if(!a || st.b[a.i] !== '' || a.i < 0 || a.i > 8) return {ok:false, err:'Casa ocupada.'};
+    st.b[a.i] = seat ? 'O' : 'X'; st.turn = 1 - seat;
+    return {events:[{k:'snd', s:'move'}]};                           // eventos: som, banner, log, say...
+  },
+  // 4) fim de jogo: null enquanto não acabou
+  over(st){
+    const w = winner(st.b);
+    if(w) return {winners:[w === 'X' ? 0 : 1], text:`${esc(st.names[w === 'X' ? 0 : 1])} venceu!`};
+    if(st.b.every(Boolean)) return {draw:true, winners:[], text:'Deu velha!'};
+    return null;
+  },
+  // 5) jogada do bot
+  bot(st, seat){
+    const me = seat ? 'O' : 'X', op = seat ? 'X' : 'O', free = st.b.map((v,i) => v ? -1 : i).filter(i => i >= 0);
+    for(const who of [me, op]) for(const i of free){ const t = st.b.slice(); t[i] = who; if(winner(t)) return {i}; }
+    return {i: free.includes(4) ? 4 : pick(free)};
+  },
+  // 6) o que cada jogador pode ver (aqui, tudo)
+  view(st, seat){ return {b:st.b, turn:st.turn}; },
+  // 7) desenha a tela; ui.act(...) envia a jogada
+  render(g, v, ui){
+    ui.stage.innerHTML = `<div class="velha">${g.b.map((x,i) => `<button class="${x.toLowerCase()}" data-i="${i}">${x}</button>`).join('')}</div>`;
+    $$('.velha button').forEach(b => b.onclick = () => ui.act({i:+b.dataset.i}));
+  },
+  topInfo(g, v){ return `<div class="status">${ui_turn(g, v)}</div>`; },
+  rules:'<p>Marque três em linha — na horizontal, vertical ou diagonal — antes do adversário.</p>'
+});
+const ui_turn = (g, v) => g.turn === v.me ? 'Sua vez' : 'Vez do adversário';
+</script>
+</body>
+</html>
