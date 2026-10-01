@@ -9,7 +9,7 @@ const JOGOS = [
   { id:'truco-paulista', name:'Truco Paulista', cat:'truco', icon:'🂡', url:'games/truco.html?mode=paulista', stats:'truco',
     players:'4 · duplas', online:true, desc:'Com vira: a manilha muda a cada mão. Mão vale 1, truco vale 3.' },
   { id:'trucao', name:'Trucão', cat:'truco', icon:'🔥', url:'games/truco.html?mode=trucao', stats:'truco',
-    players:'6 ou 8 · trios/quartetos', online:true, desc:'Molde do Mineiro com 8 manilhas: 2♦, Á♦, 7 rato e catatu acima do Zap.' },
+    players:'6 ou 8 · trios/quartetos', online:true, desc:'Molde do Mineiro com 8 manilhas: 2♦, Á♦, 7 rato e catatau acima do Zap.' },
   { id:'douradinho', name:'Douradinho', cat:'truco', icon:'👑', url:'games/truco.html?mode=douradinho', stats:'truco',
     players:'6 · 3×3', online:true, desc:'A Dama de Ouros manda em tudo, seguida de Valete, Dunga, Piu e Cinquinho de paus.' },
   { id:'douradao', name:'Douradão', cat:'truco', icon:'💰', url:'games/truco.html?mode=douradao', stats:'truco',

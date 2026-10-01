@@ -162,7 +162,7 @@ Molde do Mineiro, com quatro manilhas acima do Zap:
 | 1 | 2♦ | 2 de ouro |
 | 2 | A♦ | Ás de ouro |
 | 3 | 7♣ | 7 rato |
-| 4 | 4♥ | Catatu |
+| 4 | 4♠ | Catatau |
 | 5 | 4♣ | Zap |
 | 6 | 7♥ | Copas |
 | 7 | A♠ | Espadilha |
