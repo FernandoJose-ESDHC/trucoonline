@@ -170,4 +170,11 @@ if('serviceWorker' in navigator && /^https?:/.test(location.protocol)){
     const sw = base.replace(/shared\/core\.js.*$/, 'sw.js');
     if(sw) navigator.serviceWorker.register(sw).catch(()=>{});
   });
+  // quando sai uma versão nova, recarrega uma vez para já usar ela
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(reloaded || !navigator.serviceWorker.controller) return;
+    reloaded = true;
+    if(!document.querySelector('html.app') || document.querySelector('#home:not(.hidden)')) location.reload();
+  });
 }

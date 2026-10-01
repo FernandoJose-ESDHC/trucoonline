@@ -495,6 +495,7 @@ const Mesa = (() => {
 
   function run(def){
     D = def;
+    document.documentElement.classList.add('app');
     document.title = def.name + ' — Central de Jogos';
     buildDOM(); wire();
     if($('#nameIn')) $('#nameIn').value = CFG.name || '';

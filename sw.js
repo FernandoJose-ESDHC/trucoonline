@@ -1,7 +1,7 @@
 /* Service worker: guarda os arquivos para o jogo abrir sem internet.
-   Estratégia "stale-while-revalidate": abre na hora o que está guardado e
-   atualiza em segundo plano. Mude a versão para forçar limpeza. */
-const VERSION = 'central-v3';
+   Estratégia "rede primeiro": online sempre pega a versão nova; offline usa
+   a cópia guardada. Mude a versão para forçar limpeza. */
+const VERSION = 'central-v4';
 const CORE = ['./', './index.html', './manifest.json', './shared/core.css', './shared/core.js', './shared/mesa.js', './shared/melds.js', './games/registry.js',
   './games/truco.html', './games/canastra.html', './games/pife.html', './games/21.html', './games/paciencia.html', './games/xadrez.html', './games/damas.html',
   './docs/img/icon-192.png'];
@@ -17,9 +17,15 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   const cacheable = url.origin === location.origin || url.hostname === 'unpkg.com';
   if(!cacheable) return;
+  // rede primeiro (sempre a versão mais nova); sem internet, usa o que está guardado
   e.respondWith(caches.open(VERSION).then(async c => {
-    const hit = await c.match(req, {ignoreSearch: url.origin === location.origin});
-    const net = fetch(req).then(r => { if(r && r.ok) c.put(req, r.clone()); return r; }).catch(() => null);
-    return hit || (await net) || new Response('Sem conexão', {status:503});
+    try{
+      const r = await fetch(req, {cache:'no-cache'});
+      if(r && r.ok) c.put(req, r.clone());
+      return r;
+    }catch(_){
+      const hit = await c.match(req, {ignoreSearch: url.origin === location.origin});
+      return hit || new Response('Sem conexão', {status:503});
+    }
   }));
 });

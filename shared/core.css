@@ -8,8 +8,10 @@
   --cw:70px; --ch:100px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+html{-webkit-text-size-adjust:100%}
+/* telas de jogo (html.app): tela fixa, sem rolar a página */
+html.app,html.app body{height:100%;overflow:hidden;overscroll-behavior:none}
+html.app{touch-action:manipulation}
 body{
   font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
   background:radial-gradient(ellipse at center,var(--felt) 0%,var(--felt2) 75%,var(--felt3) 100%);
