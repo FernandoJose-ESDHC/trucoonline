@@ -473,7 +473,7 @@ const Mesa = (() => {
     (D.options || []).forEach(o => { const el = $('#ropt_' + o.key); if(el) el.onchange = () => toHost({t:'opts', opts:readOpts('ropt_')}); });
     $('#bLeave1').onclick = confirmLeave; $('#bLeave2').onclick = confirmLeave;
     $('#bCopyCode').onclick = () => copy(NET.code, 'Código copiado!');
-    $('#bCopyLink').onclick = () => copy(location.href.split('#')[0] + '#' + NET.code, 'Link copiado!');
+    $('#bCopyLink').onclick = () => copy(shareLink(NET.code), 'Link copiado!');
     const sendChat = inp => { const t = inp.value.trim(); if(t){ toHost({t:'chat', text:t}); inp.value = ''; } };
     $('#roomChat').onsubmit = e => { e.preventDefault(); sendChat($('#roomChatIn')); };
     $('#chatForm').onsubmit = e => { e.preventDefault(); sendChat($('#chatIn')); };

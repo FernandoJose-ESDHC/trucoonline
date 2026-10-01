@@ -1824,7 +1824,9 @@ $('#roomDiff').onchange = () => toHost({t:'cfg', mode:$('#roomMode').value, diff
 $('#bLeave1').onclick = confirmLeave;
 $('#bLeave2').onclick = confirmLeave;
 $('#bCopyCode').onclick = () => copy(NET.code, 'Código copiado!');
-$('#bCopyLink').onclick = () => copy(location.href.split('#')[0] + '#' + NET.code, 'Link copiado!');
+const IN_APP = location.hostname === 'appassets.androidplatform.net';
+const shareLink = code => (IN_APP ? 'https://fernandojose-esdhc.github.io/trucoonline/' + location.pathname.replace(/^\/assets\/www\//, '') + location.search : location.href.split('#')[0]) + '#' + code;
+$('#bCopyLink').onclick = () => copy(shareLink(NET.code), 'Link copiado!');
 function copy(text, ok){
   const done = () => { $('#roomMsg').textContent = ok; };
   if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, () => prompt('Copie:', text));

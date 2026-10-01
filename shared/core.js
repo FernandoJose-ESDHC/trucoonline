@@ -12,6 +12,13 @@ const cleanName = s => String(s||'').replace(/\s+/g,' ').trim().slice(0,16);
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+/* dentro do app Android os arquivos vêm embutidos; os links de sala apontam para o site */
+const IN_APP = location.hostname === 'appassets.androidplatform.net';
+const SITE_URL = 'https://fernandojose-esdhc.github.io/trucoonline/';
+function shareLink(code){
+  const base = IN_APP ? SITE_URL + location.pathname.replace(/^\/assets\/www\//, '') + location.search : location.href.split('#')[0];
+  return base + '#' + code;
+}
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 /* ---------- configurações globais (valem para todos os jogos) ---------- */
@@ -164,7 +171,7 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 ['click','touchend'].forEach(ev => document.addEventListener(ev, keepAwake, {passive:true}));
 
 /* ---------- PWA: funciona offline depois da 1ª visita ---------- */
-if('serviceWorker' in navigator && /^https?:/.test(location.protocol)){
+if('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !IN_APP){
   window.addEventListener('load', () => {
     const base = (document.querySelector('script[src*="shared/core.js"]') || {}).src || '';
     const sw = base.replace(/shared\/core\.js.*$/, 'sw.js');

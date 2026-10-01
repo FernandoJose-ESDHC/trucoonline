@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int
+
+android {
+    namespace 'io.github.fernandojose.centraldejogos'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.fernandojose.centraldejogos'
+        minSdk 24
+        targetSdk 34
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    // chave fixa: assim cada APK novo instala por cima do anterior sem desinstalar
+    signingConfigs {
+        fixa {
+            storeFile file('../central.keystore')
+            storePassword 'centraldejogos'
+            keyAlias 'central'
+            keyPassword 'centraldejogos'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.fixa }
+        release {
+            signingConfig signingConfigs.fixa
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

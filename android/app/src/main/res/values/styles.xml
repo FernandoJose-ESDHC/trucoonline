@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fundo">#0A4128</color>
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fundo</item>
+        <item name="android:statusBarColor">#0D3B24</item>
+        <item name="android:navigationBarColor">#06271A</item>
+    </style>
+</resources>

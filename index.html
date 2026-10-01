@@ -88,6 +88,7 @@ footer{margin-top:26px;text-align:center;color:#9cb;font-size:12.5px;line-height
   <footer>
     Funciona no PC, Android e iPhone — dá para instalar: <i>Compartilhar → Adicionar à Tela de Início</i>.<br>
     Depois da primeira visita, o modo contra bots funciona até sem internet.<br>
+    <a id="apkLink" href="https://github.com/FernandoJose-ESDHC/trucoonline/releases/download/apk/CentralDeJogos.apk">📱 Baixar o app para Android (APK)</a> ·
     <a href="https://github.com/FernandoJose-ESDHC/trucoonline">Código no GitHub</a>
   </footer>
 </div>
@@ -123,6 +124,7 @@ function draw(){
 }
 draw();
 
+if(IN_APP) $('#apkLink').style.display = 'none';
 $('#jg').innerHTML = JOGOS.filter(g => g.online).map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
 $('#jb').onclick = () => {
   const code = $('#jc').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
