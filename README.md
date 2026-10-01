@@ -26,6 +26,8 @@ Jogue com os amigos em **salas online sem cadastro** ou **contra bots**, inclusi
 
 Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instalar como app (*Compartilhar → Adicionar à Tela de Início*).
 
+📱 **App Android:** [baixe o APK](https://github.com/FernandoJose-ESDHC/trucoonline/releases/download/apk/CentralDeJogos.apk) — os jogos vêm embutidos, funcionam offline contra bots e online com as salas. Ele é gerado automaticamente pelo GitHub a cada atualização ([downloads](https://github.com/FernandoJose-ESDHC/trucoonline/releases/tag/apk)).
+
 <p align="center">
   <img src="docs/img/central.png" alt="Tela da Central de Jogos" width="100%">
 </p>
@@ -268,6 +270,8 @@ shared/core.js|css    → cartas, sons, modais, animações, estatísticas
 shared/mesa.js        → salas online + bots + sala de espera para qualquer jogo
 shared/melds.js       → trincas/sequências (Pife) e canastras
 sw.js, manifest.json  → funciona offline e pode ser instalado como app
+android/              → app Android (WebView com os jogos embutidos)
+.github/workflows/    → compila o APK e publica em Releases a cada atualização
 ```
 
 - HTML, CSS e JavaScript puros, **sem build e sem dependências** (só o [PeerJS](https://peerjs.com/) para o online).
