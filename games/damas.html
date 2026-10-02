@@ -33,6 +33,7 @@
 <body>
 <script src="../shared/core.js"></script>
 <script src="../shared/mesa.js"></script>
+<script src="damas-ai.js"></script>
 <script>
 "use strict";
 /* ====================== MOTOR — DAMAS BRASILEIRAS ======================
@@ -112,36 +113,13 @@ function applyMove(st, m){
   const wasKingMove = st.b[from] === st.b[from].toUpperCase();
   return {b, turn: st.turn === 'w' ? 'b' : 'w', quiet: (m.taken.length || !wasKingMove) ? 0 : st.quiet + 1};
 }
-/* ---- bot: negamax com alfa-beta ---- */
-function evalD(b){
-  let s = 0;
-  for(let i=0;i<64;i++){ const p = b[i]; if(!p) continue; const r = i >> 3, c = i & 7;
-    const center = (c >= 2 && c <= 5) ? 4 : 0;
-    if(p === 'w') s += 100 + (7 - r) * 6 + center + (r === 7 ? 8 : 0);
-    else if(p === 'b') s -= 100 + r * 6 + center + (r === 0 ? 8 : 0);
-    else if(p === 'W') s += 320; else if(p === 'B') s -= 320; }
-  return s;
-}
-function negamax(st, d, a, beta, sign){
-  const ms = legalMoves(st);
-  if(!ms.length) return -100000 - d;
-  if(d === 0 && !ms[0].taken.length) return sign * evalD(st.b);
-  if(d <= -4) return sign * evalD(st.b);
-  for(const m of ms){
-    const n = applyMove(st, m);
-    const sc = -negamax(n, d-1, -beta, -a, -sign);
-    if(sc >= beta) return beta; if(sc > a) a = sc;
-  }
-  return a;
-}
+/* o bot de verdade está em damas-ai.js */
+const BOT_CFG = { facil:{time:300, depth:3, noise:70}, normal:{time:600, depth:8}, dificil:{time:1500, depth:40} };
 function botMove(st, diff){
   const ms = legalMoves(st); if(ms.length <= 1) return ms[0];
-  const depth = diff === 'facil' ? 2 : diff === 'normal' ? 4 : 6;
-  const sign = st.turn === 'w' ? 1 : -1;
-  const sc = ms.map(m => ({m, s: -negamax(applyMove(st, m), depth-1, -1e9, 1e9, -sign) + Math.random()*(diff === 'facil' ? 60 : 4)}));
-  sc.sort((x,y) => y.s - x.s);
-  if(diff === 'facil' && Math.random() < 0.3) return pick(sc.slice(0,3)).m;
-  return sc[0].m;
+  const r = DamasAI.think(st, BOT_CFG[diff] || BOT_CFG.normal);
+  const tk = r ? r.taken.slice().sort((x,y) => x-y).join() : '';
+  return (r && ms.find(m => m.path[0] === r.from && m.path[m.path.length-1] === r.to && m.taken.slice().sort((x,y) => x-y).join() === tk)) || ms[0];
 }
 const count = (b, c) => b.filter(p => p && p.toLowerCase() === c).length;
 
@@ -186,7 +164,7 @@ Mesa.run({
     return {events:ev};
   },
   bot(st, seat, o){ const m = botMove(st, o.diff); return {from:m.path[0], to:m.path[m.path.length-1], taken:m.taken}; },
-  botDelay(st, s, o){ return 600; },
+  botDelay(st, s, o){ return o.diff === 'dificil' ? 150 : 400; },
   view(st, seat){
     const my = seat >= 0 ? st.colors[seat] : 'w';
     return {b:st.b, turn:st.turn, my, last:st.last, colors:st.colors,

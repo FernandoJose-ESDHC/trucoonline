@@ -446,9 +446,9 @@ for(const k in MODES){ const m = MODES[k].manilhas; if(!m) continue; MANI_MAP[k]
 const maxPow = mode => mode === 'paulista' ? 13 : 9 + MODES[mode].manilhas.length;
 const PAULISTA_NAMES = {13:'ZAP',12:'COPAS',11:'ESPADILHA',10:'OUROS'};
 const DIFF = {
-  facil:  { name:'Fácil',   N:0,   bluff:0.04, susp:1.00, noise:0.22, cover:0.2 },
-  normal: { name:'Normal',  N:160, bluff:0.07, susp:0.86, noise:0.07, cover:0.5 },
-  dificil:{ name:'Difícil', N:450, bluff:0.10, susp:1.00, noise:0.02, cover:0.7 }
+  facil:  { name:'Fácil',   N:0,   bluff:0.04, susp:1.00, noise:0.14, cover:0.2 },
+  normal: { name:'Normal',  N:240, bluff:0.08, susp:1.00, noise:0.03, cover:0.5 },
+  dificil:{ name:'Difícil', N:600, bluff:0.11, susp:1.00, noise:0.00, cover:0.6 }
 };
 const ACEITES = ['Desce!','Manda!','Vem!','Aceito!','Bora!','Pode vir!'];
 const BOT_NAMES = ['Tião','Zé','Chico','Dito','Juca','Nhô Quim','Tonho','Bené','Lurdinha','Dona Cida'];
@@ -610,7 +610,7 @@ function waitFor(kind, seats, extra, botFn){
 }
 function collectVotes(extra){
   const votes = {};
-  [...Array(NS()).keys()].filter(s => !isHuman(s)).forEach(s => votes[s] = Math.random() < 0.5);
+  [...Array(NS()).keys()].filter(s => !isHuman(s)).forEach(s => votes[s] = aiVoteFerro(s));
   const humans = [...Array(NS()).keys()].filter(isHuman);
   if(!humans.length) return Promise.resolve(votes);
   return new Promise(res => {
@@ -725,10 +725,12 @@ function mcSetup(p){
     own: S.hands[p].map(power),
     partners: mates.length ? Object.fromEntries(mates.map(s => [s, S.hands[s].map(power)])) : null, n: NS(), mp: MAXP(),
     counts: S.hands.map(h => h.length),
+    caps: (S.caps || []).slice(),
     table: S.table.map(e => ({p:e.p, pw:entryPow(e)})),
     starter: S.vazaStarter, vazas: S.vazas.slice()
   };
 }
+/* política usada nas simulações (como um jogador razoável joga) */
 function rChoose(hd, q, tb, vz){
   let lo = 0, hi = 0;
   for(let i=1;i<hd.length;i++){ if(hd[i] < hd[lo]) lo = i; if(hd[i] > hd[hi]) hi = i; }
@@ -774,38 +776,52 @@ function raiserLikelihood(hd, bluff, mp){
   const q = (a/mp)*0.65 + (Math.max(b,0)/mp)*0.35;
   return bluff + (1-bluff)*clamp((q - 0.3)/0.45, 0.02, 1);
 }
-function mcRun(base, N, act, cond){
-  const pool = base.pool.slice(), n = pool.length;
-  let sum = 0, wsum = 0;
+/* sorteia N distribuições das cartas desconhecidas, já com o peso de cada uma:
+   - quem pediu truco provavelmente tem mão boa;
+   - quem deixou o adversário levar a vaza provavelmente não tinha carta maior */
+function mcSamples(base, N, cond){
+  const pool = base.pool.slice(), n = pool.length, out = [];
   const useCond = cond && cond.seat >= 0 && cond.seat !== base.p && !(base.partners && base.partners[cond.seat]);
   for(let it=0; it<N; it++){
-    let k = 0;
+    let k = 0, w = 1;
     const h = new Array(base.n);
     for(let q=0;q<base.n;q++){
-      if(q === base.p) h[q] = base.own.slice();
-      else if(base.partners && base.partners[q]) h[q] = base.partners[q].slice();
+      if(q === base.p) h[q] = base.own;
+      else if(base.partners && base.partners[q]) h[q] = base.partners[q];
       else {
-        const arr = [];
+        const arr = [], cap = base.caps[q];
         for(let j=0;j<base.counts[q] && k<n;j++){
           const r = k + Math.floor(Math.random()*(n-k));
           const tmp = pool[k]; pool[k] = pool[r]; pool[r] = tmp;
+          if(cap !== undefined && pool[k] > cap) w *= 0.3;
           arr.push(pool[k]); k++;
         }
         h[q] = arr;
       }
     }
+    if(useCond) w *= raiserLikelihood(h[cond.seat], cond.bluff, base.mp);
+    out.push({h, w});
+  }
+  return out;
+}
+/* avalia uma jogada nas MESMAS amostras (números aleatórios comuns):
+   a comparação entre cartas fica justa e sem "sorteio" na escolha */
+function mcEval(base, samples, act){
+  let sum = 0, wsum = 0;
+  for(const s of samples){
+    const h = s.h.map(a => a.slice());
     const tb = base.table.slice();
     if(act){
       const i = h[base.p].indexOf(act.pw);
       h[base.p].splice(i,1);
       tb.push({p:base.p, pw: act.cover ? -1 : act.pw});
     }
-    const wgt = useCond ? raiserLikelihood(h[cond.seat], cond.bluff, base.mp) : 1;
-    sum += wgt * rollout(base.t, h, tb, base.starter, base.vazas);
-    wsum += wgt;
+    sum += s.w * rollout(base.t, h, tb, base.starter, base.vazas);
+    wsum += s.w;
   }
   return wsum ? sum / wsum : 0.5;
 }
+function mcRun(base, N, act, cond){ return mcEval(base, mcSamples(base, N, cond), act); }
 function lastOppRaiser(t){
   for(let i=S.raisers.length-1;i>=0;i--) if(team(S.raisers[i]) !== t) return S.raisers[i];
   return -1;
@@ -831,21 +847,28 @@ function aiPlan(p){
   if(S.ferro) return {idx:Math.floor(Math.random()*h.length), cover:false, pwin:0.5};
   if(!D.N){
     let idx = easyChoose(p);
-    if(Math.random() < D.noise) idx = Math.floor(Math.random()*h.length);
+    // erro de iniciante: às vezes joga a carta "do lado" da certa, mas nunca uma loucura
+    if(Math.random() < D.noise && h.length > 1){
+      const ord = h.map((c,i) => i).sort((a,b) => power(h[a]) - power(h[b]));
+      const k = ord.indexOf(idx);
+      idx = ord[k > 0 && (k === ord.length-1 || Math.random() < 0.5) ? k-1 : k+1];
+    }
     return {idx, cover:false, pwin:strength(p)};
   }
   const base = mcSetup(p);
   const cond = condFor(team(p), lastOppRaiser(team(p)));
+  const samples = mcSamples(base, D.N, cond);
   const pws = [...new Set(h.map(power))];
   let best = null;
   for(const pw of pws){
-    const raw = mcRun(base, D.N, {pw, cover:false}, cond);
-    const sc = raw - pw*0.0015;      // empate técnico: guarda a carta mais forte
+    const raw = pws.length === 1 ? mcEval(base, samples, {pw}) : mcEval(base, samples, {pw, cover:false});
+    const sc = raw - pw*0.0012;      // empate técnico: guarda a carta mais forte
     if(!best || sc > best.sc) best = {pw, sc, raw};
   }
   const idx = h.findIndex(c => power(c) === best.pw);
   const st = tableState();
-  const cover = canCover(p) && !!st && best.pw < st.top && Math.random() < D.cover;
+  // cobrir só quando a carta não muda nada na vaza (não ganha nem empata)
+  const cover = canCover(p) && !!st && best.pw < st.top && st.team !== team(p) && Math.random() < D.cover;
   return {idx, cover, pwin:best.raw};
 }
 function estimateFor(p, condSeat=-1){
@@ -853,23 +876,44 @@ function estimateFor(p, condSeat=-1){
   if(!S.hands[p].length && !S.table.length) return 0.5;
   return D.N ? mcRun(mcSetup(p), D.N, null, condFor(team(p), condSeat)) : strength(p);
 }
-function mw(my, opp){     // chance aproximada de vencer o jogo por placar
+/* chance de vencer a PARTIDA com o placar my × opp (até 12), calculada por
+   programação dinâmica: cada mão vale o valor inicial (às vezes trucada). */
+const MW_CACHE = {};
+function mwTable(){
+  const V = R().values, key = V.join(',');
+  if(MW_CACHE[key]) return MW_CACHE[key];
+  const dist = [[V[0],0.68],[V[1],0.22],[V[2],0.1]];
+  const T = [];
+  for(let a=12;a>=0;a--){ T[a] = []; for(let b=12;b>=0;b--){
+    if(a >= 12){ T[a][b] = 1; continue; }
+    if(b >= 12){ T[a][b] = 0; continue; }
+    let x = 0;
+    for(const [v,pr] of dist) x += pr*0.5*(T[Math.min(12,a+v)][b] + T[a][Math.min(12,b+v)]);
+    T[a][b] = x;
+  } }
+  return MW_CACHE[key] = T;
+}
+function mw(my, opp){
   if(my >= 12) return 1;
   if(opp >= 12) return 0;
-  return clamp(0.5 + (my - opp)/26, 0.03, 0.97);
+  return mwTable()[my][opp];
 }
 function aiWantsRaise(p, pwin){
   const D = DIFF[S.diff], t = team(p), my = S.score[t], opp = S.score[1-t];
   const v = S.value, v1 = R().values[S.level+1];
   const q = clamp(pwin + (Math.random()*2-1)*D.noise, 0, 1);
   const lastChance = S.hands[p].length <= 1;
-  if(S.diff !== 'facil' && q > 0.9 && !lastChance && Math.random() < 0.55) return false;   // segura o jogo pra pegar o adversário
+  // com mão monstruosa, às vezes espera na 1ª vaza pra o adversário trucar primeiro
+  if(S.diff !== 'facil' && q > 0.93 && S.vazas.length === 0 && S.level === 0 && Math.random() < 0.3) return false;
   const acc = clamp(1.5*(1-q) + 0.05, 0.1, 0.95);
   const evR = acc*(q*mw(my+v1,opp) + (1-q)*mw(my,opp+v1)) + (1-acc)*mw(my+v,opp);
   const evN = q*mw(my+v,opp) + (1-q)*mw(my,opp+v);
   const nextLvl = S.level + 1;
-  const minQ = nextLvl === 1 ? 0.66 : nextLvl === 2 ? 0.8 : 0.9;   // aumentar mais alto exige mão cada vez melhor
-  if(q >= minQ && evR > evN + 0.004) return true;
+  const minQ = nextLvl === 1 ? 0.64 : nextLvl === 2 ? 0.78 : 0.88;   // aumentar mais alto exige mão cada vez melhor
+  if(q >= minQ && evR > evN + 0.003) return true;
+  // blefe: só quando a mão não está perdida de vez e o placar permite arriscar
+  if(q < 0.12 && !lastChance) return false;
+  if(mw(my, opp+v1) < mw(my, opp) - 0.25) return false;
   const bl = D.bluff * (S.vazas[0] === t ? 1.8 : 1) * (lastChance ? 1.3 : 1) * (nextLvl === 1 ? 1 : 0.2);
   return Math.random() < bl;
 }
@@ -886,19 +930,23 @@ function aiRespond(rt, next, asker, askerP){
   let best = acc >= run ? 'accept' : 'run', bestV = Math.max(acc, run);
   if(next < 4){
     const rai = p*mw(my+v2,opp) + (1-p)*mw(my,opp+v2);
-    if(rai > bestV + 0.01 && p > (next === 1 ? 0.82 : next === 2 ? 0.88 : 0.93)) best = 'raise';
-    else if(best === 'accept' && next === 1 && p > 0.5 && Math.random() < D.bluff*0.4) best = 'raise';
+    if(rai > bestV + 0.01 && p > (next === 1 ? 0.8 : next === 2 ? 0.86 : 0.92)) best = 'raise';
+    else if(best === 'accept' && next === 1 && p > 0.55 && Math.random() < D.bluff*0.4) best = 'raise';
   }
   return best;
 }
 function aiMao10(t){
   let bots = teamSeats(t).filter(s => !isHuman(s));
   if(!bots.length) bots = teamSeats(t);
-  const p = Math.max(...bots.map(estimateFor));
+  const p = Math.max(...bots.map(b => estimateFor(b)));
   const Rm = R(), my = S.score[t], opp = S.score[1-t];
   const play = p*mw(my+Rm.m10Play,opp) + (1-p)*mw(my,opp+Rm.m10Play);
   const run = mw(my, opp+Rm.m10Run);
-  return play >= run || Math.random() < DIFF[S.diff].noise;
+  return play >= run || (S.diff === 'facil' && Math.random() < DIFF[S.diff].noise);
+}
+function aiVoteFerro(s){
+  // quem se acha melhor de jogo prefere mão normal; na dúvida, sorte
+  return DIFF[S.diff].N ? Math.random() < 0.35 : Math.random() < 0.5;
 }
 function hintFor(seat){
   const mates = teamSeats(team(seat)).filter(s => s !== seat && !isHuman(s) && S.hands[s].length);
@@ -952,6 +1000,9 @@ async function raise(t, p){
 function playCard(p, i, cover){
   const card = S.hands[p].splice(i,1)[0];
   const covered = !!cover && canCover(p);
+  const st0 = tableState();
+  if(S.caps && st0 && st0.team !== -1 && st0.team !== team(p) && (covered || power(card) < st0.top))
+    S.caps[p] = Math.min(S.caps[p] ?? 99, st0.top);
   S.table.push({p, card, covered});
   if(covered){ S.coveredBy[p].push(card); log(`${nm(p)} jogou <b>coberta</b>`); }
   else S.seen.push(card);
@@ -1019,7 +1070,7 @@ async function voteFerro(){
 async function playHand(){
   const Rm = R(), H = Rm.hand10, [a,b] = S.score;
   Object.assign(S, {level:0, value:Rm.values[0], lastRaise:-1, vazas:[], table:[], ferro:false, noTruco:false,
-                    showPartnerTeam:-1, m10Team:-1, winP:-1, turn:-1, vira:null, hands:S.seats.map(() => []), raisers:[]});
+                    showPartnerTeam:-1, m10Team:-1, winP:-1, turn:-1, vira:null, hands:S.seats.map(() => []), raisers:[], caps:S.seats.map(() => undefined)});
   sync();
   let ferro = false, noTruco = false, m10Team = -1;
   if(a === H && b === H){ ferro = await voteFerro(); noTruco = true; }

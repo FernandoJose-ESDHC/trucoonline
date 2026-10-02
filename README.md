@@ -45,7 +45,7 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 🀄 | **[Pife](https://fernandojose-esdhc.github.io/trucoonline/games/pife.html)** | 2 a 6 | Três jogos com 9 cartas e bata primeiro |
 | 🎰 | **[21](https://fernandojose-esdhc.github.io/trucoonline/games/21.html)** | 1 a 5 | Contra a banca, com fichas e dobrar |
 | 🂮 | **[Paciência](https://fernandojose-esdhc.github.io/trucoonline/games/paciencia.html)** | 1 | Klondike, virando 1 ou 3, com desfazer |
-| ♟️ | **[Xadrez](https://fernandojose-esdhc.github.io/trucoonline/games/xadrez.html)** | 2 | Regras completas e bot em 3 níveis |
+| ♟️ | **[Xadrez](https://fernandojose-esdhc.github.io/trucoonline/games/xadrez.html)** | 2 | Regras completas, motor próprio em 3 níveis e livro de aberturas |
 | ⛀ | **[Damas](https://fernandojose-esdhc.github.io/trucoonline/games/damas.html)** | 2 | Damas brasileiras: lei da maioria e dama voadora |
 
 Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
@@ -55,7 +55,7 @@ Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para comple
 | | |
 |---|---|
 | 🌐 **Salas online sem cadastro** | Crie a sala, passe o código de 5 letras (ou o link) e jogue. Os aparelhos se conectam direto (WebRTC), sem servidor próprio. |
-| 🤖 **Bots de verdade** | Truco com simulação de centenas de finais por jogada (Monte Carlo), blefe e leitura de quem pediu truco. Xadrez com busca alfa-beta, Damas com minimax, 21 com a estratégia básica. |
+| 🤖 **Bots de verdade** | Truco com simulação de centenas de finais por jogada (Monte Carlo, comparando todas as cartas nas mesmas situações), leitura de quem pediu truco e de quem deixou a vaza passar, e apostas pelo placar. Xadrez e Damas com motor próprio (aprofundamento iterativo, tabela de transposição, avaliação de estrutura e finais — o xadrez sabe dar mate só com rei e torre). Canastra e Pife contam as cartas vivas e evitam alimentar o próximo; 21 com a estratégia básica completa e contagem Hi-Lo. |
 | 🔌 **Caiu? Volta.** | Se alguém perder a conexão, um bot assume até a pessoa voltar com o mesmo nome. |
 | 🙈 **Ninguém espia** | Cada jogador recebe só o que pode ver: cartas dos outros e carta coberta nunca saem do aparelho de quem cria a sala. |
 | 📱 **Celular primeiro** | Layout para tela de celular, áreas seguras do iPhone, tela acesa durante o jogo, som liberado no primeiro toque. |
@@ -277,7 +277,8 @@ android/              → app Android (WebView com os jogos embutidos)
 - HTML, CSS e JavaScript puros, **sem build e sem dependências** (só o [PeerJS](https://peerjs.com/) para o online).
 - O navegador de quem cria a sala é a "mesa": ele roda o jogo e manda a cada jogador **só o que ele pode ver**.
 - Sem cadastro e sem banco de dados: nome, preferências e histórico ficam só no seu navegador.
-- Testado com partidas simuladas inteiras de cada jogo (bots contra bots), salas online simuladas com queda e reconexão, e validação do gerador de lances do xadrez (*perft*).
+- Testado com partidas simuladas inteiras de cada jogo (bots contra bots), salas online simuladas com queda e reconexão, e validação do gerador de lances do xadrez (*perft*) e das damas.
+- Cada versão nova dos bots joga centenas de partidas contra a anterior antes de entrar.
 
 ### Rodar localmente
 ```bash

@@ -58,6 +58,7 @@ function newRound(st){
   st.melds = [[], []];
   st.lixo = [st.monte.pop()];
   st.phase = 'draw'; st.turn = st.starter % st.n; st.batida = -1; st.breakdown = null; st.lastLixo = null;
+  st.pub = st.names.map(() => []);     // cartas que cada um pegou do lixo (todo mundo viu)
 }
 function sortH(h){ const so = {'♣':0,'♥':1,'♠':2,'♦':3}; return h.slice().sort((a,b) => (a.r === '2') - (b.r === '2') || so[a.s] - so[b.s] || RV13(a.r) - RV13(b.r)); }
 function endRound(st, ev){
@@ -114,48 +115,78 @@ function runsIn(cards){
   }
   return res.sort((a,b) => b.length - a.length);
 }
+const fitsAny = (c, melds) => c.r !== '2' && melds.some(m => canastraMeld(m.concat([c])));
+// o adversário está perto de bater? (já pegou o morto, tem canastra limpa e pouca carta na mão)
+function oppDanger(st, seat){
+  const t = teamOfN(seat, st.n), o = 1 - t;
+  const oh = st.hands.filter((h,i) => teamOfN(i, st.n) === o).map(h => h.length);
+  const minH = Math.min(...oh);
+  let d = 0;
+  if(st.mortoTaken[o] && hasLimpa(st.melds[o])) d = minH <= 3 ? 3 : minH <= 6 ? 2 : 1;
+  else if(st.mortoTaken[o] && st.melds[o].some(m => m.length >= 5)) d = minH <= 3 ? 2 : 0;
+  if(!st.mortos.length && st.monte.length < 10) d = Math.max(d, 2);
+  return d;
+}
 function botPlay(st, seat){
   const h = st.hands[seat], t = teamOfN(seat, st.n), melds = st.melds[t], opp = st.melds[1-t];
   if(st.phase === 'roundEnd') return {t:'next'};
+  const danger = oppDanger(st, seat);
   if(st.phase === 'draw'){
     const top = st.lixo[st.lixo.length-1];
-    if(top){
-      const fits = melds.some(m => canastraMeld(m.concat([top]))) && top.r !== '2';
+    // neste buraco o lixo sai de graça: quase sempre vale pegar (mais cartas para jogos e canastras).
+    // Só não fica num pinga-pinga de 1 carta quando a mão está no fim e não dá para usá-la.
+    const stuck = h.length <= 2 && !canEmpty(st, seat) && st.lixo.length <= 2;
+    if(top && !stuck && (st.lixoStreak || 0) < 6){
+      const fits = fitsAny(top, melds);
       const forms = runsIn(h.concat([top])).some(r => r.includes(top));
-      if(fits || forms || (st.lixo.length >= 5 && h.length < 14)) return {t:'lixo'};
+      if(fits || forms || top.r === '2' || st.lixo.length >= 2) return {t:'lixo'};
     }
     return {t:'monte'};
   }
   const okLeave = (k, after) => h.length - k >= 2 || canEmpty(st, seat, after);
-  // 1) encaixar cartas naturais nos nossos jogos
+  // 1) encaixar cartas naturais nos nossos jogos (as que fecham canastra primeiro)
+  const adds = [];
   for(let mi=0; mi<melds.length; mi++){
     for(const c of h){ if(c.r === '2') continue;
-      const r = canastraMeld(melds[mi].concat([c])); if(r && !(r.wild && !canastraMeld(melds[mi]).wild && melds[mi].length < 6)){
-        const after = melds.map((x,i) => i === mi ? x.concat([c]) : x);
-        if(!okLeave(1, after)) continue;
-        return {t:'add', m:mi, ids:[c.id]}; } }
+      const r = canastraMeld(melds[mi].concat([c]));
+      if(r){ const after = melds.map((x,i) => i === mi ? x.concat([c]) : x); if(okLeave(1, after)) adds.push({mi, c, pr: melds[mi].length === 6 ? 2 : 1}); } }
   }
+  if(adds.length){ adds.sort((x,y) => y.pr - x.pr); return {t:'add', m:adds[0].mi, ids:[adds[0].c.id]}; }
   // 2) baixar sequências novas
   const runs = runsIn(h);
   for(const r of runs){ if(okLeave(r.length, melds.concat([r]))) return {t:'meld', ids:r.map(c => c.id)}; }
-  // 3) usar curinga para completar/aproximar canastra
+  // 3) curinga: fecha canastra (6 → 7), ou estica jogo grande; com perigo, usa para baixar pontos
   const two = h.find(c => c.r === '2');
   if(two && h.length > 2){
-    for(let mi=0; mi<melds.length; mi++){ const m = melds[mi];
-      if(m.length >= 5 && !canastraMeld(m).wild && (hasLimpa(melds) || m.length >= 6) && canastraMeld(m.concat([two])) && okLeave(1, melds.map((x,i) => i === mi ? x.concat([two]) : x))) return {t:'add', m:mi, ids:[two.id]}; }
+    const cand = [];
+    for(let mi=0; mi<melds.length; mi++){ const m = melds[mi]; if(canastraMeld(m).wild) continue;
+      if(!canastraMeld(m.concat([two]))) continue;
+      const after = melds.map((x,i) => i === mi ? x.concat([two]) : x);
+      if(!okLeave(1, after)) continue;
+      if(m.length === 6 && (hasLimpa(melds) || danger >= 2 || st.mortoTaken[t])) cand.push({mi, pr:3});
+      else if(m.length >= 5 && hasLimpa(melds)) cand.push({mi, pr:2});
+      else if(danger >= 3 && m.length >= 3) cand.push({mi, pr:1});
+    }
+    if(cand.length){ cand.sort((a,b) => b.pr - a.pr); return {t:'add', m:cand[0].mi, ids:[two.id]}; }
     // dois naturais com buraco de 1 + curinga
     for(const s of ['♣','♥','♠','♦']){ const cs = h.filter(c => c.s === s && c.r !== '2');
-      for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++){ const g = canastraMeld([cs[i], cs[j], two]); if(g && h.length > 6 && okLeave(3, melds.concat([[cs[i], cs[j], two]]))) return {t:'meld', ids:[cs[i].id, cs[j].id, two.id]}; } }
+      for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++){ const g = canastraMeld([cs[i], cs[j], two]);
+        if(g && (h.length > 6 || danger >= 2) && okLeave(3, melds.concat([[cs[i], cs[j], two]]))) return {t:'meld', ids:[cs[i].id, cs[j].id, two.id]}; } }
   }
-  // 4) descartar
+  // 4) descartar: guarda o que serve, não alimenta o próximo adversário e, com perigo, solta pontos
+  const nx = (seat + 1) % st.n;
+  const nxPub = (st.pub || [])[nx] || [];
   let best = null;
   for(const c of h){
     let sc = 0;
     if(c.r === '2') sc += 100;
-    if(opp.some(m => canastraMeld(m.concat([c])))) sc += 60;
-    if(melds.some(m => canastraMeld(m.concat([c])))) sc += 40;
+    if(fitsAny(c, opp)) sc += 60;
+    if(fitsAny(c, melds)) sc += 40;
     h.forEach(o => { if(o !== c && o.s === c.s && o.r !== '2'){ const d = Math.abs(RV13(o.r) - RV13(c.r)); if(d === 1) sc += 14; else if(d === 2) sc += 7; } });
-    sc -= canastraPts(c) * 0.3; sc += Math.random();
+    for(const o of nxPub){ if(o.s === c.s && o.r !== '2' && c.r !== '2'){ const d = Math.abs(RV13(o.r) - RV13(c.r)); if(d === 1) sc += 22; else if(d === 2) sc += 10; } }
+    if(st.lixo.length >= 4 && danger < 3) sc += st.lixo.length;       // lixo gordo: não dar motivo pra pegarem
+    sc -= canastraPts(c) * (danger >= 2 ? 1.2 : 0.3);
+    sc += Math.random();
     if(!best || sc < best.sc) best = {c, sc};
   }
   return {t:'discard', id:best.c.id};
@@ -197,11 +228,13 @@ Mesa.run({
           if(st.mortos.length){ st.monte = st.mortos.shift(); ev.push({k:'log', text:'O monte acabou: um morto virou monte.'}); }
           else { ev.push({k:'log', text:'O monte acabou.'}); endRound(st, ev); return {events:ev}; }
         }
-        const c = st.monte.pop(); h.push(c); st.lastDraw = [c.id];
+        const c = st.monte.pop(); h.push(c); st.lastDraw = [c.id]; st.lixoStreak = 0;
       } else if(a.t === 'lixo'){
         if(!st.lixo.length) return {ok:false, err:'O lixo está vazio.'};
         st.lastDraw = st.lixo.map(c => c.id);
         ev.push({k:'log', text:`${esc(st.names[seat])} pegou o lixo (${st.lixo.length} carta${st.lixo.length>1?'s':''}).`});
+        if(st.pub) st.pub[seat].push(...st.lixo);
+        st.lixoStreak = (st.lixoStreak || 0) + 1;
         h.push(...st.lixo); st.lixo = [];
       } else return {ok:false, err:'Primeiro compre: monte ou lixo.'};
       st.phase = 'play';
@@ -216,6 +249,7 @@ Mesa.run({
         after = st.melds[t].map((x,i) => i === a.m ? x.concat(cards) : x); }
       if(h.length - cards.length < 2 && !canEmpty(st, seat, after)) return {ok:false, err:'Guarde pelo menos 2 cartas (uma para descartar): para bater a dupla precisa ter pego o morto e ter uma canastra limpa.'};
       cards.forEach(c => h.splice(h.indexOf(c), 1));
+      if(st.pub) st.pub[seat] = st.pub[seat].filter(x => !cards.includes(x));
       const before = a.t === 'add' ? st.melds[t][a.m].length : 0;
       st.melds[t] = after;
       const now = a.t === 'add' ? after[a.m] : cards;
@@ -228,6 +262,7 @@ Mesa.run({
       const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false};
       if(h.length === 1 && !canEmpty(st, seat)) return {ok:false, err:'Não dá para descartar a última carta: para bater precisa ter pego o morto e ter uma canastra limpa.'};
       const [c] = h.splice(i,1); st.lixo.push(c); ev.push({k:'snd', s:'card'});
+      if(st.pub) st.pub[seat] = st.pub[seat].filter(x => x !== c);
       if(!h.length){ const r = onEmpty(st, seat, ev, true); if(r === 'bateu') return {events:ev}; }
       st.phase = 'draw'; st.turn = (st.turn + 1) % st.n; st.lastDraw = null;
       return {events:ev};

@@ -41,6 +41,7 @@
 <body>
 <script src="../shared/core.js"></script>
 <script src="../shared/mesa.js"></script>
+<script src="xadrez-ai.js"></script>
 <script>
 "use strict";
 /* ============================ MOTOR DE XADREZ ============================ */
@@ -49,16 +50,6 @@ const DIRS = {N:[-17,-15,-10,-6,6,10,15,17], B:[-9,-7,7,9], R:[-8,-1,1,8], Q:[-9
 const colOf = p => p ? (p === p.toUpperCase() ? 'w' : 'b') : null;
 const fileOf = i => i & 7, rankOf = i => i >> 3;
 const sqName = i => 'abcdefgh'[fileOf(i)] + (8 - rankOf(i));
-const VAL = {P:100,N:320,B:330,R:500,Q:900,K:0};
-// tabelas de posição (ponto de vista das brancas, índice 0 = a8)
-const PST = {
-P:[0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
-N:[-50,-40,-30,-30,-30,-30,-40,-50,-40,-20,0,0,0,0,-20,-40,-30,0,10,15,15,10,0,-30,-30,5,15,20,20,15,5,-30,-30,0,15,20,20,15,0,-30,-30,5,10,15,15,10,5,-30,-40,-20,0,5,5,0,-20,-40,-50,-40,-30,-30,-30,-30,-40,-50],
-B:[-20,-10,-10,-10,-10,-10,-10,-20,-10,0,0,0,0,0,0,-10,-10,0,5,10,10,5,0,-10,-10,5,5,10,10,5,5,-10,-10,0,10,10,10,10,0,-10,-10,10,10,10,10,10,10,-10,-10,5,0,0,0,0,5,-10,-20,-10,-10,-10,-10,-10,-10,-20],
-R:[0,0,0,0,0,0,0,0,5,10,10,10,10,10,10,5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,0,0,0,5,5,0,0,0],
-Q:[-20,-10,-10,-5,-5,-10,-10,-20,-10,0,0,0,0,0,0,-10,-10,0,5,5,5,5,0,-10,-5,0,5,5,5,5,0,-5,0,0,5,5,5,5,0,-5,-10,5,5,5,5,5,0,-10,-10,0,5,0,0,0,0,-10,-20,-10,-10,-5,-5,-10,-10,-20],
-K:[-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-20,-30,-30,-40,-40,-30,-30,-20,-10,-20,-20,-20,-20,-20,-20,-10,20,20,0,0,0,0,20,20,20,30,10,0,0,10,30,20]
-};
 function initial(){
   const b = Array(64).fill('');
   'rnbqkbnr'.split('').forEach((p,i) => { b[i] = p; b[56+i] = p.toUpperCase(); b[8+i] = 'p'; b[48+i] = 'P'; });
@@ -143,52 +134,34 @@ function sanOf(st, m, all){
   if(inCheck(n)) s += ls.length ? '+' : '#';
   return s;
 }
-/* -------- bot: negamax alfa-beta com quiescência -------- */
-function evalB(b){
-  let s = 0;
-  for(let i=0;i<64;i++){ const p = b[i]; if(!p) continue; const t = p.toUpperCase();
-    if(p === t) s += VAL[t] + PST[t][i]; else s -= VAL[t] + PST[t][(7 - rankOf(i))*8 + fileOf(i)]; }
-  return s;
+/* o bot de verdade está em xadrez-ai.js; aqui só um livrinho de aberturas
+   (para variar as partidas) e a escolha da força */
+const BOOK = {
+  '': ['e4','d4','c4','Nf3'],
+  'e4': ['e5','c5','e6','c6','d5'], 'd4': ['d5','Nf6'], 'c4': ['e5','Nf6','c5'], 'Nf3': ['d5','Nf6','c5'],
+  'e4 e5': ['Nf3'], 'e4 e5 Nf3': ['Nc6'], 'e4 e5 Nf3 Nc6': ['Bb5','Bc4','d4'],
+  'e4 e5 Nf3 Nc6 Bb5': ['a6','Nf6'], 'e4 e5 Nf3 Nc6 Bc4': ['Bc5','Nf6'], 'e4 e5 Nf3 Nc6 d4': ['exd4'],
+  'e4 c5': ['Nf3','Nc3'], 'e4 c5 Nf3': ['d6','Nc6','e6'], 'e4 e6': ['d4'], 'e4 e6 d4': ['d5'],
+  'e4 c6': ['d4'], 'e4 c6 d4': ['d5'], 'e4 d5': ['exd5'], 'e4 d5 exd5': ['Qxd5','Nf6'],
+  'd4 d5': ['c4','Nf3'], 'd4 d5 c4': ['e6','c6','dxc4'], 'd4 d5 Nf3': ['Nf6'],
+  'd4 Nf6': ['c4','Nf3'], 'd4 Nf6 c4': ['e6','g6'], 'd4 Nf6 Nf3': ['d5','g6','e6'],
+  'c4 e5': ['Nc3','g3'], 'c4 Nf6': ['Nc3','Nf3'], 'Nf3 d5': ['d4','g3'], 'Nf3 Nf6': ['c4','d4','g3']
+};
+const plainSan = x => x.replace(/[+#]/g,'');
+function bookMove(st, ms){
+  if(st.san.length > 7) return null;
+  const opts = BOOK[st.san.map(plainSan).join(' ')];
+  if(!opts) return null;
+  const cand = ms.filter(m => opts.includes(plainSan(sanOf(st, m, ms))));
+  return cand.length ? pick(cand) : null;
 }
-const mvv = (b, m) => (m.flag === 'cap' || m.flag === 'ep' ? 10*VAL[(b[m.to]||'P').toUpperCase()] - VAL[b[m.from].toUpperCase()] : 0) + (m.promo === 'Q' ? 800 : 0);
-let nodes = 0;
-function quiesce(st, alpha, beta, sign, depth){
-  nodes++;
-  const stand = sign * evalB(st.b);
-  if(stand >= beta) return beta; if(stand > alpha) alpha = stand;
-  if(depth <= 0) return alpha;
-  const ms = pseudo(st).filter(m => m.flag === 'cap' || m.flag === 'ep' || m.promo === 'Q').sort((x,y) => mvv(st.b,y) - mvv(st.b,x));
-  for(const m of ms){
-    const n = make(st, m); if(attacked(n.b, kingSq(n.b, st.turn), n.turn)) continue;
-    const sc = -quiesce(n, -beta, -alpha, -sign, depth-1);
-    if(sc >= beta) return beta; if(sc > alpha) alpha = sc;
-  }
-  return alpha;
-}
-function negamax(st, depth, alpha, beta, sign, ply){
-  nodes++;
-  if(depth === 0) return quiesce(st, alpha, beta, sign, 4);
-  const ms = legal(st);
-  if(!ms.length) return inCheck(st) ? -100000 + ply : 0;
-  ms.sort((x,y) => mvv(st.b,y) - mvv(st.b,x));
-  for(const m of ms){
-    const sc = -negamax(make(st, m), depth-1, -beta, -alpha, -sign, ply+1);
-    if(sc >= beta) return beta; if(sc > alpha) alpha = sc;
-  }
-  return alpha;
-}
+const BOT_CFG = { facil:{time:350, depth:2, noise:90}, normal:{time:800, depth:5}, dificil:{time:1600, depth:40} };
 function botMove(st, diff){
   const ms = legal(st); if(!ms.length) return null;
-  const depth = diff === 'facil' ? 1 : diff === 'normal' ? 2 : 3;
-  const sign = st.turn === 'w' ? 1 : -1;
-  nodes = 0;
-  let scored = ms.map(m => { const n = make(st, m); n.keys = st.keys;
-    let sc = -negamax(n, depth-1, -1e9, 1e9, -sign, 1);
-    if(st.keys.filter(k => k === keyOf(Object.assign({}, st, n))).length >= 2) sc = Math.min(sc, 0); // evita repetir quando está ganhando
-    return {m, sc: sc + Math.random()*(diff === 'facil' ? 120 : 8)}; });
-  scored.sort((a,b) => b.sc - a.sc);
-  if(diff === 'facil' && Math.random() < 0.25) return pick(scored.slice(0, 4)).m;
-  return scored[0].m;
+  if(diff !== 'facil'){ const b = bookMove(st, ms); if(b) return b; }
+  const r = ChessAI.think(st, BOT_CFG[diff] || BOT_CFG.normal);
+  if(!r) return ms[0];
+  return ms.find(x => x.from === r.move.from && x.to === r.move.to && (x.promo || undefined) === r.move.promo) || ms[0];
 }
 /* ============================ DEFINIÇÃO DO JOGO ============================ */
 const GLYPH = {K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'};
@@ -242,7 +215,7 @@ Mesa.run({
     return {events:ev};
   },
   bot(st, seat, o){ const m = botMove(st, o.diff); return m ? {from:m.from, to:m.to, promo:m.promo} : {t:'resign'}; },
-  botDelay(st, s, o){ return o.diff === 'dificil' ? 250 : 550; },
+  botDelay(st, s, o){ return o.diff === 'dificil' ? 120 : o.diff === 'normal' ? 300 : 550; },
   view(st, seat){
     const my = seat >= 0 ? st.colors[seat] : 'w';
     return { b:st.b, turn:st.turn, my, last:st.last, check: inCheck(st) ? kingSq(st.b, st.turn) : -1, san:st.san, caps:st.caps, names:st.names, colors:st.colors,

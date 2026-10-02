@@ -42,6 +42,8 @@ function newRound(st){
   st.hands = st.names.map(() => st.deck.splice(0, 9));
   st.lixo = [st.deck.pop()];
   st.drew = false; st.phase = 'play'; st.winnerMelds = null; st.lastDraw = null;
+  st.pub = st.names.map(() => []);     // cartas que cada um pegou do lixo (todo mundo viu)
+  st.disc = st.names.map(() => []);    // o que cada um descartou nesta rodada
   st.turn = (st.starter) % st.names.length;
 }
 function canBater(hand){
@@ -57,24 +59,78 @@ function sortHand(h, mode){
   const so = {'♣':0,'♥':1,'♠':2,'♦':3};
   return h.slice().sort((a,b) => mode === 'r' ? (RV13(a.r) - RV13(b.r) || so[a.s] - so[b.s]) : (so[a.s] - so[b.s] || RV13(a.r) - RV13(b.r)));
 }
+/* ---- bot ----
+   Avalia cada mão pelo que já está formado + as "saídas": quantas cartas
+   ainda vivas (2 baralhos, descontando o que está visível) melhorariam o jogo,
+   com peso enorme para as que permitiriam bater. No descarte, evita dar ao
+   próximo jogador carta que combina com o que ele já pegou do lixo. */
+const SUITS4 = ['♣','♥','♠','♦'];
+function pifeLive(st, seat){
+  const cnt = {};
+  const see = c => { const k = c.r + c.s; cnt[k] = (cnt[k] || 0) + 1; };
+  st.hands[seat].forEach(see); st.lixo.forEach(see);
+  (st.pub || []).forEach((cs,i) => { if(i !== seat) cs.forEach(see); });
+  return k => 2 - (cnt[k] || 0);
+}
+function relatedTypes(h){
+  const m = new Map();
+  for(const c of h){
+    for(const s of SUITS4) if(s !== c.s) m.set(c.r + s, {r:c.r, s, id:'?'});
+    const v = RV13(c.r);
+    for(const d of [-2,-1,1,2]){
+      let w = v + d; if(v === 1 && d < 0) w = 14 + d;     // Ás também encosta no Rei
+      if(w < 1 || w > 14) continue;
+      const r = RANK_OF(w); m.set(r + c.s, {r, s:c.s, id:'?'});
+    }
+  }
+  return m;
+}
+function handEval(h9, live){
+  const base = pifeBest(h9).n;
+  if(base >= 9) return 1000;
+  let outs = 0;
+  for(const [k, card] of relatedTypes(h9)){
+    const L = live(k); if(L <= 0) continue;
+    const n2 = pifeBest(h9.concat([card])).n;
+    if(n2 >= 9) outs += L * 9;
+    else if(n2 > base) outs += L * (n2 - base);
+  }
+  return base * 10 + outs * 0.7;
+}
+// quanto uma carta ajuda o próximo jogador (pelo que ele pegou do lixo e pelo que jogou fora)
+function feedDanger(st, seat, c){
+  const nx = (seat + 1) % st.names.length;
+  let d = 0;
+  for(const o of (st.pub || [])[nx] || []){
+    if(o.r === c.r && o.s !== c.s) d += 5;
+    else if(o.s === c.s){ const g = Math.abs(RV13(o.r) - RV13(c.r)); if(g === 1) d += 5; else if(g === 2) d += 3; }
+  }
+  for(const o of (st.disc || [])[nx] || []){
+    if(o.r === c.r) d -= 2;
+    else if(o.s === c.s && Math.abs(RV13(o.r) - RV13(c.r)) <= 1) d -= 1;
+  }
+  return d;
+}
 function botDecide(st, seat){
   const h = st.hands[seat];
+  const live = pifeLive(st, seat);
   if(!st.drew){
     const top = st.lixo[st.lixo.length-1];
     if(top){
       const with10 = h.concat([top]);
       if(canBater(with10)) return {t:'lixo'};
-      const base = pifeBest(h).n, after = Math.max(...h.map(x => pifeBest(with10.filter(y => y !== x)).n));
-      if(after > base) return {t:'lixo'};
+      const now = handEval(h, live);
+      let after = -1;
+      for(const x of h) after = Math.max(after, handEval(with10.filter(y => y !== x), live));
+      if(after > now + 1.5) return {t:'lixo'};
     }
     return {t:'monte'};
   }
   const b = canBater(h); if(b) return {t:'bater', id:b.discard.id};
-  // descarta a carta cuja saída deixa a mão mais forte
   let best = null;
   for(const c of h){
     if(st.lastDraw && st.lastDraw.from === 'lixo' && st.lastDraw.id === c.id) continue;
-    const sc = pifeScore(h.filter(x => x !== c)) - RV13(c.r) * 0.05 + Math.random()*0.5;
+    const sc = handEval(h.filter(x => x !== c), live) - feedDanger(st, seat, c) + Math.random()*0.3;
     if(!best || sc > best.sc) best = {c, sc};
   }
   return {t:'discard', id:best.c.id};
@@ -113,6 +169,7 @@ Mesa.run({
       } else if(a.t === 'lixo'){
         if(!st.lixo.length) return {ok:false, err:'O lixo está vazio.'};
         const c = st.lixo.pop(); h.push(c); st.lastDraw = {from:'lixo', id:c.id};
+        if(st.pub) st.pub[seat].push(c);
         ev.push({k:'log', text:`${esc(st.names[seat])} pegou ${c.r}${c.s} do lixo.`});
       } else return {ok:false, err:'Primeiro compre uma carta (monte ou lixo).'};
       st.drew = true;
@@ -130,6 +187,7 @@ Mesa.run({
         return {events:[{k:'banner', text:`${st.names[seat]} BATEU!`}, {k:'snd', s:'win'}, {k:'log', text:`<b>${esc(st.names[seat])}</b> bateu! (${st.wins[seat]} de ${st.meta})`}]};
       }
       const [c] = h.splice(i,1); st.lixo.push(c);
+      if(st.disc){ st.disc[seat].push(c); st.pub[seat] = st.pub[seat].filter(x => x.id !== c.id); }
       st.drew = false; st.turn = (st.turn + 1) % st.names.length; st.lastDraw = null;
       return {events:[{k:'snd', s:'card'}]};
     }

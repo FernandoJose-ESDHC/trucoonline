@@ -51,16 +51,59 @@ const START = 1000;
 function newShoe(){ return shuffle(makeDeck({ranks:RANKS, decks:4})); }
 function draw(st){ if(st.shoe.length < 52){ st.shoe = newShoe(); st.reshuffled = true; } return st.shoe.pop(); }
 
-function basicStrategy(cards, up){
-  const {t, soft} = total(cards), u = cval(up) === 11 ? 11 : cval(up);
-  if(soft){ if(t >= 19) return 'stand'; if(t === 18) return u >= 9 ? 'hit' : (cards.length === 2 && u >= 3 && u <= 6 ? 'double' : 'stand');
-    if(cards.length === 2 && t >= 15 && u >= 4 && u <= 6) return 'double'; return 'hit'; }
+/* ---- bot: estratégia básica completa (banca para no 17, sem carta escondida conferida,
+   sem divisão) + contagem Hi-Lo para ajustar apostas e algumas decisões ---- */
+const hilo = c => ['2','3','4','5','6'].includes(c.r) ? 1 : ['10','J','Q','K','A'].includes(c.r) ? -1 : 0;
+// contagem real do ponto de vista dos jogadores: tudo que ainda não foi visto = sapato + carta escondida da banca
+function trueCount(st){
+  let rc = 0, n = st.shoe.length;
+  for(const c of st.shoe) rc -= hilo(c);
+  if(st.hole && st.dealer[1]){ rc -= hilo(st.dealer[1]); n++; }
+  return rc / Math.max(0.5, n / 52);
+}
+function basicStrategy(cards, up, tc = 0){
+  const {t, soft} = total(cards), u = cval(up), two = cards.length === 2;
+  if(soft){
+    if(t >= 19) return 'stand';
+    if(t === 18){ if(two && u >= 3 && u <= 6) return 'double'; return u >= 9 ? 'hit' : 'stand'; }
+    if(two){
+      if(t === 17 && u >= 3 && u <= 6) return 'double';
+      if((t === 15 || t === 16) && u >= 4 && u <= 6) return 'double';
+      if((t === 13 || t === 14) && u >= 5 && u <= 6) return 'double';
+    }
+    return 'hit';
+  }
+  // desvios pela contagem (os mais valiosos)
+  if(t === 16 && u === 10) return tc >= 0 ? 'stand' : 'hit';
+  if(t === 15 && u === 10 && tc >= 4) return 'stand';
+  if(t === 12 && u === 2 && tc >= 3) return 'stand';
+  if(t === 12 && u === 3 && tc >= 2) return 'stand';
+  if(t === 13 && u === 2 && tc <= -1) return 'hit';
+  if(t === 12 && u === 4 && tc < 0) return 'hit';
+  if(two && t === 10 && u === 10 && tc >= 4) return 'double';
+  if(two && t === 9 && (u === 2 && tc >= 1 || u === 7 && tc >= 3)) return 'double';
   if(t >= 17) return 'stand';
   if(t >= 13) return u <= 6 ? 'stand' : 'hit';
   if(t === 12) return (u >= 4 && u <= 6) ? 'stand' : 'hit';
-  if(t === 11 && cards.length === 2) return 'double';
-  if(t === 10 && cards.length === 2 && u <= 9) return 'double';
+  if(two && t === 11) return u <= 9 ? 'double' : 'hit';
+  if(two && t === 10) return u <= 9 ? 'double' : 'hit';
+  if(two && t === 9) return u >= 3 && u <= 6 ? 'double' : 'hit';
   return 'hit';
+}
+// aposta: base pequena, cresce com a contagem a favor; nas últimas rodadas, quem está atrás arrisca para alcançar o líder
+function botBet(st, seat){
+  const c = st.chips[seat], left = st.rounds - st.round;
+  const tc = trueCount(st);
+  let bet = Math.max(10, Math.round(c * 0.04 / 5) * 5);
+  if(tc >= 2) bet *= Math.min(4, Math.floor(tc));
+  else if(tc <= -1) bet = 10;
+  const others = st.chips.filter((_,i) => i !== seat && !st.broke[i]);
+  const lead = others.length ? Math.max(...others) : 0;
+  if(others.length && left === 0){
+    if(c <= lead) bet = Math.min(c, lead - c + 10);     // precisa passar o líder
+    else if(c - lead > 2*Math.max(10, lead*0.1)) bet = 10;               // folga grande: protege
+  } else if(others.length && left <= 3 && c < lead) bet = Math.max(bet, Math.round((lead - c) / (left + 1) / 5) * 5);
+  return Math.max(10, Math.min(c, bet));
 }
 
 Mesa.run({
@@ -134,8 +177,9 @@ Mesa.run({
     return {ok:false};
   },
   bot(st, seat){
-    if(st.phase === 'bet'){ const c = st.chips[seat]; const b = Math.max(10, Math.min(c, pick([10,25,25,50,50,100]))); return {t:'bet', bet: Math.min(b, c)}; }
-    if(st.phase === 'play'){ let m = basicStrategy(st.hands[seat], st.dealer[0]); if(m === 'double' && (st.hands[seat].length !== 2 || st.chips[seat] < st.bets[seat])) m = 'hit'; return {t:m}; }
+    if(st.phase === 'bet') return {t:'bet', bet: botBet(st, seat)};
+    if(st.phase === 'play'){ const h = st.hands[seat]; let m = basicStrategy(h, st.dealer[0], trueCount(st));
+      if(m === 'double' && (h.length !== 2 || st.chips[seat] < st.bets[seat])) m = total(h).t >= 18 ? 'stand' : 'hit'; return {t:m}; }
     if(st.phase === 'result') return {t:'next'};
   },
   botDelay(st){ return st.phase === 'result' ? 2600 : st.phase === 'bet' ? 450 : 750; },
