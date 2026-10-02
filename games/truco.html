@@ -447,8 +447,8 @@ const maxPow = mode => mode === 'paulista' ? 13 : 9 + MODES[mode].manilhas.lengt
 const PAULISTA_NAMES = {13:'ZAP',12:'COPAS',11:'ESPADILHA',10:'OUROS'};
 const DIFF = {
   facil:  { name:'Fácil',   N:0,   bluff:0.04, susp:1.00, noise:0.14, cover:0.2 },
-  normal: { name:'Normal',  N:240, bluff:0.08, susp:1.00, noise:0.03, cover:0.5 },
-  dificil:{ name:'Difícil', N:600, bluff:0.11, susp:1.00, noise:0.00, cover:0.6 }
+  normal: { name:'Normal',  N:240, bluff:0.06, susp:1.00, noise:0.03, cover:0.5 },
+  dificil:{ name:'Difícil', N:600, bluff:0.08, susp:1.00, noise:0.00, cover:0.6 }
 };
 const ACEITES = ['Desce!','Manda!','Vem!','Aceito!','Bora!','Pode vir!'];
 const BOT_NAMES = ['Tião','Zé','Chico','Dito','Juca','Nhô Quim','Tonho','Bené','Lurdinha','Dona Cida'];
@@ -901,21 +901,35 @@ function mw(my, opp){
 function aiWantsRaise(p, pwin){
   const D = DIFF[S.diff], t = team(p), my = S.score[t], opp = S.score[1-t];
   const v = S.value, v1 = R().values[S.level+1];
+  // mão já decidida (ganha ou perdida): trucar não muda nada, só irrita ou entrega pontos
+  // (no fácil a estimativa é por regra simples; aqui confere com uma simulação rápida)
+  const real = D.N ? pwin : mcRun(mcSetup(p), 80, null, null);
+  if(real >= 0.97 || real <= 0.04) return false;
   const q = clamp(pwin + (Math.random()*2-1)*D.noise, 0, 1);
   const lastChance = S.hands[p].length <= 1;
+  const nextLvl = S.level + 1;
   // com mão monstruosa, às vezes espera na 1ª vaza pra o adversário trucar primeiro
-  if(S.diff !== 'facil' && q > 0.93 && S.vazas.length === 0 && S.level === 0 && Math.random() < 0.3) return false;
-  const acc = clamp(1.5*(1-q) + 0.05, 0.1, 0.95);
+  if(S.diff !== 'facil' && q > 0.9 && S.vazas.length === 0 && S.level === 0 && Math.random() < 0.3) return false;
+  // aposta de valor: o adversário só aceita quando acha que tem chance, então
+  // aumentar com mão quase certa rende pouco; precisa de vantagem clara
+  const acc = clamp(1.6*(1-q), 0.05, 0.95);
   const evR = acc*(q*mw(my+v1,opp) + (1-q)*mw(my,opp+v1)) + (1-acc)*mw(my+v,opp);
   const evN = q*mw(my+v,opp) + (1-q)*mw(my,opp+v);
-  const nextLvl = S.level + 1;
-  const minQ = nextLvl === 1 ? 0.64 : nextLvl === 2 ? 0.78 : 0.88;   // aumentar mais alto exige mão cada vez melhor
-  if(q >= minQ && evR > evN + 0.003) return true;
-  // blefe: só quando a mão não está perdida de vez e o placar permite arriscar
-  if(q < 0.12 && !lastChance) return false;
-  if(mw(my, opp+v1) < mw(my, opp) - 0.25) return false;
-  const bl = D.bluff * (S.vazas[0] === t ? 1.8 : 1) * (lastChance ? 1.3 : 1) * (nextLvl === 1 ? 1 : 0.2);
-  return Math.random() < bl;
+  const minQ = nextLvl === 1 ? 0.72 : nextLvl === 2 ? 0.8 : 0.9;   // aumentar mais alto exige mão cada vez melhor
+  // e o próprio bot precisa ter o que mostrar: manilha, ou um 3 depois de fazer a vaza,
+  // ou a mão praticamente garantida — não truca só na esperança das cartas do parceiro
+  const pws = S.hands[p].map(power), top = pws.length ? Math.max(...pws) : -1;
+  const strongCard = Math.max(10, MAXP() - 4);       // nos modos com muitas manilhas, só as de cima contam
+  const goods = top >= strongCard || (S.vazas.includes(t) && top >= 9) || real >= 0.9;
+  if(goods && q >= minQ && evR > evN + 0.008) return true;
+  // blefe: raro, no máximo um por mão para cada time, só no truco (não no seis/nove/doze),
+  // com mão "vendável" (nem perdida, nem boa) e quando o placar permite arriscar
+  if(nextLvl !== 1 || (S.bluffed && S.bluffed[t])) return false;
+  if(q < 0.15 || q > 0.5) return false;
+  if(mw(my, opp+v1) < mw(my, opp) - 0.2) return false;
+  const bl = D.bluff * (S.vazas[0] === t ? 1.4 : 1) * (lastChance ? 1.2 : 0.6);
+  if(Math.random() < bl){ if(S.bluffed) S.bluffed[t] = true; return true; }
+  return false;
 }
 function aiRespond(rt, next, asker, askerP){
   const D = DIFF[S.diff];
@@ -1070,7 +1084,7 @@ async function voteFerro(){
 async function playHand(){
   const Rm = R(), H = Rm.hand10, [a,b] = S.score;
   Object.assign(S, {level:0, value:Rm.values[0], lastRaise:-1, vazas:[], table:[], ferro:false, noTruco:false,
-                    showPartnerTeam:-1, m10Team:-1, winP:-1, turn:-1, vira:null, hands:S.seats.map(() => []), raisers:[], caps:S.seats.map(() => undefined)});
+                    showPartnerTeam:-1, m10Team:-1, winP:-1, turn:-1, vira:null, hands:S.seats.map(() => []), raisers:[], caps:S.seats.map(() => undefined), bluffed:[false,false]});
   sync();
   let ferro = false, noTruco = false, m10Team = -1;
   if(a === H && b === H){ ferro = await voteFerro(); noTruco = true; }
