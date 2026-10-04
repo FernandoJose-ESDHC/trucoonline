@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Ludo</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px}
+#stage.port{flex-direction:column;gap:8px}
+.lboard{position:relative;width:var(--B);height:var(--B);flex:none;border-radius:12px;box-shadow:0 14px 30px rgba(0,0,0,.5);border:5px solid #3b2a18;background:#fbf7ee;box-sizing:content-box}
+.lboard svg{position:absolute;inset:0;width:100%;height:100%;border-radius:8px}
+.tk{position:absolute;left:0;top:0;width:var(--T);height:var(--T);margin:calc(var(--T)/-2) 0 0 calc(var(--T)/-2);border-radius:50%;z-index:3;pointer-events:none;
+  border:2px solid rgba(0,0,0,.55);box-shadow:0 3px 0 rgba(0,0,0,.35),0 4px 7px rgba(0,0,0,.45);transition:width .15s,height .15s,margin .15s}
+.tk::before{content:"";position:absolute;inset:22%;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.tk.c0{background:radial-gradient(circle at 35% 30%,#ff9a9a,#d93636 60%,#8f1616)}
+.tk.c1{background:radial-gradient(circle at 35% 30%,#9be8b0,#27a04a 60%,#11602a)}
+.tk.c2{background:radial-gradient(circle at 35% 30%,#fff1a8,#f0bd22 60%,#a07800)}
+.tk.c3{background:radial-gradient(circle at 35% 30%,#a8cdfa,#2f7fd8 60%,#174b8f)}
+.tk.small{width:calc(var(--T)*.72);height:calc(var(--T)*.72);margin:calc(var(--T)*-.36) 0 0 calc(var(--T)*-.36)}
+.tk.can{z-index:6;animation:tkpulse 1s ease-in-out infinite}
+@keyframes tkpulse{0%,100%{box-shadow:0 0 0 2px #fff,0 0 0 5px var(--gold),0 4px 8px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 3px #fff,0 0 0 8px var(--gold),0 0 18px rgba(231,180,58,.9)}}
+.tk.last{z-index:5}
+.tk.fly{z-index:8}
+.dest{position:absolute;width:calc(var(--T)*.75);height:calc(var(--T)*.75);margin:calc(var(--T)*-.375) 0 0 calc(var(--T)*-.375);border-radius:50%;border:3px dashed var(--gold);z-index:2;pointer-events:none;background:rgba(231,180,58,.25)}
+.lside{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:250px}
+#stage.port .lside{width:var(--B);flex-direction:column;gap:6px}
+.plist{display:flex;flex-direction:column;gap:6px}
+#stage.port .plist{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.pl{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.35);border:2px solid transparent;border-radius:12px;padding:6px 10px;font-weight:800;font-size:14px;min-width:0}
+.pl.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pl .sw{width:18px;height:18px;border-radius:50%;flex:none;border:2px solid rgba(0,0,0,.5)}
+.pl .nmx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .fin{font-size:12px;color:#ffe6a6;white-space:nowrap}
+#stage.port .pl{padding:4px 8px;font-size:13px}
+.dicebox{display:flex;align-items:center;justify-content:center;gap:14px;background:rgba(0,0,0,.25);border-radius:14px;padding:10px}
+#stage.port .dicebox{padding:6px 10px}
+.die{width:64px;height:64px;border-radius:14px;background:linear-gradient(145deg,#fff,#e9e3d6);box-shadow:0 5px 0 #b9ae98,0 8px 14px rgba(0,0,0,.45);
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:9px;gap:2px;flex:none;border:3px solid transparent}
+.die i{border-radius:50%;background:transparent;margin:2px}
+.die i.on{background:#222;box-shadow:inset 0 1px 2px rgba(255,255,255,.3)}
+.die.go{cursor:pointer;animation:pulse 1.2s infinite}
+#stage.port .die{width:52px;height:52px;padding:7px}
+.rollbtn{padding:13px 18px;border-radius:12px;border:none;font-weight:900;font-size:16px;cursor:pointer;background:var(--gold);color:#3a2600;box-shadow:0 4px 0 #8a6510}
+.rollbtn:disabled{opacity:.45;cursor:default;box-shadow:none}
+.lmsg{font-size:13px;font-weight:700;color:#e3f3ea;text-align:center;min-height:18px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================= LUDO =================================
+   Tabuleiro clássico 15×15 em cruz. Percurso comum de 52 casas (índice
+   absoluto 0..51, a saída do vermelho é 0). Posição de cada peça relativa
+   à sua cor: -1 base, 0..50 percurso comum, 51..55 corredor final,
+   56 chegada (centro). Cores: 0 vermelho, 1 verde, 2 amarelo, 3 azul.
+   ===================================================================== */
+const COLORS = [
+  {n:'Vermelho', k:'#d93636', l:'#f7cdcd'}, {n:'Verde', k:'#27a04a', l:'#c9edd3'},
+  {n:'Amarelo', k:'#f0bd22', l:'#fbedbd'}, {n:'Azul', k:'#2f7fd8', l:'#cde0f7'}];
+const SEAT_COLORS = {2:[0,2], 3:[0,1,2], 4:[0,1,2,3]};
+const START = [0, 13, 26, 39];
+const SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);   // saídas e estrelas
+const LAST = 56;
+/* ---- geometria (linha, coluna) ---- */
+const TRACK = [];
+{ const seg = (r, c, dr, dc, n) => { for(let i=0;i<n;i++) TRACK.push([r + dr*i, c + dc*i]); };
+  seg(6,1,0,1,5); seg(5,6,-1,0,6); seg(0,7,0,1,2); seg(1,8,1,0,5); seg(6,9,0,1,6); seg(7,14,1,0,2);
+  seg(8,13,0,-1,5); seg(9,8,1,0,6); seg(14,7,0,-1,2); seg(13,6,-1,0,5); seg(8,5,0,-1,6); seg(7,0,-1,0,2); }
+const HOMECOL = [[1,2,3,4,5].map(i => [7,i]), [1,2,3,4,5].map(i => [i,7]), [13,12,11,10,9].map(i => [7,i]), [13,12,11,10,9].map(i => [i,7])];
+const BASE0 = [[0,0],[0,9],[9,9],[9,0]];                      // canto de cada base (6×6)
+const BASESPOT = BASE0.map(([r,c]) => [[r+2,c+2],[r+2,c+4],[r+4,c+2],[r+4,c+4]]);   // centros (contínuo)
+const GOAL = [[7.5,6.55],[6.55,7.5],[7.5,8.45],[8.45,7.5]];  // ponto de chegada de cada cor no centro
+const absOf = (c, r) => r >= 0 && r <= 50 ? (START[c] + r) % 52 : -1;
+// centro (y, x) em unidades de casa, sem rotação
+function spotXY(c, r, p){
+  if(r < 0) return BASESPOT[c][p];
+  if(r === LAST){ const g = GOAL[c], o = [[-.28,-.28],[-.28,.28],[.28,-.28],[.28,.28]][p]; return [g[0] + o[0]*.9, g[1] + o[1]*.9]; }
+  const rc = r <= 50 ? TRACK[absOf(c, r)] : HOMECOL[c][r - 51];
+  return [rc[0] + .5, rc[1] + .5];
+}
+
+/* ---- regras ---- */
+const exitOK = (st, d) => d === 6 || (st.exit === '16' && d === 1);
+// lances da peça p de quem está na vez (null se não pode)
+function pieceMove(st, seat, p, d){
+  const r = st.pos[seat][p];
+  if(r === LAST) return null;
+  if(r < 0) return exitOK(st, d) ? {p, from:r, to:0} : null;
+  return r + d <= LAST ? {p, from:r, to:r + d} : null;
+}
+function allMoves(st, seat, d){ const out = []; for(let p=0;p<4;p++){ const m = pieceMove(st, seat, p, d); if(m) out.push(m); } return out; }
+// lances distintos (peças na mesma casa são equivalentes)
+function distinctMoves(st, seat, d){ const seen = new Set(); return allMoves(st, seat, d).filter(m => !seen.has(m.from) && seen.add(m.from)); }
+const finished = (st, s) => st.pos[s].filter(r => r === LAST).length;
+function nextTurn(st){ st.turn = (st.turn + 1) % st.n; st.phase = 'roll'; st.sixes = 0; }
+const HOP = 115, DICE = 560;   // ms (as animações usam os mesmos tempos)
+
+// executa o lance; devolve a pausa para a animação
+function doMove(st, seat, p, ev){
+  const c = st.colors[seat], from = st.pos[seat][p], d = st.dice.v;
+  const to = from < 0 ? 0 : from + d;
+  st.pos[seat][p] = to;
+  const caps = [];
+  if(to <= 50){
+    const a = absOf(c, to);
+    if(!SAFE.has(a)) for(let s=0;s<st.n;s++){ if(s === seat) continue;
+      for(let q=0;q<4;q++){ const r = st.pos[s][q]; if(r >= 0 && r <= 50 && absOf(st.colors[s], r) === a){ caps.push([s, q, r]); st.pos[s][q] = -1; } } }
+  }
+  st.last = {seat, p, from, to, caps, seq: ++st.seq};
+  ev.push({k:'snd', s: caps.length ? 'capture' : 'move'});
+  if(from < 0) ev.push({k:'log', text:`${esc(st.names[seat])} pôs uma peça em jogo.`});
+  caps.forEach(([s]) => ev.push({k:'log', text:`<b>${esc(st.names[seat])}</b> capturou uma peça de ${esc(st.names[s])}!`}));
+  if(caps.length) ev.push({k:'banner', text: caps.length > 1 ? `Capturou ${caps.length}!` : 'Capturou!'});
+  if(to === LAST) ev.push({k:'log', text:`${esc(st.names[seat])} levou uma peça ao centro (${finished(st, seat)}/4).`}, {k:'snd', s:'win'});
+  const steps = from < 0 ? 1 : d;
+  if(finished(st, seat) === 4){
+    st.result = {winners:[seat], text:`<b>${esc(st.names[seat])}</b> (${COLORS[c].n.toLowerCase()}) levou as 4 peças ao centro!`};
+    return steps * HOP + 300;
+  }
+  const bonus = d === 6 || caps.length > 0 || to === LAST;
+  if(bonus){
+    st.phase = 'roll';
+    if(d !== 6) st.sixes = 0;
+    const why = caps.length ? 'capturou' : to === LAST ? 'chegou ao centro' : 'tirou 6';
+    ev.push({k:'toast', seat, text:`Você ${why}: jogue de novo!`});
+  } else nextTurn(st);
+  return steps * HOP + (caps.length ? 450 : 120);
+}
+
+/* ---- bot ----
+   Fácil/Normal: avaliam cada lance com heurística — captura (vale mais
+   quanto mais longe a vítima estava), sair da base, chegar ao centro,
+   entrar no corredor final, casa segura, avanço e fugir do perigo
+   (conta as peças adversárias de 1 a 6 casas atrás, antes e depois).
+   Difícil: avalia a posição inteira de todos (progresso de cada peça menos
+   o risco de perdê-la, com a probabilidade real de cada adversário acertar
+   no próximo giro — inclusive 6 + outro dado e peças saindo da base) e faz
+   expectimax: para cada lance, considera os 6 resultados do dado do próximo
+   adversário e a melhor resposta dele. */
+const pv = r => r < 0 ? 0 : r >= 51 ? 0 : 14 + r;                 // o que se perde se a peça for capturada
+function exposedAt(st, seat, r){ const c = st.colors[seat]; return r >= 1 && r <= 50 && !SAFE.has(absOf(c, r)); }
+function countBehind(st, seat, r){
+  const a = absOf(st.colors[seat], r); let n = 0;
+  for(let s=0;s<st.n;s++){ if(s === seat) continue; const c = st.colors[s];
+    for(const q of st.pos[s]){ if(q < 0 || q > 50) continue; const dist = (a - absOf(c, q) + 52) % 52; if(dist >= 1 && dist <= 6 && q + dist <= 50) n++; } }
+  return n;
+}
+// chance de o lugar s acertar a casa absoluta a no próximo giro
+function hitProb(st, s, a){
+  const c = st.colors[s], d1 = new Set(), d2 = new Set();
+  for(const q of st.pos[s]){
+    if(q >= 0 && q <= 50){
+      const dist = (a - absOf(c, q) + 52) % 52;
+      if(dist === 0 || q + dist > 50) continue;
+      if(dist <= 6) d1.add(dist); else if(dist <= 12) d2.add(dist - 6);
+    } else if(q < 0){
+      const dist = (a - START[c] + 52) % 52;                      // sai com 6 e anda o 2º dado
+      if(dist >= 1 && dist <= 6) d2.add(dist);
+    }
+  }
+  let p = d1.size / 6;
+  if(!d1.has(6)) p += d2.size / 36;
+  return Math.min(1, p);
+}
+function riskOf(st, seat, r){
+  if(!exposedAt(st, seat, r)) return 0;
+  const a = absOf(st.colors[seat], r); let safe = 1;
+  for(let s=0;s<st.n;s++) if(s !== seat) safe *= 1 - hitProb(st, s, a);
+  return 1 - safe;
+}
+// aplica um lance numa cópia leve do estado
+function simMove(st, seat, m, d){
+  const c = st.colors[seat];
+  const sim = {n:st.n, colors:st.colors, exit:st.exit, pos:st.pos.map(a => a.slice()), caps:0};
+  sim.pos[seat][m.p] = m.to;
+  if(m.to <= 50){ const a = absOf(c, m.to);
+    if(!SAFE.has(a)) for(let s=0;s<st.n;s++){ if(s === seat) continue;
+      for(let q=0;q<4;q++){ const r = sim.pos[s][q]; if(r >= 0 && r <= 50 && absOf(st.colors[s], r) === a){ sim.caps += 1 + r / 50; sim.pos[s][q] = -1; } } } }
+  sim.extra = d === 6 || sim.caps > 0 || m.to === LAST;
+  return sim;
+}
+/* Fácil / Normal */
+function moveValue(st, seat, m, diff){
+  const c = st.colors[seat], d = st.dice.v, sim = simMove(st, seat, m, d);
+  let v = 0;
+  for(let s=0;s<st.n;s++) if(s !== seat) for(let q=0;q<4;q++){ const r = st.pos[s][q]; if(r >= 0 && sim.pos[s][q] < 0) v += diff === 'facil' ? 50 : 45 + r * .9; }
+  if(m.from < 0) v += 30 + (st.pos[seat].every(r => r < 0 || r === LAST) ? 12 : 0);
+  if(m.to === LAST) v += 38;
+  if(m.from >= 0 && m.from <= 50 && m.to > 50) v += 18;
+  if(sim.caps || m.to === LAST) v += 10;                               // jogada extra
+  v += (m.from < 0 ? 1 : d) * .8;
+  if(m.to <= 50 && SAFE.has(absOf(c, m.to))) v += 6;
+  const k = diff === 'facil' ? .45 : .9;
+  const before = m.from >= 1 && exposedAt(st, seat, m.from) ? Math.min(1, countBehind(st, seat, m.from) / 6 * 1.4) * pv(m.from) : 0;
+  const after = exposedAt(sim, seat, m.to) ? Math.min(1, countBehind(sim, seat, m.to) / 6 * 1.4) * pv(m.to) : 0;
+  v += (before - after) * k;
+  if(diff === 'facil') v += Math.random() * 14;
+  return v;
+}
+/* Difícil */
+const WORTH = r => r < 0 ? 0 : r === LAST ? 100 : r >= 51 ? 85 + (r - 51) : 26 + r;
+const XTRA = 6;                                                        // valor de uma jogada extra
+function posEval(sim, seat){
+  let e = 0;
+  for(const r of sim.pos[seat]){ e += WORTH(r); if(exposedAt(sim, seat, r)) e -= riskOf(sim, seat, r) * WORTH(r); }
+  return e;
+}
+// minha avaliação menos a dos adversários (com 3–4, pesa o líder e a média)
+function relScore(sim, seat){
+  const mine = posEval(sim, seat); let mx = -1e9, sum = 0;
+  for(let s=0;s<sim.n;s++){ if(s === seat) continue; const e = posEval(sim, s); mx = Math.max(mx, e); sum += e; }
+  return mine - (sim.n === 2 ? mx : .5 * mx + .5 * sum / (sim.n - 1));
+}
+function expectimax(st, seat){
+  const d = st.dice.v, ms = distinctMoves(st, seat, d);
+  if(ms.length <= 1) return ms[0];
+  const nx = (seat + 1) % st.n;
+  let best = ms[0], bv = -1e9;
+  for(const m of ms){
+    const sim = simMove(st, seat, m, d);
+    let v;
+    if(sim.extra) v = relScore(sim, seat) + XTRA;                     // jogo de novo: o adversário ainda não responde
+    else {
+      let tot = 0;
+      for(let dd=1; dd<=6; dd++){
+        const oms = distinctMoves(sim, nx, dd);
+        if(!oms.length){ tot += relScore(sim, seat); continue; }
+        let bo = null, bov = -1e9;
+        for(const om of oms){ const s3 = simMove(sim, nx, om, dd); const ov = relScore(s3, nx) + (s3.extra ? XTRA : 0); if(ov > bov){ bov = ov; bo = s3; } }
+        tot += relScore(bo, seat) - (bo.extra ? XTRA / 2 : 0);
+      }
+      v = tot / 6;
+    }
+    if(v > bv){ bv = v; best = m; }
+  }
+  return best;
+}
+function botChoose(st, seat, diff){
+  if(diff === 'dificil') return expectimax(st, seat);
+  const ms = distinctMoves(st, seat, st.dice.v);
+  if(ms.length <= 1) return ms[0];
+  let best = ms[0], bv = -1e9;
+  for(const m of ms){ const v = moveValue(st, seat, m, diff); if(v > bv){ bv = v; best = m; } }
+  return best;
+}
+
+Mesa.run({
+  id:'ludo', name:'Ludo', icon:'🎲', tagline:'Online ou contra bots',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4']]},
+    {key:'exit', label:'Sair da base', default:'6', choices:[['6','Sai com 6'],['16','Sai com 1 ou 6']]},
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => +o.seats || 4,
+  modeLabel: o => (o.exit === '16' ? 'SAI COM 1 OU 6' : 'SAI COM 6') + ' · BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => (COLORS[(SEAT_COLORS[n] || SEAT_COLORS[4])[s]] || {n:''}).n,
+  setup(players, o){
+    const n = players.length;
+    return {n, colors:SEAT_COLORS[n].slice(), names:players.map(p => p.name), pos:players.map(() => [-1,-1,-1,-1]),
+      turn:0, phase:'roll', dice:null, sixes:0, seq:0, last:null, exit:o.exit === '16' ? '16' : '6', result:null};
+  },
+  startEvents(st){ return [{k:'log', text:`${esc(st.names[0])} (${COLORS[st.colors[0]].n.toLowerCase()}) começa.`}]; },
+  waiting(st){ return st.result ? [] : [st.turn]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const ev = [];
+    if(a.t === 'roll'){
+      if(st.phase !== 'roll') return {ok:false, err:'Escolha qual peça mover.'};
+      const d = 1 + Math.floor(Math.random() * 6);
+      st.dice = {v:d, seq:++st.seq, seat};
+      st.sixes = d === 6 ? st.sixes + 1 : 0;
+      ev.push({k:'snd', s:'card'});
+      if(st.sixes >= 3){
+        ev.push({k:'banner', text:'Três 6: perdeu a vez!', bad:true}, {k:'log', text:`${esc(st.names[seat])} tirou três 6 seguidos e perdeu a vez.`});
+        nextTurn(st);
+        return {events:ev, pause:DICE + 900};
+      }
+      const ms = distinctMoves(st, seat, d);
+      if(!ms.length){
+        if(d === 6){ ev.push({k:'toast', seat, text:'Nenhuma peça pode andar, mas tirou 6: jogue de novo.'}); return {events:ev, pause:DICE + 500}; }
+        ev.push({k:'toast', seat, text:`Tirou ${d}: nenhuma peça pode andar. Passou a vez.`}, {k:'log', text:`${esc(st.names[seat])} tirou ${d} e não pôde mover.`});
+        nextTurn(st);
+        return {events:ev, pause:DICE + 650};
+      }
+      st.phase = 'move';
+      if(ms.length === 1) return {events:ev, pause:DICE + 380 + doMove(st, seat, ms[0].p, ev)};
+      return {events:ev, pause:DICE};
+    }
+    if(a.t === 'move'){
+      if(st.phase !== 'move') return {ok:false, err:'Role o dado primeiro.'};
+      const p = a.p;
+      if(!Number.isInteger(p) || p < 0 || p > 3) return {ok:false, err:'Peça inválida.'};
+      if(!pieceMove(st, seat, p, st.dice.v)){
+        const r = st.pos[seat][p];
+        return {ok:false, err: r < 0 ? (st.exit === '16' ? 'Para sair da base precisa tirar 1 ou 6.' : 'Para sair da base precisa tirar 6.') :
+          r === LAST ? 'Essa peça já chegou.' : 'Precisa do número exato para chegar ao centro.'};
+      }
+      return {events:ev, pause:doMove(st, seat, p, ev)};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, seat, o){
+    if(st.phase === 'roll') return {t:'roll'};
+    const m = botChoose(st, seat, o.diff) || allMoves(st, seat, st.dice.v)[0];
+    return {t:'move', p:m ? m.p : 0};
+  },
+  botDelay(st, s, o){ return st.phase === 'roll' ? 420 : 380; },
+  view(st, seat){
+    const mine = seat >= 0 && st.turn === seat && st.phase === 'move' && !st.result;
+    return {n:st.n, colors:st.colors, names:st.names, pos:st.pos, turn:st.turn, phase:st.phase, dice:st.dice, sixes:st.sixes,
+      last:st.last, exit:st.exit, moves: mine ? allMoves(st, seat, st.dice.v) : []};
+  },
+  topInfo(g, v){
+    const me = v.me, live = v.phase === 'game';
+    let t = '';
+    if(live) t = g.turn === me ? (g.phase === 'roll' ? 'Sua vez: role o dado' : 'Sua vez: escolha a peça') : `Vez de ${esc(g.names[g.turn])}`;
+    return `<div class="status">${t}</div>`;
+  },
+  rules: o => `<h3>Objetivo</h3><p>Ser o primeiro a levar as <b>4 peças</b> da sua cor da base até o <b>centro</b> do tabuleiro.</p>
+  <h3>Percurso</h3><p>As peças dão a volta no tabuleiro no sentido horário, saindo da casa colorida da sua cor. Depois de quase uma volta inteira entram no <b>corredor final</b> da sua cor (onde ninguém mais entra) e chegam ao centro.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Na sua vez, role o dado e ande com <b>uma</b> peça o número tirado.</li>
+  <li>Para tirar uma peça da base é preciso tirar <b>${o && o.exit === '16' ? '1 ou 6' : '6'}</b> (opção "Sair da base"). Ela vai para a casa de saída da sua cor.</li>
+  <li>Tirou <b>6</b>: joga de novo. Mas <b>três 6 seguidos</b>: perde a vez (o terceiro não anda).</li>
+  <li>Se nenhuma peça puder andar, a vez passa (se tirou 6, rola de novo).</li></ul>
+  <h3>Captura</h3><ul>
+  <li>Parar numa casa onde há peça adversária manda essa peça <b>de volta para a base</b> e dá uma <b>jogada extra</b>.</li>
+  <li>As <b>casas seguras</b> não permitem captura: as casas de saída (coloridas) e as casas com <b>estrela</b>. Nelas, peças de cores diferentes podem ficar juntas.</li>
+  <li>Peças da mesma cor podem dividir a casa; se um adversário parar ali (fora de casa segura), captura todas.</li></ul>
+  <h3>Chegada</h3><ul><li>Para entrar no centro é preciso o <b>número exato</b>; se passar, essa peça não pode andar.</li>
+  <li>Levar uma peça ao centro também dá <b>jogada extra</b>.</li></ul>
+  <h3>Fim</h3><p>Vence quem levar as 4 peças ao centro primeiro.</p>
+  <h3>Como jogar aqui</h3><p>Toque em <b>Rolar dado</b> (ou no dado). Depois toque na peça que vai andar — as que podem andar piscam e o destino fica marcado. Se só houver um lance possível, a peça anda sozinha. O tabuleiro gira para a sua cor ficar embaixo, à esquerda.</p>`,
+  render(g, v, ui){ renderLudo(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ animSeen = -1; diceSeen = -1; } }
+});
+
+/* ============================ INTERFACE ============================ */
+let animSeen = -1, diceSeen = -1, boardRot = -1, diceTimer = null, diceUntil = 0;
+const PIPS = {1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8]};
+const dieHTML = v => [...Array(9).keys()].map(i => `<i class="${v && PIPS[v].includes(i) ? 'on' : ''}"></i>`).join('');
+const rotXY = ([y, x], k) => { for(let i=0;i<k;i++) [y, x] = [x, 15 - y]; return [y, x]; };
+function boardSVG(rot){
+  const R = (x, y, w, h, f, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" ${extra}/>`;
+  let s = `<g transform="rotate(${rot*90} 7.5 7.5)">`;
+  s += R(0, 0, 15, 15, '#fbf7ee');
+  // casas do percurso
+  TRACK.forEach(([r, c], i) => {
+    const sc = START.indexOf(i);
+    s += R(c, r, 1, 1, sc >= 0 ? COLORS[sc].k : '#fffdf7', 'stroke="#9a8f7a" stroke-width=".04"');
+  });
+  HOMECOL.forEach((cells, k) => cells.forEach(([r, c]) => { s += R(c, r, 1, 1, COLORS[k].k, 'stroke="#9a8f7a" stroke-width=".04"'); }));
+  // estrelas (casas seguras)
+  const star = (cx, cy, fill) => { let p = ''; for(let i=0;i<10;i++){ const a = -Math.PI/2 + i*Math.PI/5, rr = i % 2 ? .17 : .4; p += `${(cx + rr*Math.cos(a)).toFixed(3)},${(cy + rr*Math.sin(a)).toFixed(3)} `; } return `<polygon points="${p}" fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width=".03"/>`; };
+  SAFE.forEach(i => { const [r, c] = TRACK[i]; s += star(c + .5, r + .5, START.includes(i) ? 'rgba(255,255,255,.85)' : '#b8ad97'); });
+  // bases
+  BASE0.forEach(([r, c], k) => {
+    s += R(c, r, 6, 6, COLORS[k].k, 'stroke="rgba(0,0,0,.25)" stroke-width=".06"');
+    s += `<rect x="${c+.8}" y="${r+.8}" width="4.4" height="4.4" rx=".5" fill="#fffdf7" stroke="rgba(0,0,0,.2)" stroke-width=".05"/>`;
+    BASESPOT[k].forEach(([y, x]) => { s += `<circle cx="${x}" cy="${y}" r=".62" fill="${COLORS[k].l}" stroke="${COLORS[k].k}" stroke-width=".1"/>`; });
+  });
+  // centro
+  const tri = (pts, f) => `<polygon points="${pts.map(p => p.join(',')).join(' ')}" fill="${f}" stroke="rgba(0,0,0,.25)" stroke-width=".04"/>`;
+  s += tri([[6,6],[6,9],[7.5,7.5]], COLORS[0].k) + tri([[6,6],[9,6],[7.5,7.5]], COLORS[1].k) + tri([[9,6],[9,9],[7.5,7.5]], COLORS[2].k) + tri([[6,9],[9,9],[7.5,7.5]], COLORS[3].k);
+  s += `<rect x="0" y="0" width="15" height="15" fill="none" stroke="#3b2a18" stroke-width=".08"/>`;
+  return s + '</g>';
+}
+function renderLudo(g, v, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight;
+  const land = W > 700 && W >= H * 1.15;
+  const B = Math.floor(clamp(land ? Math.min(H - 26, W - 300) : Math.min(W - 26, H - (g.n > 2 ? 205 : 170)), 240, 760));
+  const cell = B / 15;
+  st.classList.toggle('port', !land);
+  st.style.setProperty('--B', B + 'px'); st.style.setProperty('--T', Math.round(cell * .82) + 'px');
+  const me = v.me >= 0 ? v.me : 0, myColor = g.colors[me], live = v.phase === 'game', f = CFG.speed || 1;
+  const rot = (3 - myColor + 4) % 4;                       // sua base fica embaixo à esquerda
+  if(!st.querySelector('.lboard') || boardRot !== rot){
+    boardRot = rot;
+    st.innerHTML = `<div class="lboard" id="lb"><svg viewBox="0 0 15 15">${boardSVG(rot)}</svg></div>
+      <div class="lside"><div class="plist" id="plist"></div>
+      <div class="dicebox"><div class="die" id="die">${dieHTML(0)}</div><button class="rollbtn" id="bRoll">🎲 Rolar dado</button></div>
+      <div class="lmsg" id="lmsg"></div></div>`;
+    $('#bRoll').onclick = () => tryRoll(ui);
+    $('#die').onclick = () => tryRoll(ui);
+    $('#lb').addEventListener('click', e => boardClick(e, ui));
+    animSeen = -1; diceSeen = -1;
+  }
+  // dado (antes das peças: a animação da peça espera o dado parar)
+  const die = $('#die');
+  die.style.borderColor = g.dice ? COLORS[g.colors[g.dice.seat]].k : 'transparent';
+  if(g.dice && g.dice.seq !== diceSeen){
+    diceSeen = g.dice.seq;
+    const fin = g.dice.v, dur = DICE * (CFG.speed || 1);
+    diceUntil = Date.now() + dur;
+    clearInterval(diceTimer);
+    let k = 0; diceTimer = setInterval(() => { die.innerHTML = dieHTML(1 + (k++ * 5 + fin) % 6); }, 70);
+    anim(die, [{transform:'rotate(0) scale(1)'}, {transform:'rotate(200deg) scale(1.15)', offset:.5}, {transform:'rotate(360deg) scale(1)'}], {duration:dur, easing:'ease-out'});
+    setTimeout(() => { clearInterval(diceTimer); die.innerHTML = dieHTML(fin); }, dur);
+  } else if(!g.dice) die.innerHTML = dieHTML(0);
+  else if(diceUntil <= Date.now()) die.innerHTML = dieHTML(g.dice.v);
+  const lb = $('#lb');
+  const XY = (c, r, p) => { const [y, x] = rotXY(spotXY(c, r, p), rot); return [x * cell, y * cell]; };
+  // agrupa peças na mesma casa (para encolher e espalhar)
+  const groups = new Map();
+  for(let s=0;s<g.n;s++) for(let p=0;p<4;p++){
+    const r = g.pos[s][p]; if(r < 0 || r === LAST) continue;
+    const k = r <= 50 ? 'a' + absOf(g.colors[s], r) : 'h' + g.colors[s] + ':' + r;
+    if(!groups.has(k)) groups.set(k, []); groups.get(k).push([s, p]);
+  }
+  const offs = {}; groups.forEach(list => { if(list.length > 1) list.forEach(([s, p], i) => { const a = i / list.length * Math.PI * 2 - Math.PI/4; offs[s + ':' + p] = [Math.cos(a) * cell * .2, Math.sin(a) * cell * .2]; }); });
+  const movable = new Map(g.moves.map(m => [m.p, m]));
+  const L = g.last, newMove = L && L.seq !== animSeen && v.phase !== 'lobby';
+  const dDelay = diceUntil > Date.now() ? diceUntil - Date.now() : 0;
+  for(let s=0;s<g.n;s++) for(let p=0;p<4;p++){
+    const id = 'tk' + s + '_' + p, c = g.colors[s], r = g.pos[s][p];
+    let el = document.getElementById(id);
+    if(!el){ el = document.createElement('div'); el.id = id; el.className = 'tk c' + c; el.dataset.seat = s; lb.appendChild(el); }
+    let [x, y] = XY(c, r, p); const o = offs[s + ':' + p]; if(o){ x += o[0]; y += o[1]; }
+    el.style.transform = `translate(${x}px,${y}px)`;
+    el.classList.toggle('small', !!o || r === LAST);
+    el.classList.toggle('can', movable.has(p) && s === me);
+    el.classList.toggle('last', !!(L && L.seat === s && L.p === p));
+    // animação do último lance: casa por casa
+    if(newMove && L.seat === s && L.p === p){
+      const kf = [];
+      const pts = L.from < 0 ? [L.from, 0] : Array.from({length: L.to - L.from + 1}, (_, i) => L.from + i);
+      const N = pts.length - 1;
+      pts.forEach((rr, i) => {
+        const [px, py] = i === N ? [x, y] : XY(c, rr, p);
+        kf.push({transform:`translate(${px}px,${py}px)`, offset: i / N});
+        if(i < N){ const [qx, qy] = i + 1 === N ? [x, y] : XY(c, pts[i+1], p); kf.push({transform:`translate(${(px+qx)/2}px,${(py+qy)/2 - cell*.35}px) scale(1.12)`, offset:(i + .5) / N}); }
+      });
+      el.classList.add('fly');
+      const an = anim(el, kf, {duration:HOP * (pts.length - 1) * f, delay:dDelay, easing:'linear', fill:'backwards'});
+      if(an) an.onfinish = () => el.classList.remove('fly'); else el.classList.remove('fly');
+    }
+    if(newMove && L.caps.some(([cs, cq]) => cs === s && cq === p)){
+      const [cx, cy] = XY(c, L.caps.find(([cs, cq]) => cs === s && cq === p)[2], p);
+      const steps = L.from < 0 ? 1 : L.to - L.from;
+      anim(el, [{transform:`translate(${cx}px,${cy}px) scale(1)`}, {transform:`translate(${cx}px,${cy}px) scale(1.3)`, offset:.15}, {transform:`translate(${x}px,${y}px)`}],
+        {duration:450 * f, delay:dDelay + HOP * steps * f, easing:'cubic-bezier(.3,.7,.3,1)', fill:'backwards'});
+    }
+  }
+  if(newMove) animSeen = L.seq;
+  // destinos possíveis
+  $$('.dest', lb).forEach(e => e.remove());
+  if(g.moves.length){
+    const seen = new Set();
+    g.moves.forEach(m => { if(seen.has(m.from)) return; seen.add(m.from);
+      const [x, y] = XY(myColor, m.to, m.p); const d = document.createElement('div'); d.className = 'dest'; d.style.left = x + 'px'; d.style.top = y + 'px'; lb.appendChild(d); });
+  }
+  // jogadores
+  $('#plist').innerHTML = g.names.map((nm, s) => `<div class="pl ${g.turn === s && live ? 'vez' : ''}" data-seat="${s}"><span class="sw" style="background:${COLORS[g.colors[s]].k}"></span>
+    <span class="nmx">${esc(v.seats[s] ? v.seats[s].name : nm)}${s === me ? ' (você)' : ''}</span><span class="fin">🏁 ${g.pos[s].filter(r => r === LAST).length}/4</span></div>`).join('');
+  const canRoll = live && v.waiting.includes(me) && g.turn === me && g.phase === 'roll';
+  $('#bRoll').disabled = !canRoll; die.classList.toggle('go', canRoll);
+  let msg = '';
+  if(live){
+    if(g.turn === me && g.phase === 'move' && g.moves.length) msg = `Tirou ${g.dice.v}: toque na peça que vai andar.`;
+    else if(g.turn === me && g.phase === 'roll') msg = g.sixes ? `Tirou 6! Role de novo${g.sixes === 2 ? ' (cuidado: o terceiro 6 perde a vez)' : ''}.` : (g.exit === '16' ? 'Sai da base com 1 ou 6.' : 'Sai da base com 6.');
+    else if(g.dice && g.dice.seat === g.turn) msg = `${esc(g.names[g.turn])} tirou ${g.dice.v}.`;
+  }
+  $('#lmsg').innerHTML = msg;
+}
+function tryRoll(ui){
+  const v = ui.view, g = v && v.game;
+  if(!g || v.phase !== 'game' || g.turn !== v.me || g.phase !== 'roll' || !v.waiting.includes(v.me)) return;
+  ui.act({t:'roll'});
+}
+// toque no tabuleiro: escolhe a peça móvel mais próxima (alvo grande no celular)
+function boardClick(e, ui){
+  const v = ui.view, g = v && v.game; if(!g || !g.moves.length) return;
+  const lb = $('#lb'), rc = lb.getBoundingClientRect(), cell = rc.width / 15;
+  const x = e.clientX - rc.left, y = e.clientY - rc.top;
+  let best = null, bd = 1e9;
+  g.moves.forEach(m => {
+    const el = document.getElementById('tk' + v.me + '_' + m.p); if(!el) return;
+    const r = el.getBoundingClientRect(), cx = r.left + r.width/2 - rc.left, cy = r.top + r.height/2 - rc.top;
+    const d = Math.hypot(cx - x, cy - y); if(d < bd){ bd = d; best = m; }
+  });
+  if(best && bd < cell * 1.6) ui.act({t:'move', p:best.p});
+  else toast('Toque numa peça que está piscando.');
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

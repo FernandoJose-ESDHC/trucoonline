@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="11 jogos" src="https://img.shields.io/badge/jogos-11-e7b43a">
+  <img alt="23 jogos" src="https://img.shields.io/badge/jogos-23-e7b43a">
   <img alt="Sem cadastro" src="https://img.shields.io/badge/cadastro-n%C3%A3o%20precisa-3ecf7a">
   <img alt="Offline" src="https://img.shields.io/badge/contra%20bots-funciona%20offline-11603a">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
@@ -47,6 +47,18 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 🂮 | **[Paciência](https://fernandojose-esdhc.github.io/trucoonline/games/paciencia.html)** | 1 | Klondike, virando 1 ou 3, com desfazer |
 | ♟️ | **[Xadrez](https://fernandojose-esdhc.github.io/trucoonline/games/xadrez.html)** | 2 | Regras completas, motor próprio em 3 níveis e livro de aberturas |
 | ⛀ | **[Damas](https://fernandojose-esdhc.github.io/trucoonline/games/damas.html)** | 2 | Damas brasileiras: lei da maioria e dama voadora |
+| 🌈 | **[Última Carta](https://fernandojose-esdhc.github.io/trucoonline/games/ultima.html)** | 2 a 8 | Cartas de cores no estilo do clássico: +2, +4, pular, inverter e "ÚLTIMA!" |
+| ⚅ | **[Dominó](https://fernandojose-esdhc.github.io/trucoonline/games/domino.html)** | 4 (duplas) ou 2 a 4 | Duplo-seis em duplas sem compra ou individual com monte |
+| 🎲 | **[Ludo](https://fernandojose-esdhc.github.io/trucoonline/games/ludo.html)** | 2 a 4 | Sai com 6, captura manda para a base, casas seguras |
+| ⭕ | **[Trilha](https://fernandojose-esdhc.github.io/trucoonline/games/trilha.html)** | 2 | O moinho: coloque, mova, voe e forme trilhas |
+| ⚓ | **[Batalha Naval](https://fernandojose-esdhc.github.io/trucoonline/games/batalha.html)** | 2 | Frota escondida de verdade, nem o anfitrião vê |
+| 🔘 | **[Reversi](https://fernandojose-esdhc.github.io/trucoonline/games/reversi.html)** | 2 | Cerque e vire as peças; bot com final exato |
+| 🔴 | **[Quatro em Linha](https://fernandojose-esdhc.github.io/trucoonline/games/quatro.html)** | 2 | Peças por gravidade; o Difícil é quase perfeito |
+| 🟤 | **[Gamão](https://fernandojose-esdhc.github.io/trucoonline/games/gamao.html)** | 2 | Regras completas, gammon e bot com rede neural |
+| ⚫ | **[Go](https://fernandojose-esdhc.github.io/trucoonline/games/go.html)** | 2 | 9×9 ou 13×13, ko, contagem chinesa e bot Monte Carlo |
+| 🌰 | **[Mancala](https://fernandojose-esdhc.github.io/trucoonline/games/mancala.html)** | 2 | Kalah com 3 a 6 sementes por casa |
+| 📍 | **[Resta Um](https://fernandojose-esdhc.github.io/trucoonline/games/restaum.html)** | 1 | Tabuleiro inglês ou francês, com dica que resolve |
+| 🔐 | **[Senha](https://fernandojose-esdhc.github.io/trucoonline/games/senha.html)** | 1 | Descubra as cores — ou deixe o computador descobrir a sua |
 
 Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
 
@@ -55,7 +67,7 @@ Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para comple
 | | |
 |---|---|
 | 🌐 **Salas online sem cadastro** | Crie a sala, passe o código de 5 letras (ou o link) e jogue. Os aparelhos se conectam direto (WebRTC), sem servidor próprio. |
-| 🤖 **Bots de verdade** | Truco com simulação de centenas de finais por jogada (Monte Carlo, comparando todas as cartas nas mesmas situações), leitura de quem pediu truco e de quem deixou a vaza passar, e apostas pelo placar. Xadrez e Damas com motor próprio (aprofundamento iterativo, tabela de transposição, avaliação de estrutura e finais — o xadrez sabe dar mate só com rei e torre). Canastra e Pife contam as cartas vivas e evitam alimentar o próximo; 21 com a estratégia básica completa e contagem Hi-Lo. |
+| 🤖 **Bots de verdade** | Truco com simulação de centenas de finais por jogada (Monte Carlo, comparando todas as cartas nas mesmas situações), leitura de quem pediu truco e de quem deixou a vaza passar, e apostas pelo placar. Xadrez e Damas com motor próprio (aprofundamento iterativo, tabela de transposição, avaliação de estrutura e finais — o xadrez sabe dar mate só com rei e torre). Canastra e Pife contam as cartas vivas e evitam alimentar o próximo; 21 com a estratégia básica completa e contagem Hi-Lo. Reversi, Trilha, Quatro em Linha e Mancala com busca alfa-beta (finais exatos), Gamão com rede neural treinada, Go com Monte Carlo (MCTS), Dominó e Última Carta lendo o que os outros não têm, Batalha Naval com mapa de probabilidade. |
 | 🔌 **Caiu? Volta.** | Se alguém perder a conexão, um bot assume até a pessoa voltar com o mesmo nome. |
 | 🙈 **Ninguém espia** | Cada jogador recebe só o que pode ver: cartas dos outros e carta coberta nunca saem do aparelho de quem cria a sala. |
 | 📱 **Celular primeiro** | Layout para tela de celular, áreas seguras do iPhone, tela acesa durante o jogo, som liberado no primeiro toque. |
@@ -235,7 +247,7 @@ No **Douradão**, o **K♦ (Rei de Ouros)** fica acima da Douradinha. Pontos igu
 <details>
 <summary><b>♟️ Xadrez</b> — 2 jogadores</summary>
 
-Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoção** (dama, torre, bispo ou cavalo), **xeque-mate**, e empates por **afogamento**, **3 repetições**, **50 lances** e **material insuficiente**. Contra o computador, escolha a cor e o nível (o Difícil calcula 3 lances à frente com análise de trocas).
+Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoção** (dama, torre, bispo ou cavalo), **xeque-mate**, e empates por **afogamento**, **3 repetições**, **50 lances** e **material insuficiente**. Contra o computador, escolha a cor e o nível (o Difícil pensa até 1,6 s por lance com motor próprio).
 </details>
 
 <details>
@@ -246,6 +258,109 @@ Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoç
 - **Captura obrigatória** e **lei da maioria**: é obrigatório o lance que captura mais peças.
 - A pedra que **termina** a jogada na última fileira vira **dama**. A dama anda e captura **à distância**.
 - Vence quem deixar o adversário sem peças ou sem lances. Empate após 20 lances seguidos de cada lado só com damas e sem captura.
+</details>
+
+<details>
+<summary><b>🌈 Última Carta</b> — 2 a 8 jogadores</summary>
+
+- Inspirado no clássico jogo de cartas de cores (visual próprio). Baralho de 108 cartas, 7 para cada um.
+- Jogue uma carta da **mesma cor, número ou símbolo**. Especiais: **Pular**, **Inverter** (com 2 jogadores vale como Pular), **+2**, **Coringa** (escolhe a cor) e **Coringa +4** (só sem carta da cor da mesa).
+- Sem carta que sirva, compra 1; se servir, pode jogar na hora.
+- Com 2 cartas, aperte **ÚLTIMA!** antes de jogar — quem fica com 1 carta sem gritar compra 2.
+- Opções: acumular +2/+4 e partida de 1 rodada ou até 500 pontos (números pelo valor, ações 20, coringas 50).
+</details>
+
+<details>
+<summary><b>⚅ Dominó</b> — duplas (4) ou individual (2 a 4)</summary>
+
+- Duplo-seis: 28 pedras, 7 para cada. Encaixe pelo número numa das duas pontas.
+- **Duplas:** sem compra; na 1ª mão começa a carroça de seis; quem não tem pedra passa.
+- **Individual:** sem pedra que sirva, compra do monte até achar; monte vazio, passa.
+- **Batida:** quem esvazia a mão marca a soma das pedras dos adversários. **Trancado:** ganha quem tiver menos pontos na mão.
+- Partida até 50, 100 ou 200 pontos.
+</details>
+
+<details>
+<summary><b>🎲 Ludo</b> — 2 a 4 jogadores</summary>
+
+- Sai da base com **6** (ou, na opção, com 1 ou 6). Tirou 6, joga de novo; **três 6 seguidos** perde a vez.
+- Parar sobre peça adversária a **manda para a base** e dá jogada extra. Saídas e estrelas são **casas seguras**.
+- Para entrar no centro precisa do número exato. Vence quem levar as 4 peças primeiro.
+</details>
+
+<details>
+<summary><b>⭕ Trilha</b> (moinho) — 2 jogadores</summary>
+
+- 9 peças cada. Primeiro **coloca**, depois **move** para casa vizinha; com 3 peças, **voa** para qualquer casa vazia.
+- Formou **trilha** (3 em linha): tira uma peça adversária que não esteja em trilha (se todas estiverem, qualquer uma).
+- Perde quem ficar com 2 peças ou sem lances. Empate por repetição tripla ou 50 lances sem remoção.
+</details>
+
+<details>
+<summary><b>⚓ Batalha Naval</b> — 2 jogadores</summary>
+
+- Grade 10×10. Frota: porta-aviões (5), encouraçado (4), cruzador (3), submarino (3) e destróier (2). **Navios não se tocam**, nem na diagonal.
+- Os dois posicionam ao mesmo tempo (aleatório ou arrastando e girando) e confirmam.
+- Tiros alternados; acertou, atira de novo (opção). Navio afundado aparece e as casas em volta viram água.
+- Vence quem afundar a frota inteira.
+</details>
+
+<details>
+<summary><b>🔘 Reversi</b> — 2 jogadores</summary>
+
+- 8×8, quatro peças no centro, pretas começam.
+- O lance precisa **cercar e virar** ao menos uma peça adversária (linha, coluna ou diagonal).
+- Sem lance, passa a vez. Acaba quando ninguém pode jogar; vence quem tiver mais peças.
+</details>
+
+<details>
+<summary><b>🔴 Quatro em Linha</b> — 2 jogadores</summary>
+
+- 7 colunas × 6 linhas; a peça cai até a casa livre mais baixa.
+- Vence quem fizer **4 em linha** (horizontal, vertical ou diagonal). Tabuleiro cheio é empate.
+</details>
+
+<details>
+<summary><b>🟤 Gamão</b> — 2 jogadores</summary>
+
+- 15 pedras para cada, andando em sentidos opostos; vence quem **retirar todas** primeiro.
+- Cada dado é um movimento (dupla vale 4). Ponto com 2+ pedras adversárias fica bloqueado.
+- Pedra sozinha pode ser **batida** e vai para a barra; precisa entrar de novo antes de qualquer outro movimento.
+- É obrigatório usar o máximo dos dados (se só der um, o maior). Retirada só com as 15 em casa.
+- Partida de 1 jogo ou até 3, 5 ou 7 pontos: **gammon** vale 2 e **backgammon** 3.
+</details>
+
+<details>
+<summary><b>⚫ Go</b> — 2 jogadores</summary>
+
+- Tabuleiro 9×9 ou 13×13; pretas começam. Grupo sem liberdades é **capturado**; suicídio é proibido.
+- **Ko**: nenhuma jogada pode repetir uma posição anterior.
+- Dois passes seguidos encerram. Contagem por **área** (pedras vivas + território) com **komi 6,5** para as brancas; as pedras mortas são estimadas automaticamente.
+</details>
+
+<details>
+<summary><b>🌰 Mancala</b> (Kalah) — 2 jogadores</summary>
+
+- 6 casas por lado e um depósito para cada; 4 sementes por casa (3 a 6 na opção).
+- Pegue todas as sementes de uma casa sua e semeie uma por casa no **sentido anti-horário**, pulando o depósito do adversário.
+- Última semente no seu depósito: **joga de novo**. Última numa casa sua vazia: **captura** ela e as da frente (se houver).
+- Um lado vazio encerra; o outro recolhe o que sobrou. Ganha quem tiver mais no depósito.
+</details>
+
+<details>
+<summary><b>📍 Resta Um</b> — 1 jogador</summary>
+
+- Tabuleiro inglês (33 casas) ou francês (37). Um pino **pula** sobre o vizinho até uma casa vazia, e o pulado sai.
+- Meta: sobrar **um pino** — no centro (ou na ★ do francês) é **Perfeito!**
+- Tem desfazer, reiniciar e **dica** com solucionador, que avisa quantas jogadas voltar quando não dá mais.
+</details>
+
+<details>
+<summary><b>🔐 Senha</b> — 1 jogador</summary>
+
+- Descubra a sequência secreta de cores. **Preto** = cor e lugar certos; **branco** = cor certa no lugar errado.
+- Fácil: 4 casas, 6 cores, sem repetir. Normal: com repetição. Difícil: 5 casas, 8 cores, 12 tentativas. Cada cor tem um símbolo (para daltonismo).
+- **Dica** sugere a melhor tentativa; no modo "O computador adivinha", você escolhe a senha e ele descobre.
 </details>
 
 ---

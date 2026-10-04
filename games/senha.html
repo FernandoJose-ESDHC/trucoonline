@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Senha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 8px}
+.sn{display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
+/* bandeja de madeira com as tentativas */
+.tray{background:linear-gradient(180deg,#8a5a32,#6e4524);border-radius:16px;padding:8px 10px;box-shadow:0 14px 30px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.15),inset 0 -3px 0 rgba(0,0,0,.25);
+  border:3px solid #4a2c14;display:flex;flex-direction:column;gap:4px}
+.trow{display:grid;grid-template-columns:22px auto var(--fbw) var(--txw);align-items:center;gap:8px;padding:3px 6px;border-radius:10px;min-height:calc(var(--s) + 6px)}
+.trow .num{font-weight:900;color:rgba(255,235,200,.55);font-size:13px;text-align:right}
+.trow.cur{background:rgba(255,220,140,.18);box-shadow:0 0 0 2px var(--gold)}
+.trow.cur .num{color:var(--gold)}
+.trow.secret{background:rgba(0,0,0,.25);margin-bottom:4px}
+.trow.secret .num{font-size:15px}
+.slots{display:flex;gap:6px}
+.peg,.hole{width:var(--s);height:var(--s);border-radius:50%;flex:none;position:relative;display:grid;place-items:center;font-weight:900;line-height:1}
+.hole{background:radial-gradient(circle at 50% 40%,#2a170a 0 28%,#4a2c14 30%,#5a3519 70%);box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.peg{background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.75) 0 7%,rgba(255,255,255,0) 30%),radial-gradient(circle at 50% 60%,var(--c) 55%,color-mix(in srgb,var(--c) 60%,#000) 100%);
+  box-shadow:0 3px 0 rgba(0,0,0,.35),0 4px 8px rgba(0,0,0,.45);color:var(--ink);font-size:calc(var(--s)*.46)}
+.peg.cv{background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.45) 0 7%,rgba(255,255,255,0) 30%),radial-gradient(circle,#3b3b3b,#151515);color:#e7b43a;font-size:calc(var(--s)*.5)}
+.cur .hole,.cur .peg,.secret.edit .hole,.secret.edit .peg{cursor:pointer}
+.slot-sel{outline:3px solid #fff;outline-offset:2px}
+.slot-sel.hole{box-shadow:inset 0 2px 4px rgba(0,0,0,.6),0 0 12px rgba(255,255,255,.6)}
+.peg.hinted{animation:pulse 1.2s ease-in-out 2}
+.trow.new .peg{animation:dropIn .35s cubic-bezier(.2,.9,.3,1.3) backwards}
+.trow.new .peg:nth-child(2){animation-delay:.05s}.trow.new .peg:nth-child(3){animation-delay:.1s}.trow.new .peg:nth-child(4){animation-delay:.15s}.trow.new .peg:nth-child(5){animation-delay:.2s}
+@keyframes dropIn{from{transform:translateY(-14px) scale(.6);opacity:0}}
+/* pinos de resposta */
+.fb{display:grid;grid-template-columns:repeat(var(--fcols),var(--k));gap:3px;justify-content:center}
+.kp{width:var(--k);height:var(--k);border-radius:50%;background:#3a2210;box-shadow:inset 0 1px 2px rgba(0,0,0,.7)}
+.kp.b{background:radial-gradient(circle at 35% 30%,#777 0 10%,#111 60%);box-shadow:0 1px 2px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.35)}
+.kp.w{background:radial-gradient(circle at 35% 30%,#fff 0 30%,#d9d9d9 80%);box-shadow:0 1px 2px rgba(0,0,0,.6)}
+.trow.new .kp.b,.trow.new .kp.w{animation:dropIn .3s backwards .3s}
+.fbt{font-size:11px;line-height:1.15;color:#ffe9c4;font-weight:700;white-space:nowrap;overflow:hidden}
+.fbt>span{display:block}
+.fbt b{color:#fff;font-size:12px}
+.fbt .lf{display:block;color:rgba(255,235,200,.6);font-weight:600;font-size:10px}
+.slabel{font-size:12px;font-weight:800;color:#ffe9c4;line-height:1.2}
+/* paleta e botões */
+.pal{display:flex;gap:6px;justify-content:center;flex-wrap:nowrap}
+.pal button{border:none;padding:0;background:none;cursor:pointer;border-radius:50%;transition:transform .1s}
+.pal button:active{transform:scale(.9)}
+.pal button .peg{width:var(--ps);height:var(--ps);font-size:calc(var(--ps)*.46)}
+.pal button:disabled{opacity:.3;cursor:not-allowed}
+.ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.ctrl .tbtn{font-size:15px;padding:9px 14px;border-radius:10px}
+.ctrl .tbtn.go{background:var(--nos);color:#06301a;border-color:transparent;font-weight:900}
+.ctrl .tbtn.go:disabled{background:rgba(255,255,255,.1);color:#fff}
+.info{display:flex;gap:14px;font-weight:800;font-size:14px;color:#ffe6a6}
+.snMsg{font-size:13px;font-weight:700;color:#ffe9c4;text-align:center;line-height:1.3;max-width:min(560px,96vw);min-height:34px;display:block;
+  background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px}
+.snMsg.warn{color:#ffc2b8}
+.think{font-weight:800;color:#ffe6a6;font-size:14px;min-height:20px;text-align:center}
+.think .dots::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.box .slots{display:inline-flex;vertical-align:middle;--s:30px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:5px;font-size:13px}
+.legend .peg{--s:24px}
+@media (max-width:420px){ .trow{gap:6px;padding:2px 4px} .slots{gap:4px} .fbt{font-size:10px} .fbt b{font-size:11px} .ctrl .lb{display:none} .ctrl .tbtn{padding:9px 12px} .snMsg{font-size:12px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="senha-ai.js"></script>
+<script>
+"use strict";
+/* ============================ SENHA ===================================
+   Descubra a combinação secreta de cores. Cada tentativa recebe pinos:
+   preto = cor certa no lugar certo; branco = cor certa no lugar errado.
+   Modos: "Você adivinha" e "O computador adivinha" (você escolhe a senha).
+   ===================================================================== */
+const CORES = [
+  {n:'Vermelho', c:'#e53935', s:'♥︎', ink:'#fff'},
+  {n:'Amarelo',  c:'#fdd835', s:'★', ink:'#6b5200'},
+  {n:'Verde',    c:'#2e9e44', s:'♣︎', ink:'#fff'},
+  {n:'Azul',     c:'#1e78e0', s:'◆', ink:'#fff'},
+  {n:'Roxo',     c:'#8e3ab5', s:'▲', ink:'#fff'},
+  {n:'Laranja',  c:'#fb8c00', s:'●', ink:'#fff'},
+  {n:'Branco',   c:'#f2f2f2', s:'■', ink:'#444'},
+  {n:'Rosa',     c:'#f78fbf', s:'✚', ink:'#6a1238'}
+];
+const DIFS = {
+  facil:  {P:4, C:6, rep:false, max:10, nome:'Fácil'},
+  normal: {P:4, C:6, rep:true,  max:10, nome:'Normal'},
+  dificil:{P:5, C:8, rep:true,  max:12, nome:'Difícil'}
+};
+const cfgOf = o => DIFS[o.diff] || DIFS.normal;
+const ctxOf = cfg => SenhaAI.ctx(cfg.P, cfg.C, cfg.rep);
+const fmtTime = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s >= 60 ? `${Math.floor(s/60)}min ${String(s%60).padStart(2,'0')}s` : `${s}s`; };
+const plural = (n, a, b) => n === 1 ? a : b;
+function validCode(cfg, g){
+  if(!Array.isArray(g) || g.length !== cfg.P) return false;
+  if(!g.every(x => Number.isInteger(x) && x >= 0 && x < cfg.C)) return false;
+  return cfg.rep || new Set(g).size === g.length;
+}
+const fbText = (b, w) => `${b} ${plural(b,'preto','pretos')} (cor e lugar certos), ${w} ${plural(w,'branco','brancos')} (cor certa no lugar errado)`;
+const pegHtml = (x, extra='') => x == null ? `<span class="hole ${extra}"></span>` :
+  `<span class="peg ${extra}" style="--c:${CORES[x].c};--ink:${CORES[x].ink}" aria-label="${CORES[x].n}" title="${CORES[x].n}">${CORES[x].s}</span>`;
+const codeHtml = g => `<span class="slots" role="img" aria-label="${g.map(x => CORES[x].n).join(', ')}">${g.map(x => pegHtml(x)).join('')}</span>`;
+
+function pushGuess(st, g){
+  const X = ctxOf(st.cfg), r = SenhaAI.score(X, g, st.secret);
+  const h = {g:g.slice(), b:r.b, w:r.w};
+  st.hist.push(h);
+  h.left = SenhaAI.consistent(X, st.hist).length;
+  st.hint = null;
+  return h;
+}
+
+Mesa.run({
+  id:'senha', name:'Senha', icon:'🔐', solo:true, tagline:'Descubra a combinação de cores',
+  seats: o => o.modo === 'cpu' ? 2 : 1,
+  options:[
+    {key:'diff', label:'Dificuldade', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'modo', label:'Modo', default:'voce', choices:[['voce','Você adivinha'],['cpu','O computador adivinha']]}
+  ],
+  modeLabel: o => (cfgOf(o).nome + ' · ' + (o.modo === 'cpu' ? 'O computador adivinha' : 'Você adivinha')).toUpperCase(),
+  setup(players, o){
+    const cfg = cfgOf(o), cpu = o.modo === 'cpu';
+    const st = {cfg:{P:cfg.P, C:cfg.C, rep:cfg.rep, max:cfg.max}, mode: cpu ? 'cpu' : 'voce', phase: cpu ? 'secret' : 'play',
+      secret:null, hist:[], start:null, end:null, hints:0, hint:null, hintSeq:0, note:'', result:null, names:players.map(p => p.name)};
+    if(!cpu){ st.secret = randomCode(st.cfg); st.start = Date.now(); }
+    return st;
+  },
+  waiting(st){
+    if(st.result) return [];
+    if(st.mode === 'cpu') return [st.phase === 'secret' ? 0 : 1];
+    return [0];
+  },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
+    const cfg = st.cfg, X = ctxOf(cfg);
+    // você escolhe a senha (modo "o computador adivinha")
+    if(a.t === 'secret'){
+      if(st.mode !== 'cpu' || st.phase !== 'secret' || seat !== 0) return {ok:false, err:'Agora não é hora de escolher a senha.'};
+      if(!validCode(cfg, a.g)) return {ok:false, err: cfg.rep ? `Escolha as ${cfg.P} cores da senha.` : `Escolha ${cfg.P} cores diferentes.`};
+      st.secret = a.g.slice(); st.phase = 'cpu'; st.start = Date.now();
+      return {events:[{k:'snd', s:'deal', n:4}, {k:'banner', text:'Senha guardada!'}]};
+    }
+    if(a.t === 'hint'){
+      if(st.mode !== 'voce' || seat !== 0) return {ok:false, err:'Sem dica neste modo.'};
+      const r = SenhaAI.choose(X, st.hist, {mode:'hint', ms:500});
+      st.hint = r.g; st.hintSeq++; st.hints++;
+      const txt = st.hist.length ? `Ainda ${plural(r.left,'resta','restam')} ${r.left} ${plural(r.left,'combinação possível','combinações possíveis')}. Esta tentativa divide bem as opções.`
+                                 : 'Para começar, uma tentativa que separa bem as possibilidades.';
+      st.note = '💡 ' + txt;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    if(a.t === 'giveup'){
+      if(st.mode !== 'voce' || seat !== 0) return {ok:false};
+      st.end = Date.now();
+      st.result = {winners:[], text:`Você desistiu. A senha era: ${codeHtml(st.secret)}`};
+      return {events:[{k:'snd', s:'lose'}]};
+    }
+    if(a.t === 'guess'){
+      const who = st.mode === 'cpu' ? 1 : 0;
+      if(seat !== who || (st.mode === 'cpu' && st.phase !== 'cpu')) return {ok:false, err:'Não é a sua vez.'};
+      if(!validCode(cfg, a.g)) return {ok:false, err: cfg.rep ? `Preencha as ${cfg.P} casas.` : `Preencha as ${cfg.P} casas com cores diferentes (sem repetir).`};
+      const h = pushGuess(st, a.g), n = st.hist.length; st.note = '';
+      const ev = [{k:'snd', s: h.b ? 'capture' : 'move'}];
+      if(h.b === cfg.P){
+        st.end = Date.now();
+        const t = fmtTime(st.end - st.start);
+        if(st.mode === 'cpu'){
+          st.result = {winners:[1], text:`O computador descobriu sua senha ${codeHtml(st.secret)} em <b>${n}</b> ${plural(n,'tentativa','tentativas')} (${t}).`};
+          ev.push({k:'banner', text:'Descobriu!', bad:true});
+        } else {
+          st.result = {winners:[0], text:`Você descobriu a senha ${codeHtml(st.secret)} em <b>${n}</b> ${plural(n,'tentativa','tentativas')} e <b>${t}</b>.` +
+            (st.hints ? ` Dicas usadas: ${st.hints}.` : ' Sem nenhuma dica!')};
+          ev.push({k:'banner', text: n <= 3 ? 'Genial!' : n <= 5 ? 'Muito bem!' : 'Acertou!'});
+        }
+      } else if(n >= cfg.max){
+        st.end = Date.now();
+        if(st.mode === 'cpu') st.result = {winners:[0], text:`O computador não descobriu sua senha ${codeHtml(st.secret)} em ${n} tentativas. Você venceu!`};
+        else { st.result = {winners:[], text:`Acabaram as tentativas. A senha era: ${codeHtml(st.secret)}`}; ev.push({k:'banner', text:'Fim das tentativas', bad:true}); }
+      } else if(h.b + h.w === 0) ev.push({k:'log', text:'Nenhuma dessas cores está na senha.'});
+      return {events:ev};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, seat){
+    const X = ctxOf(st.cfg);
+    if(st.mode === 'cpu' && seat === 0) return {t:'secret', g:randomCode(st.cfg)};     // só em teste automático
+    const r = SenhaAI.choose(X, st.hist, {mode: seat === 1 ? 'knuth' : 'hint', ms:700});
+    return {t:'guess', g:r.g};
+  },
+  botFallback(st, seat){ return st.mode === 'cpu' && seat === 0 ? {t:'secret', g:randomCode(st.cfg)} : {t:'guess', g:SenhaAI.toArr(ctxOf(st.cfg), SenhaAI.consistent(ctxOf(st.cfg), st.hist)[0])}; },
+  botDelay(st, seat){ return seat === 1 ? (st.hist.length ? 1300 : 900) : 600; },
+  view(st, seat){
+    const showSecret = !!st.result || (st.mode === 'cpu' && seat === 0);
+    return {cfg:st.cfg, mode:st.mode, phase:st.phase, hist:st.hist, secret: showSecret ? st.secret : null, start:st.start, end:st.end,
+      hints:st.hints, hint: seat === 0 ? st.hint : null, hintSeq:st.hintSeq, note: seat === 0 ? st.note || '' : '', over:!!st.result, won: !!(st.result && st.result.winners.includes(0))};
+  },
+  topInfo(g){
+    const n = g.hist.length;
+    return `<div class="info"><span>🎯 ${Math.min(n + (g.over || g.phase === 'secret' ? 0 : 1), g.cfg.max)}/${g.cfg.max}</span>${g.mode === 'voce' && g.hints ? `<span>💡 ${g.hints}</span>` : ''}<span id="clock"></span></div>`;
+  },
+  onEvent(e){ if(e.k === 'start'){ resetDraft(); lastLen = -1; } },
+  render, rules: rulesHtml
+});
+
+function randomCode(cfg){
+  const cols = shuffle([...Array(cfg.C).keys()]);
+  return cfg.rep ? Array.from({length:cfg.P}, () => Math.floor(Math.random() * cfg.C)) : cols.slice(0, cfg.P);
+}
+
+/* ------------------------- interface ------------------------- */
+let localNote = '', draft = [], cursor = 0, draftKey = '', lastLen = -1, lastHintSeq = 0, hintMark = false;
+function resetDraft(P){ draft = Array(P || 0).fill(null); cursor = 0; hintMark = false; localNote = ''; }
+
+function render(g, v, ui){
+  const st = ui.stage, cfg = g.cfg, P = cfg.P;
+  const editing = v.phase === 'game' && ((g.mode === 'voce' && !g.over) || (g.mode === 'cpu' && g.phase === 'secret'));
+  // rascunho: recomeça a cada tentativa nova
+  const key = v.gameNo + ':' + g.hist.length + ':' + g.phase;
+  if(key !== draftKey){ draftKey = key; resetDraft(P); }
+  if(g.hint && g.hintSeq !== lastHintSeq){ lastHintSeq = g.hintSeq; draft = g.hint.slice(); cursor = P - 1; hintMark = true; }
+  // tamanhos a partir do palco
+  const W = Math.min(st.clientWidth - 16, 600), H = st.clientHeight - 12;
+  const rowsN = cfg.max + 1;
+  const txw = W < 360 ? 58 : 70;
+  const ps = Math.floor(clamp((W - (cfg.C - 1) * 6) / cfg.C, 30, 50));
+  const sW = (W - 24 - 22 - txw - 3 * 8 - (P - 1) * 6) / (P + 1.15);
+  const sH = (H - ps - 46 - 40 - 4 * 8 - 26) / rowsN - 10;
+  const s = Math.floor(clamp(Math.min(sW, sH), 20, 46));
+  const k = Math.max(7, Math.floor(s * (P > 4 ? .3 : .36)));
+  st.style.setProperty('--s', s + 'px'); st.style.setProperty('--ps', ps + 'px'); st.style.setProperty('--k', k + 'px');
+  st.style.setProperty('--fcols', P > 4 ? 3 : 2); st.style.setProperty('--fbw', ((P > 4 ? 3 : 2) * (k + 3)) + 'px'); st.style.setProperty('--txw', txw + 'px');
+  st.style.setProperty('--gap', clamp((H - rowsN * (s + 10) - 26 - ps - 46 - 40) / 6, 4, 12) + 'px');
+
+  // linha da senha
+  let secretRow;
+  if(g.mode === 'cpu' && g.phase === 'secret'){
+    secretRow = `<div class="trow secret cur edit" data-r="s"><span class="num">🔒</span><span class="slots">${draft.map((x,i) => slotHtml(x, i, true)).join('')}</span>
+      <span class="slabel" style="grid-column:3/5">Escolha sua senha secreta</span></div>`;
+  } else {
+    const sec = g.secret;
+    const lbl = g.mode === 'cpu' ? 'Sua senha' : (g.over ? (g.won ? 'Descoberta!' : 'Era esta') : 'Senha secreta');
+    secretRow = `<div class="trow secret"><span class="num">🔒</span><span class="slots">${Array.from({length:P}, (_,i) => sec ? pegHtml(sec[i]) : '<span class="peg cv" aria-label="escondida">?</span>').join('')}</span>
+      <span class="slabel" style="grid-column:3/5">${lbl}</span></div>`;
+  }
+  // tentativas
+  const isNew = g.hist.length > lastLen && lastLen >= 0;
+  let rows = '';
+  for(let r=0;r<cfg.max;r++){
+    const h = g.hist[r];
+    if(h){
+      const kp = Array(h.b).fill('b').concat(Array(h.w).fill('w'));
+      while(kp.length < P) kp.push('');
+      const left = g.mode === 'cpu' || g.over ? `<span class="lf">${h.b === P ? 'acertou' : `${plural(h.left,'resta','restam')} ${h.left}`}</span>` : '';
+      rows += `<div class="trow ${isNew && r === g.hist.length - 1 ? 'new' : ''}"><span class="num">${r+1}</span>${codeHtml(h.g)}
+        <span class="fb" role="img" aria-label="${fbText(h.b, h.w)}">${kp.map(c => `<span class="kp ${c}"></span>`).join('')}</span>
+        <span class="fbt" aria-hidden="true"><span><b>${h.b}</b> ${plural(h.b,'preto','pretos')}</span><span><b>${h.w}</b> ${plural(h.w,'branco','brancos')}</span>${left}</span></div>`;
+    } else if(r === g.hist.length && g.mode === 'voce' && editing){
+      rows += `<div class="trow cur" data-r="cur"><span class="num">${r+1}</span><span class="slots">${draft.map((x,i) => slotHtml(x, i, true)).join('')}</span>
+        <span class="fb">${Array(P).fill('<span class="kp"></span>').join('')}</span><span class="fbt">sua vez</span></div>`;
+    } else {
+      rows += `<div class="trow"><span class="num">${r+1}</span><span class="slots">${Array(P).fill('<span class="hole"></span>').join('')}</span>
+        <span class="fb">${Array(P).fill('<span class="kp"></span>').join('')}</span><span class="fbt"></span></div>`;
+    }
+  }
+  lastLen = g.hist.length;
+  // paleta e botões
+  const used = new Set(draft.filter(x => x != null));
+  const pal = editing ? `<div class="pal" role="group" aria-label="Cores">${Array.from({length:cfg.C}, (_,c) =>
+      `<button data-c="${c}" aria-label="${CORES[c].n} (tecla ${c+1})" title="${CORES[c].n} — tecla ${c+1}">${pegHtml(c)}</button>`).join('')}</div>` : '';
+  const full = draft.every(x => x != null);
+  let ctrl;
+  if(!editing){
+    const thinking = g.mode === 'cpu' && g.phase === 'cpu' && !g.over && v.phase === 'game';
+    ctrl = `<div class="think">${thinking ? `🤖 O computador está pensando<span class="dots"></span>` : (g.over ? 'Fim de jogo' : '')}</div>`;
+  } else if(g.mode === 'cpu'){
+    ctrl = `<div class="ctrl"><button class="tbtn" id="bDel" title="Apagar">⌫<span class="lb"> Apagar</span></button><button class="tbtn" id="bRnd">🎲 Sortear</button>
+      <button class="tbtn go" id="bOk" ${full ? '' : 'disabled'}>🔒 Confirmar senha</button></div>`;
+  } else {
+    ctrl = `<div class="ctrl"><button class="tbtn" id="bDel" title="Apagar">⌫<span class="lb"> Apagar</span></button><button class="tbtn" id="bHint">💡 Dica</button>
+      <button class="tbtn go" id="bOk" ${full ? '' : 'disabled'}>✔ Conferir</button><button class="tbtn" id="bGive" title="Desistir e ver a senha">🏳️</button></div>`;
+  }
+  const msg = !editing ? '' : `<div class="snMsg ${localNote ? 'warn' : ''}" aria-live="polite">${localNote || g.note || (g.mode === 'cpu'
+      ? `Monte sua senha secreta${cfg.rep ? '' : ' (sem repetir cores)'} e toque em <b>Confirmar</b>.`
+      : `Monte a tentativa${cfg.rep ? '' : ' (sem repetir cores)'} e toque em <b>Conferir</b>.`)}</div>`;
+  st.innerHTML = `<div class="sn"><div class="tray">${secretRow}${rows}</div>${msg}${pal}${ctrl}</div>`;
+
+  // eventos
+  $$('[data-slot]', st).forEach(el => el.onclick = () => {
+    const i = +el.dataset.slot;
+    if(cursor === i && draft[i] != null){ draft[i] = null; } else cursor = i;
+    hintMark = false; ui.rerender();
+  });
+  $$('.pal button', st).forEach(b => b.onclick = () => pickColor(+b.dataset.c, ui));
+  if($('#bDel')) $('#bDel').onclick = () => erase(ui);
+  if($('#bRnd')) $('#bRnd').onclick = () => { draft = randomCode(cfg); cursor = P - 1; ui.rerender(); };
+  if($('#bOk')) $('#bOk').onclick = () => submit(ui);
+  if($('#bHint')) $('#bHint').onclick = () => ui.act({t:'hint'});
+  if($('#bGive')) $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A senha será revelada e a partida termina.</p>',
+    [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  startClock(ui);
+}
+function slotHtml(x, i, edit){
+  const sel = edit && i === cursor ? 'slot-sel' : '';
+  const base = x == null ? `<span class="hole ${sel}"` : `<span class="peg ${sel} ${hintMark ? 'hinted' : ''}" style="--c:${CORES[x].c};--ink:${CORES[x].ink}"`;
+  return `${base} data-slot="${i}" role="button" aria-label="Casa ${i+1}: ${x == null ? 'vazia' : CORES[x].n}">${x == null ? '' : CORES[x].s}</span>`;
+}
+function curCfg(){ const v = Mesa.ui.view; return v && v.game ? v.game.cfg : null; }
+function pickColor(c, ui){
+  const cfg = curCfg(); if(!cfg) return;
+  if(!cfg.rep){
+    const at = draft.indexOf(c);
+    if(at >= 0 && at !== cursor){ localNote = `Nesta dificuldade as cores não se repetem — o ${CORES[c].n.toLowerCase()} já está na casa ${at+1}.`; Snd.error(); ui.rerender(); return; }
+  }
+  draft[cursor] = c; hintMark = false; localNote = ''; Snd.card();
+  // vai para a próxima casa vazia
+  for(let k=1;k<=cfg.P;k++){ const j = (cursor + k) % cfg.P; if(draft[j] == null){ cursor = j; break; } }
+  ui.rerender();
+}
+function erase(ui){
+  const cfg = curCfg(); if(!cfg) return;
+  if(draft[cursor] != null) draft[cursor] = null;
+  else { for(let j=cursor-1;j>=0;j--) if(draft[j] != null){ draft[j] = null; cursor = j; break; } }
+  hintMark = false; localNote = ''; ui.rerender();
+}
+function submit(ui){
+  const v = Mesa.ui.view; if(!v || !v.game) return;
+  if(draft.some(x => x == null)){ localNote = 'Preencha todas as casas primeiro.'; Snd.error(); ui.rerender(); return; }
+  localNote = '';
+  ui.act({t: v.game.mode === 'cpu' ? 'secret' : 'guess', g:draft.slice()});
+}
+function startClock(ui){
+  clearInterval(window._clk);
+  const tick = () => { const c = $('#clock'), v = ui.view, g = v && v.game; if(!c || !g) return;
+    c.textContent = g.start ? '⏱ ' + fmtTime((g.end || Date.now()) - g.start).replace('min ', ':').replace('s', '') : ''; };
+  tick(); window._clk = setInterval(tick, 1000);
+}
+// teclado no PC: 1..8 escolhem cores, Backspace apaga, Enter confere
+document.addEventListener('keydown', e => {
+  const v = Mesa.ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show')) return;
+  const g = v.game, editing = (g.mode === 'voce' && !g.over) || (g.mode === 'cpu' && g.phase === 'secret');
+  if(!editing) return;
+  const n = parseInt(e.key, 10);
+  if(n >= 1 && n <= g.cfg.C){ pickColor(n - 1, Mesa.ui); e.preventDefault(); }
+  else if(e.key === 'Backspace' || e.key === 'Delete'){ erase(Mesa.ui); e.preventDefault(); }
+  else if(e.key === 'Enter'){ submit(Mesa.ui); e.preventDefault(); }
+  else if(e.key === 'ArrowLeft'){ cursor = (cursor + g.cfg.P - 1) % g.cfg.P; Mesa.ui.rerender(); }
+  else if(e.key === 'ArrowRight'){ cursor = (cursor + 1) % g.cfg.P; Mesa.ui.rerender(); }
+});
+
+function rulesHtml(o){
+  const leg = CORES.map((c,i) => `<span>${pegHtml(i)} ${c.n}</span>`).join('');
+  return `<h3>Objetivo</h3><p>Descobrir a <b>senha secreta</b>: uma fileira de cores numa ordem certa, com o menor número de tentativas.</p>
+  <h3>Como jogar</h3><ul><li>Toque nas cores da paleta para encher as casas da tentativa (toque numa casa para escolhê-la; toque de novo para esvaziar).</li>
+  <li>Quando todas as casas estiverem cheias, toque em <b>Conferir</b>.</li>
+  <li>No computador também dá para usar as teclas <b>1 a 8</b> (cores), <b>Backspace</b> (apagar) e <b>Enter</b> (conferir).</li></ul>
+  <h3>A resposta</h3><ul><li><b>Pino preto</b>: uma cor certa <b>no lugar certo</b>.</li><li><b>Pino branco</b>: uma cor certa <b>no lugar errado</b>.</li>
+  <li>Os pinos não dizem <i>qual</i> casa acertou — essa é a graça! A resposta também aparece escrita ao lado.</li>
+  <li>Cada pino da senha conta uma vez só. Ex.: senha ${codeHtml([0,0,3,2])}, tentativa ${codeHtml([0,3,3,3])} → <b>2 pretos e 0 branco</b> (um vermelho e um azul no lugar certo; os outros azuis sobram).</li></ul>
+  <h3>Dificuldades</h3><table><tr><th></th><th>Casas</th><th>Cores</th><th>Repete cor?</th><th>Tentativas</th></tr>
+  <tr><td>Fácil</td><td>4</td><td>6</td><td>não</td><td>10</td></tr><tr><td>Normal</td><td>4</td><td>6</td><td>sim</td><td>10</td></tr><tr><td>Difícil</td><td>5</td><td>8</td><td>sim</td><td>12</td></tr></table>
+  <h3>Cores</h3><p>Cada cor tem um símbolo, para ninguém confundir:</p><div class="legend">${leg}</div>
+  <h3>Dica 💡</h3><p>Sugere uma tentativa que combina com todas as respostas até agora e que divide melhor as possibilidades que sobram.</p>
+  <h3>Modo "O computador adivinha"</h3><p>Você escolhe a senha (ou sorteia) e o computador tenta descobrir. A resposta de cada tentativa é calculada automaticamente, sem chance de erro. No Normal ele sempre acerta em até 5 tentativas.</p>
+  <h3>Fim</h3><p>Você vence se acertar a senha (4 ou 5 pretos) antes de acabarem as tentativas. No fim aparecem a senha, o tempo e o número de tentativas.</p>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Gamão</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:8px;flex-direction:column;gap:8px}
+.gwrap{display:flex;flex-direction:column;align-items:center;gap:7px}
+.bg{position:relative;width:var(--bw);height:var(--bh);touch-action:manipulation;filter:drop-shadow(0 14px 22px rgba(0,0,0,.5))}
+.bg svg.base{position:absolute;inset:0;width:100%;height:100%}
+.ck{position:absolute;width:var(--d);height:var(--d);margin:calc(var(--d)/-2) 0 0 calc(var(--d)/-2);border-radius:50%;pointer-events:none;z-index:2}
+.ck.c0{background:radial-gradient(circle at 35% 30%,#fffdf4,#efe3c6 55%,#c9b48a);box-shadow:inset 0 0 0 calc(var(--d)*.07) rgba(150,120,70,.55),0 2px 3px rgba(0,0,0,.55)}
+.ck.c1{background:radial-gradient(circle at 35% 30%,#7a5a52,#3b1f1a 55%,#1b0b08);box-shadow:inset 0 0 0 calc(var(--d)*.07) rgba(231,180,58,.35),0 2px 3px rgba(0,0,0,.6)}
+.ck .n{position:absolute;inset:0;display:grid;place-items:center;font-weight:900;font-size:calc(var(--d)*.42)}
+.ck.c0 .n{color:#6b4a00} .ck.c1 .n{color:#ffe6a6}
+.ck.can{animation:ckpulse 1.2s ease-in-out infinite}
+.ck.sel{box-shadow:0 0 0 3px var(--blue),0 0 14px var(--blue)!important}
+.ck.lastmv::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--gold)}
+@keyframes ckpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25) drop-shadow(0 0 5px #e7b43a)}}
+.slab{position:absolute;height:calc(var(--w)*.26);width:calc(var(--w)*.78);border-radius:3px;z-index:2;pointer-events:none}
+.slab.c0{background:linear-gradient(#fffdf4,#cdb88e);box-shadow:0 1px 1px rgba(0,0,0,.5)} .slab.c1{background:linear-gradient(#6b4a42,#1b0b08);box-shadow:0 1px 1px rgba(0,0,0,.6)}
+.zone{position:absolute;z-index:3;cursor:pointer}
+.tg{position:absolute;z-index:4;pointer-events:none;width:calc(var(--d)*.55);height:calc(var(--d)*.55);margin:calc(var(--d)*-.275) 0 0 calc(var(--d)*-.275);border-radius:50%;
+  background:rgba(62,207,122,.9);box-shadow:0 0 10px rgba(62,207,122,1);animation:pulse 1s infinite}
+.tg.hit{background:rgba(255,90,90,.95);box-shadow:0 0 10px rgba(255,90,90,1)}
+.tray-tg{position:absolute;z-index:4;pointer-events:none;border:3px solid rgba(62,207,122,.95);border-radius:6px;box-shadow:0 0 12px rgba(62,207,122,.9)}
+.dice{position:absolute;z-index:5;display:flex;gap:calc(var(--w)*.25);transform:translate(-50%,-50%);pointer-events:none}
+.die{width:var(--dz);height:var(--dz);border-radius:18%;position:relative;box-shadow:0 3px 6px rgba(0,0,0,.5)}
+.die.c0{background:linear-gradient(145deg,#fff,#e8e0cc)} .die.c1{background:linear-gradient(145deg,#6a3a32,#2a120e)}
+.die.used{opacity:.32}
+.die i{position:absolute;width:20%;height:20%;border-radius:50%;transform:translate(-50%,-50%)}
+.die.c0 i{background:#2a1a10} .die.c1 i{background:#ffe6a6}
+.die.roll{animation:dieroll .55s cubic-bezier(.2,.8,.3,1)}
+@keyframes dieroll{0%{transform:translateY(-60%) rotate(-200deg) scale(.6);opacity:.2}60%{transform:translateY(6%) rotate(20deg) scale(1.08);opacity:1}100%{transform:none}}
+.pbar{display:flex;align-items:center;gap:8px;width:var(--bw);justify-content:space-between}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pbar .info{font-weight:800;color:#ffe6a6;font-size:13px;white-space:nowrap}
+.dot0,.dot1{display:inline-block;width:13px;height:13px;border-radius:50%;vertical-align:-2px;margin-right:5px}
+.dot0{background:radial-gradient(circle at 35% 30%,#fff,#d8c8a0)} .dot1{background:radial-gradient(circle at 35% 30%,#7a5a52,#1b0b08);box-shadow:0 0 0 1px #e7b43a88}
+.ctrl{display:flex;gap:8px;width:var(--bw);justify-content:center;flex-wrap:wrap;min-height:44px}
+.ctrl button{padding:10px 18px;font-size:16px;font-weight:800;border-radius:10px;border:none;cursor:pointer}
+.ctrl .roll{background:var(--gold);color:#3a2600;animation:pulse 1.2s infinite}
+.ctrl .ok{background:var(--nos);color:#06301a}
+.ctrl .ok.go{animation:pulse 1s infinite}
+.ctrl .un{background:#555;color:#fff}
+.ctrl button:disabled{opacity:.4;cursor:not-allowed;animation:none}
+.msgline{font-size:13px;color:#cfe;min-height:18px;text-align:center;width:var(--bw)}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="gamao-ai.js"></script>
+<script>
+"use strict";
+/* ============================ MOTOR — GAMÃO ============================
+   Cada lugar guarda as próprias pedras na própria numeração (pos[s][k]):
+   0 = retiradas, 1..24 = pontos (anda do 24 para o 1), 25 = barra.
+   O ponto k de um lado é o ponto 25-k do outro. O gerador de lances
+   (gamao-ai.js) recebe a posição vista por quem joga (Int8Array de 52).
+   Regras: dados (duplas valem 4), barra, entrada pela casa do adversário,
+   pedra sozinha pode ser batida, ponto com 2+ pedras bloqueado, retirada
+   só com todas em casa, usar o máximo de dados possível (e o maior,
+   se só der para usar um). Gammon vale 2 e backgammon 3.
+   ===================================================================== */
+const A = GamaoAI;
+const r6 = () => 1 + Math.floor(Math.random() * 6);
+const BOT_LV = {facil:0, normal:1, dificil:3};   // difícil: 1 lance à frente + refinamento com 2
+const COR = ['Brancas', 'Pretas'];
+function startPos(){ const p = Array(26).fill(0); p[24] = 2; p[13] = 5; p[8] = 3; p[6] = 5; return p; }
+function persp(st, s){ const P = new Int8Array(52); for(let k=0;k<26;k++){ P[k] = st.pos[s][k]; P[26+k] = st.pos[1-s][k]; } return P; }
+function store(st, s, P){ for(let k=0;k<26;k++){ st.pos[s][k] = P[k]; st.pos[1-s][k] = P[26+k]; } }
+const ptTxt = k => k === 25 ? 'barra' : k === 0 ? 'fora' : k;
+function notation(steps){   // [[f,t,hit],...] → "13/7 8/7*"
+  return steps.map(([f, t, h]) => `${ptTxt(f)}/${ptTxt(t)}${h ? '*' : ''}`).join(' ');
+}
+function newGame(st){
+  st.pos = [startPos(), startPos()];
+  let a, b; do { a = r6(); b = r6(); } while(a === b);
+  st.opening = [a, b]; st.turn = a > b ? 0 : 1;
+  st.last = null; st.gameEnd = null;
+  beginMove(st, a, b);
+}
+function beginMove(st, a, b){
+  st.dice = [a, b]; st.left = a === b ? [a,a,a,a] : [a, b];
+  const P = persp(st, st.turn), ti = A.turnInfo(P, a, b);
+  st.need = ti.need; st.needStart = ti.need; st.big = ti.big;
+  st.start = [st.pos[0].slice(), st.pos[1].slice()]; st.done = [];
+  st.phase = 'move'; st.rollId = (st.rollId || 0) + 1;
+}
+// aplica um passo validado; devolve false se ilegal
+function step(st, f, d){
+  if(!Number.isInteger(f) || !Number.isInteger(d)) return false;
+  const P = persp(st, st.turn);
+  const ok = A.legalSteps(P, st.left, st.need, st.big).find(x => x[0] === f && x[1] === d);
+  if(!ok) return false;
+  const hit = A.doStep(P, f, ok[2]);
+  store(st, st.turn, P);
+  st.left.splice(st.left.indexOf(d), 1); st.need--; st.big = 0;
+  st.done.push([f, ok[2], hit]);
+  return true;
+}
+function endTurn(st){
+  st.last = {seat:st.turn, steps:st.done.slice()};
+  st.turn = 1 - st.turn; st.phase = 'roll'; st.dice = null; st.left = []; st.done = []; st.need = 0;
+}
+// fim de um jogo: simples (1), gammon (2) ou backgammon (3)
+function gameOver(st, w, o){
+  const L = st.pos[1-w];
+  let kind = 1;
+  if(L[0] === 0){ kind = 2; let bg = L[25] > 0; for(let k=19;k<=24;k++) if(L[k]) bg = true; if(bg) kind = 3; }
+  const pts = st.target === 1 ? 1 : kind;
+  st.score[w] += pts;
+  const how = ['', 'vitória simples', 'GAMMON', 'BACKGAMMON'][kind];
+  st.gameEnd = {winner:w, kind, pts};
+  st.last = {seat:st.turn, steps:st.done.slice()};
+  st.done = []; st.dice = null; st.left = [];
+  const ev = [{k:'banner', text: kind > 1 ? how + '!' : `${st.names[w]} venceu o jogo`}, {k:'snd', s:'win'},
+    {k:'log', text:`${esc(st.names[w])} venceu o jogo ${st.gameNo} (${how}${st.target > 1 ? `, ${pts} ponto${pts > 1 ? 's' : ''}` : ''})`}];
+  if(st.target === 1 || st.score[w] >= st.target){
+    const sc = st.target > 1 ? ` Placar final: ${st.score[0]} × ${st.score[1]}.` : '';
+    st.result = {winners:[w], text:`<b>${esc(st.names[w])}</b> venceu${st.target > 1 ? ' a partida' : ''}${kind > 1 ? ' com ' + how.toLowerCase() : ''}!${sc}`};
+    st.phase = 'over';
+    return {events:ev, pause:1600};
+  }
+  st.phase = 'gameEnd';
+  return {events:ev, pause:900};
+}
+// destinos que dá para alcançar com a mesma pedra (um ou mais dados): {f: [{t, path, hit}]}
+function destinations(st){
+  const out = {};
+  if(st.phase !== 'move' || st.need <= 0) return out;
+  const P0 = persp(st, st.turn);
+  const rec = (P, left, need, big, f0, f, path, hits) => {
+    for(const [ff, d, t] of A.legalSteps(P, left, need, big)){
+      if(ff !== f) continue;
+      const Q = P.slice(), h = A.doStep(Q, ff, t);
+      const np = path.concat([[ff, d]]);
+      const list = out[f0] || (out[f0] = []);
+      const cur = list.find(x => x.t === t);
+      // prefere o caminho mais curto e, empatando, o que não bate pedra no meio do caminho
+      if(!cur || np.length < cur.path.length || (np.length === cur.path.length && hits < cur.mid)) {
+        if(cur) list.splice(list.indexOf(cur), 1);
+        list.push({t, path:np, hit:!!h, mid:hits});
+      }
+      if(t > 0 && need > 1){ const l2 = left.slice(); l2.splice(l2.indexOf(d), 1); rec(Q, l2, need - 1, 0, f0, t, np, hits + h); }
+    }
+  };
+  const firsts = new Set(A.legalSteps(P0, st.left, st.need, st.big).map(x => x[0]));
+  for(const f of firsts) rec(P0, st.left, st.need, st.big, f, f, [], 0);
+  return out;
+}
+
+Mesa.run({
+  id:'gamao', name:'Gamão', icon:'🎲', players:2, tagline:'Backgammon — dados, barra, gammon e partida em pontos',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'pts', label:'Partida', default:'1', choices:[['1','1 jogo'],['3','Até 3 pontos'],['5','Até 5 pontos'],['7','Até 7 pontos']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: s => COR[s],
+  setup(players, o){
+    const st = {names:players.map(p => p.name), target:+o.pts || 1, score:[0,0], gameNo:1, result:null, rollId:0, animId:0};
+    newGame(st);
+    return st;
+  },
+  startEvents(st){
+    return [{k:'banner', text:`${st.opening[0]} × ${st.opening[1]} — ${st.names[st.turn]} começa`},
+      {k:'log', text:`Abertura: ${esc(st.names[0])} tirou ${st.opening[0]}, ${esc(st.names[1])} tirou ${st.opening[1]}. ${esc(st.names[st.turn])} começa.`}];
+  },
+  waiting(st){
+    if(st.result) return [];
+    if(st.phase === 'gameEnd') return [st.gameEnd.winner];
+    return [st.turn];
+  },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
+    if(a.t === 'resign'){
+      const w = 1 - seat;
+      st.result = {winners:[w], text:`${esc(st.names[seat])} abandonou. Vitória de <b>${esc(st.names[w])}</b>!`};
+      st.phase = 'over';
+      return {events:[]};
+    }
+    if(st.phase === 'gameEnd'){
+      if(a.t !== 'next' || seat !== st.gameEnd.winner) return {ok:false, err:'Aguarde o próximo jogo.'};
+      st.gameNo++; newGame(st);
+      return {events:[{k:'banner', text:`Jogo ${st.gameNo}: ${st.opening[0]} × ${st.opening[1]}`}, {k:'snd', s:'deal'},
+        {k:'log', text:`Jogo ${st.gameNo} — abertura ${st.opening[0]} × ${st.opening[1]}: ${esc(st.names[st.turn])} começa.`}]};
+    }
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t === 'roll'){
+      if(st.phase !== 'roll') return {ok:false, err:'Os dados já foram rolados.'};
+      const d1 = r6(), d2 = r6();
+      beginMove(st, d1, d2);
+      const ev = [{k:'snd', s:'deal'}];
+      if(st.need === 0){
+        endTurn(st);
+        ev.push({k:'toast', text:`${st.names[seat]} tirou ${d1}-${d2} e não tem jogada possível.`}, {k:'log', text:`${esc(st.names[seat])}: ${d1}-${d2}, sem jogada`});
+        st.blocked = {seat, dice:[d1, d2]};
+        return {events:ev, pause:1500};
+      }
+      st.blocked = null;
+      if(d1 === d2) ev.push({k:'say', seat, text:`Dupla de ${d1}!`});
+      return {events:ev};
+    }
+    if(st.phase !== 'move') return {ok:false, err:'Role os dados primeiro.'};
+    if(a.t === 'undo'){
+      if(!st.done.length) return {ok:false, err:'Nada para desfazer.'};
+      st.pos = [st.start[0].slice(), st.start[1].slice()];
+      st.left = st.dice[0] === st.dice[1] ? Array(4).fill(st.dice[0]) : st.dice.slice();
+      st.need = st.needStart; st.done = [];
+      st.big = A.turnInfo(persp(st, st.turn), st.dice[0], st.dice[1]).big;
+      st.animId++;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    if(a.t === 'mv' || a.t === 'seq'){
+      const steps = a.steps;
+      if(!Array.isArray(steps) || !steps.length || steps.length > 4) return {ok:false, err:'Movimento inválido.'};
+      const bk = JSON.stringify({pos:st.pos, left:st.left, need:st.need, big:st.big, done:st.done});
+      const n0 = st.done.length;
+      for(const s of steps){
+        if(!Array.isArray(s) || !step(st, s[0], s[1])){
+          Object.assign(st, JSON.parse(bk));
+          return {ok:false, err: st.left.length && st.need ? 'Esse movimento não vale (bloqueado, ou deixaria de usar o máximo de dados).' : 'Movimento inválido.'};
+        }
+      }
+      if(a.t === 'seq' && st.need > 0){ Object.assign(st, JSON.parse(bk)); return {ok:false, err:'Jogada incompleta.'}; }
+      st.anim = {id:++st.animId, seat, steps:st.done.slice(n0)};
+      const hits = st.done.slice(n0).filter(x => x[2]).length;
+      const ev = [{k:'snd', s: hits ? 'capture' : 'move'}];
+      if(hits) ev.push({k:'say', seat, text: hits > 1 ? 'Bati duas!' : 'Bati!'});
+      if(st.pos[seat][0] === 15) return gameOver(st, seat);
+      if(a.t === 'seq'){
+        ev.push({k:'log', text:`${esc(st.names[seat])}: ${st.dice[0]}-${st.dice[1]} ${notation(st.done)}`});
+        endTurn(st);
+        return {events:ev, pause:450};
+      }
+      return {events:ev};
+    }
+    if(a.t === 'ok'){
+      if(st.need > 0) return {ok:false, err:'Ainda falta usar dados.'};
+      const ev = [{k:'log', text:`${esc(st.names[seat])}: ${st.dice[0]}-${st.dice[1]} ${notation(st.done)}`}];
+      endTurn(st);
+      return {events:ev};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, seat, o){
+    if(st.phase === 'gameEnd') return {t:'next'};
+    if(st.phase === 'roll') return {t:'roll'};
+    if(st.done.length) return st.need === 0 ? {t:'ok'} : {t:'undo'};
+    A.setGW(st.target === 1 ? 0 : 1);
+    const lv = BOT_LV[o.diff] != null ? BOT_LV[o.diff] : 1;
+    const steps = A.choose(persp(st, seat), st.dice[0], st.dice[1], lv, 1500);
+    return {t:'seq', steps};
+  },
+  botFallback(st, seat){
+    if(st.phase !== 'move') return null;
+    if(st.done.length) return {t:'undo'};
+    const s = A.genSeqs(persp(st, seat), st.dice[0], st.dice[1]);
+    return s.length ? {t:'seq', steps:s[0].steps} : null;
+  },
+  botDelay(st, s, o){ return st.phase === 'gameEnd' ? 2600 : st.phase === 'roll' ? 550 : (o.diff === 'dificil' ? 350 : 750); },
+  view(st, seat){
+    const me = seat >= 0 ? seat : 0, op = 1 - me;
+    const my = st.phase === 'move' && st.turn === me;
+    return {me, mine:st.pos[me], theirs:st.pos[op], turn:st.turn, phase:st.phase, dice:st.dice, left:st.left, need:st.need,
+      rollId:st.rollId, done:st.turn === me ? st.done : [], undo:my && st.done.length > 0, canOk:my && st.need === 0,
+      dests: my ? destinations(st) : {}, last:st.last, anim:st.anim || null, score:st.score, target:st.target, gameNo:st.gameNo,
+      gameEnd:st.gameEnd, opening:st.opening, blocked:st.blocked || null,
+      pips:[A.pips(persp(st, me), 0), A.pips(persp(st, op), 0)], off:[st.pos[me][0], st.pos[op][0]], over:!!st.result};
+  },
+  topInfo(g, v){
+    const sc = g.target > 1 ? `Placar ${g.score[g.me]} × ${g.score[1 - g.me]} (até ${g.target}) · ` : '';
+    const who = g.over ? 'Fim' : g.phase === 'gameEnd' ? 'Fim do jogo ' + g.gameNo : g.turn === g.me ? 'Sua vez' : 'Vez do adversário';
+    return `<div class="status">${sc}${who}</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Levar as suas 15 pedras para a sua <b>casa</b> (os pontos 1 a 6, embaixo à direita) e <b>retirá-las</b> do tabuleiro antes do adversário. As pedras dos dois andam em sentidos opostos: as suas vão do ponto 24 ao 1.</p>
+  <h3>Como jogar</h3><ul><li>Na sua vez, toque em <b>Rolar dados</b>. Cada dado é um movimento de uma pedra (pode ser a mesma pedra duas vezes). <b>Dupla vale 4 movimentos.</b></li>
+  <li>Toque na pedra e depois no destino marcado em verde (vermelho = vai bater uma pedra). Dá para usar os dois dados de uma vez na mesma pedra.</li>
+  <li><b>Desfazer</b> volta a vez inteira enquanto você não confirmar; <b>Confirmar</b> passa a vez.</li>
+  <li>No começo, cada um rola um dado: quem tirar mais começa usando os dois números.</li></ul>
+  <h3>Bloqueio, batida e barra</h3><ul><li>Um ponto com <b>2 ou mais pedras</b> do adversário está bloqueado.</li>
+  <li>Uma pedra <b>sozinha</b> (blot) pode ser <b>batida</b>: vai para a <b>barra</b> e precisa voltar entrando pela casa do adversário (ponto 25 menos o dado) antes de qualquer outro movimento.</li></ul>
+  <h3>Regras dos dados</h3><ul><li>É obrigatório usar <b>os dois dados</b> se der (os quatro na dupla). Se só der para usar um, use o <b>maior</b> quando possível.</li>
+  <li>Sem jogada possível, a vez passa sozinha.</li></ul>
+  <h3>Retirada</h3><ul><li>Só pode retirar com <b>todas as 15</b> pedras na sua casa. O dado retira a pedra do ponto igual; se não houver pedra nesse ponto nem acima, retira a mais alta.</li></ul>
+  <h3>Pontos</h3><ul><li><b>Vitória simples:</b> 1 ponto. <b>Gammon</b> (o adversário não retirou nenhuma pedra): 2 pontos. <b>Backgammon</b> (além disso, ele ainda tem pedra na barra ou na sua casa): 3 pontos.</li>
+  <li>Em "1 jogo", quem vencer leva a partida. Em "até N pontos", jogam-se vários jogos até alguém somar N.</li>
+  <li>O <b>pip count</b> mostrado é quanto falta, somando os pontos, para cada um retirar tudo — quem tem menos está na frente na corrida.</li></ul>
+  <p class="hint">Este gamão é jogado sem o cubo de dobra.</p>`,
+  render(g, v, ui){ renderBoard(g, v, ui); },
+  onEvent(e, v, ui){}
+});
+
+/* ============================== DESENHO ============================== */
+let sel = -1, lastAnim = 0, lastRoll = 0;
+// geometria (em unidades de w = largura de um ponto)
+const GEO = {fr:.32, bar:.9, gap:.14, tray:.92, ph:5.05, mid:1.5};
+function geo(w, ph){
+  const G = GEO, W = (G.fr*2 + 12 + G.bar + G.gap + G.tray) * w, H = (G.fr*2 + ph*2 + G.mid) * w;
+  const colX = c => (G.fr + c + (c >= 6 ? G.bar : 0) + .5) * w;          // centro da coluna c (0..11)
+  return {W, H, w, ph, d:w*.92, colX, barX:(G.fr + 6 + G.bar/2) * w, trayX:(G.fr + 12 + G.bar + G.gap + G.tray/2) * w,
+    top:G.fr*w, bot:H - G.fr*w, midY:H/2};
+}
+// coluna e lado (topo?) do ponto k na visão de quem olha
+const colOf = k => k <= 12 ? 12 - k : k - 13;
+const isTop = k => k > 12;
+// centro da i-ésima pedra (0 = junto à borda) numa pilha de n
+function slot(Gm, k, i, n){
+  const {d} = Gm, room = Gm.ph * Gm.w - d*.02;
+  const sp = n * d > room ? (room - d) / (n - 1) : d;
+  if(k === 'bar0' || k === 'bar1'){
+    const up = k === 'bar0', sp2 = Math.min(d, (Gm.ph * Gm.w - d*.6) / Math.max(1, n));
+    return {x:Gm.barX, y: up ? Gm.midY - d*.85 - i*sp2 : Gm.midY + d*.85 + i*sp2};
+  }
+  const x = Gm.colX(colOf(k));
+  return isTop(k) ? {x, y:Gm.top + d/2 + i*sp} : {x, y:Gm.bot - d/2 - i*sp};
+}
+function pipsOf(arr){ let s = 0; for(let k=1;k<=25;k++) s += k * arr[k]; return s; }
+function dieHTML(n, cls){
+  const P = {1:[[50,50]],2:[[28,28],[72,72]],3:[[26,26],[50,50],[74,74]],4:[[28,28],[72,28],[28,72],[72,72]],5:[[26,26],[74,26],[50,50],[26,74],[74,74]],6:[[28,24],[72,24],[28,50],[72,50],[28,76],[72,76]]}[n] || [];
+  return `<div class="die ${cls}">${P.map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join('')}</div>`;
+}
+function baseSVG(Gm){
+  const {W, H, w} = Gm, G = GEO;
+  const felt = '#1d5c3b', felt2 = '#174d31', tri = ['#d9c08a', '#8c2f22'];
+  let s = `<svg class="base" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${W}" height="${H}" rx="${w*.3}" fill="#4a2e17"/>
+    <rect x="${G.fr*w}" y="${G.fr*w}" width="${12*w + G.bar*w}" height="${H - 2*G.fr*w}" fill="${felt}"/>
+    <rect x="${(G.fr+6)*w}" y="${G.fr*w}" width="${G.bar*w}" height="${H - 2*G.fr*w}" fill="#5b3a1e"/>
+    <rect x="${(G.fr+12+G.bar+G.gap)*w}" y="${G.fr*w}" width="${G.tray*w}" height="${H - 2*G.fr*w}" rx="${w*.12}" fill="${felt2}"/>
+    <line x1="${(G.fr+12+G.bar+G.gap)*w}" x2="${(G.fr+12+G.bar+G.gap+G.tray)*w}" y1="${H/2}" y2="${H/2}" stroke="#4a2e17" stroke-width="${w*.08}"/>`;
+  for(let k=1;k<=24;k++){
+    const x = Gm.colX(colOf(k)), hw = w*.48, top = isTop(k), y0 = top ? Gm.top : Gm.bot, th = Math.min(Gm.ph, 5.6)*w*.94, y1 = top ? Gm.top + th : Gm.bot - th;
+    s += `<polygon points="${x-hw},${y0} ${x+hw},${y0} ${x},${y1}" fill="${tri[k % 2]}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>`;
+    s += `<text x="${x}" y="${top ? G.fr*w*.78 : H - G.fr*w*.2}" font-size="${G.fr*w*.78}" text-anchor="middle" fill="#e8cf9a" font-weight="700">${k}</text>`;
+  }
+  return s + '</svg>';
+}
+function renderBoard(g, v, ui){
+  const st = ui.stage;
+  const availW = st.clientWidth - 16, availH = st.clientHeight - 150;
+  const wByW = availW / (GEO.fr*2 + 12 + GEO.bar + GEO.gap + GEO.tray), wByH = availH / (GEO.fr*2 + GEO.ph*2 + GEO.mid);
+  const w = Math.floor(clamp(Math.min(wByW, wByH), 18, 62));
+  // no celular em pé sobra altura: pontos mais compridos (pilhas sem apertar)
+  const ph = clamp((availH / w - GEO.fr*2 - GEO.mid) / 2, GEO.ph, 7);
+  const Gm = geo(w, ph);
+  st.style.setProperty('--bw', Math.round(Gm.W) + 'px'); st.style.setProperty('--bh', Math.round(Gm.H) + 'px');
+  st.style.setProperty('--w', w + 'px'); st.style.setProperty('--d', Math.round(Gm.d) + 'px'); st.style.setProperty('--dz', Math.round(Math.min(w*1.05, 48)) + 'px');
+  if(!st.querySelector('.bg') || st.dataset.w !== w + '/' + ph.toFixed(2)){
+    st.dataset.w = w + '/' + ph.toFixed(2);
+    st.innerHTML = `<div class="gwrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="info" id="inTop"></span></div>
+      <div class="bg" id="bg"></div>
+      <div class="pbar"><span class="nm" id="nmBot"></span><span class="info" id="inBot"></span></div>
+      <div class="msgline" id="msgl"></div>
+      <div class="ctrl" id="ctrl"></div></div>`;
+  }
+  const me = g.me, op = 1 - me, cMe = 'c' + me, cOp = 'c' + op;
+  const myTurn = ui.isMyTurn() && g.phase === 'move';
+  const dests = g.dests || {};
+  const sources = new Set(Object.keys(dests).map(Number));
+  if(!myTurn || !sources.has(sel)) sel = -1;
+  if(myTurn && sel < 0 && sources.size === 1 && sources.has(25)) sel = 25;
+  // pilhas na visão de quem olha: as minhas no meu número, as do adversário em 25-k
+  const stacks = {};
+  for(let k=1;k<=24;k++){ if(g.mine[k]) stacks[k] = {c:cMe, n:g.mine[k]}; if(g.theirs[25-k]) stacks[k] = {c:cOp, n:g.theirs[25-k]}; }
+  let html = baseSVG(Gm);
+  const lastDest = new Set();
+  if(g.last && g.last.seat === op) for(const [, t] of g.last.steps) if(t) lastDest.add(25 - t);
+  // pedras
+  for(let k=1;k<=24;k++){
+    const s = stacks[k]; if(!s) continue;
+    for(let i=0;i<s.n;i++){
+      const p = slot(Gm, k, i, s.n), top = i === s.n - 1;
+      const cls = ['ck', s.c];
+      if(top && myTurn && s.c === cMe && sources.has(k)) cls.push(sel === k ? 'sel' : sel < 0 ? 'can' : '');
+      if(top && lastDest.has(k) && s.c === cOp && !g.over) cls.push('lastmv');
+      html += `<div class="${cls.join(' ')}" data-k="${k}" data-i="${i}" style="left:${p.x}px;top:${p.y}px">${top && s.n > 5 ? `<span class="n">${s.n}</span>` : ''}</div>`;
+    }
+  }
+  // barra (minhas em cima: entro pela casa do adversário, no alto à direita)
+  for(const [key, n, c] of [['bar0', g.mine[25], cMe], ['bar1', g.theirs[25], cOp]]){
+    for(let i=0;i<n;i++){
+      const p = slot(Gm, key, i, n), top = i === n - 1;
+      const cls = ['ck', c];
+      if(top && key === 'bar0' && myTurn && sources.has(25)) cls.push(sel === 25 ? 'sel' : 'can');
+      html += `<div class="${cls.join(' ')}" data-k="${key}" data-i="${i}" style="left:${p.x}px;top:${p.y}px">${top && n > 1 ? `<span class="n">${n}</span>` : ''}</div>`;
+    }
+  }
+  // retiradas (minhas embaixo, do adversário em cima)
+  const slabH = w*.26, slabX = Gm.trayX - w*.39;
+  for(let i=0;i<g.off[0];i++) html += `<div class="slab ${cMe}" data-k="off0" data-i="${i}" style="left:${slabX}px;top:${Gm.bot - (i+1)*(slabH + 1.2)}px"></div>`;
+  for(let i=0;i<g.off[1];i++) html += `<div class="slab ${cOp}" data-k="off1" data-i="${i}" style="left:${slabX}px;top:${Gm.top + i*(slabH + 1.2) + 1}px"></div>`;
+  // destinos possíveis
+  if(sel >= 0 && dests[sel]){
+    for(const dd of dests[sel]){
+      if(dd.t === 0){
+        html += `<div class="tray-tg" style="left:${Gm.trayX - w*.46}px;top:${Gm.midY + 2}px;width:${w*.92}px;height:${Gm.bot - Gm.midY - 2}px"></div>`;
+        continue;
+      }
+      const s = stacks[dd.t], n = s && s.c === cMe ? s.n : 0;
+      const p = slot(Gm, dd.t, n, n + 1);
+      html += `<div class="tg ${dd.hit ? 'hit' : ''}" style="left:${p.x}px;top:${p.y}px"></div>`;
+    }
+  }
+  // dados (no lado de quem joga: os meus à direita, os do adversário à esquerda)
+  const dice = g.dice || (g.blocked ? g.blocked.dice : null);
+  if(dice){
+    const owner = g.dice ? g.turn : g.blocked.seat, right = owner === me;
+    const used = [], left = (g.left || []).slice();
+    const faces = dice[0] === dice[1] ? [dice[0], dice[0], dice[0], dice[0]] : dice;
+    for(const f of faces){ const j = left.indexOf(f); if(j >= 0){ left.splice(j, 1); used.push(false); } else used.push(true); }
+    if(!g.dice) used.fill(true);
+    const roll = g.rollId !== lastRoll;
+    const cx = right ? (Gm.colX(6) + Gm.colX(11)) / 2 : (Gm.colX(0) + Gm.colX(5)) / 2;
+    html += `<div class="dice" style="left:${cx}px;top:${Gm.midY}px">${faces.map((f, i) => dieHTML(f, `c${owner} ${used[i] ? 'used' : ''} ${roll ? 'roll' : ''}`)).join('')}</div>`;
+  }
+  // áreas de toque: cada ponto (meia altura), a barra e a bandeja
+  for(let k=1;k<=24;k++){
+    const x = Gm.colX(colOf(k)) - w/2, y = isTop(k) ? Gm.top : Gm.midY;
+    html += `<div class="zone" data-z="${k}" style="left:${x}px;top:${y}px;width:${w}px;height:${Gm.midY - Gm.top}px"></div>`;
+  }
+  html += `<div class="zone" data-z="25" style="left:${Gm.barX - GEO.bar*w/2}px;top:${Gm.top}px;width:${GEO.bar*w}px;height:${Gm.midY - Gm.top}px"></div>`;
+  html += `<div class="zone" data-z="0" style="left:${Gm.trayX - GEO.tray*w/2}px;top:${Gm.midY}px;width:${GEO.tray*w}px;height:${Gm.bot - Gm.midY}px"></div>`;
+  const bg = $('#bg'); bg.innerHTML = html;
+  $$('.zone', bg).forEach(z => z.onclick = () => clickZone(+z.dataset.z, g, ui, dests, sources));
+  // animação das pedras que andaram
+  if(g.anim && g.anim.id !== lastAnim){
+    if(lastAnim) animateMoves(g, Gm, bg, stacks);
+    lastAnim = g.anim.id;
+  }
+  lastRoll = g.rollId;
+  // barras de jogador
+  const nm = s => esc(v.seats[s] ? v.seats[s].name : '');
+  const playing = v.phase === 'game' && !g.over;
+  $('#nmBot').innerHTML = `<span class="dot${me}"></span>${nm(me)} (você)`; $('#nmTop').innerHTML = `<span class="dot${op}"></span>${nm(op)}`;
+  $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+  $('#nmBot').classList.toggle('vez', playing && g.turn === me && g.phase !== 'gameEnd');
+  $('#nmTop').classList.toggle('vez', playing && g.turn === op && g.phase !== 'gameEnd');
+  $('#inBot').textContent = `${g.pips[0]} pips · ${g.off[0]} fora`; $('#inTop').textContent = `${g.pips[1]} pips · ${g.off[1]} fora`;
+  // mensagem e botões
+  let msg = '';
+  if(g.phase === 'gameEnd'){
+    const ge = g.gameEnd, w0 = ge.winner === me;
+    msg = `${w0 ? 'Você venceu' : nm(ge.winner) + ' venceu'} o jogo ${g.gameNo}${ge.kind > 1 ? ' com ' + (ge.kind === 2 ? 'gammon' : 'backgammon') : ''} (+${ge.pts}). Placar ${g.score[me]} × ${g.score[op]}.`;
+  } else if(g.blocked && g.phase === 'roll') msg = `${g.blocked.seat === me ? 'Você' : nm(g.blocked.seat)} tirou ${g.blocked.dice[0]}-${g.blocked.dice[1]} e ficou sem jogada.`;
+  else if(myTurn) msg = g.need > 0 ? (sel >= 0 ? 'Toque no destino (verde).' : 'Toque numa pedra que pisca.') : 'Jogada completa — confirme ou desfaça.';
+  else if(g.phase === 'roll' && g.turn === me && playing) msg = 'Sua vez: role os dados.';
+  else if(g.last && g.last.seat === op && g.last.steps.length) msg = `${nm(op)} jogou ${notation(g.last.steps.map(([f, t, h]) => [f, t, h]))}`;
+  $('#msgl').textContent = msg;
+  let cb = '';
+  if(playing && g.turn === me && g.phase === 'roll' && ui.isMyTurn()) cb = `<button class="roll" id="bRoll">🎲 Rolar dados</button>`;
+  else if(playing && g.phase === 'move' && g.turn === me) cb = `<button class="un" id="bUndo" ${g.undo ? '' : 'disabled'}>↶ Desfazer</button><button class="ok ${g.canOk ? 'go' : ''}" id="bOk" ${g.canOk ? '' : 'disabled'}>✓ Confirmar</button>`;
+  else if(playing && g.phase === 'gameEnd' && g.gameEnd.winner === me) cb = `<button class="roll" id="bNext">Próximo jogo ▶</button>`;
+  cb += playing ? `<button class="un" id="bRes" title="Abandonar a partida">🏳️</button>` : '';
+  const ctrl = $('#ctrl');
+  if(ctrl.dataset.k !== cb){ ctrl.innerHTML = cb; ctrl.dataset.k = cb;
+    if($('#bRoll')) $('#bRoll').onclick = () => ui.act({t:'roll'});
+    if($('#bUndo')) $('#bUndo').onclick = () => { sel = -1; ui.act({t:'undo'}); };
+    if($('#bOk')) $('#bOk').onclick = () => { sel = -1; ui.act({t:'ok'}); };
+    if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+    if($('#bRes')) $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida inteira.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+  }
+}
+function clickZone(z, g, ui, dests, sources){
+  if(!ui.isMyTurn() || g.phase !== 'move') return;
+  if(sel >= 0 && dests[sel]){
+    const d = dests[sel].find(x => x.t === z);
+    if(d){ sel = -1; ui.act({t:'mv', steps:d.path}); return; }
+  }
+  if(sources.has(z)){ sel = sel === z ? -1 : z; ui.rerender(); return; }
+  // atalho: destino que só uma pedra alcança
+  const who = [...sources].filter(f => dests[f].some(x => x.t === z));
+  if(sel < 0 && who.length === 1){ const d = dests[who[0]].find(x => x.t === z); ui.act({t:'mv', steps:d.path}); return; }
+  if(g.need === 0) toast('Jogada completa: confirme ou desfaça.');
+  else if(g.mine[25] && z !== 25) toast('Primeiro entre a pedra da barra.');
+  else if(z >= 1 && z <= 24 && g.mine[z] && !sources.has(z)) toast('Essa pedra não tem movimento com estes dados.');
+  sel = -1; ui.rerender();
+}
+// faz as pedras "voarem" da origem ao destino (passo a passo)
+function animateMoves(g, Gm, bg, stacks){
+  const a = g.anim, mine = a.seat === g.me;
+  const key = k => mine ? (k === 25 ? 'bar0' : k === 0 ? 'off0' : k) : (k === 25 ? 'bar1' : k === 0 ? 'off1' : 25 - k);
+  // estado das pilhas antes do lance: desfaz os passos em ordem inversa só para contar
+  const cnt = {};
+  const count = k => cnt[k] != null ? cnt[k] : (cnt[k] = typeof k === 'number' ? (stacks[k] ? stacks[k].n : 0) : k === 'bar0' ? g.mine[25] : k === 'bar1' ? g.theirs[25] : k === 'off0' ? g.off[0] : g.off[1]);
+  const plan = [];
+  for(let i=a.steps.length-1;i>=0;i--){
+    const [f, t] = a.steps[i], kf = key(f), kt = key(t);
+    const nt = count(kt); cnt[kt] = nt - 1; const nf = count(kf); cnt[kf] = nf + 1;
+    plan.unshift({kf, kt, iTo:nt - 1, iFrom:nf, nf:nf + 1});
+  }
+  plan.forEach((p, idx) => {
+    const sel = `[data-k="${p.kt}"][data-i="${Math.max(0, p.iTo)}"]`;
+    const el = bg.querySelector(sel); if(!el) return;
+    let from;
+    if(typeof p.kf === 'number') from = slot(Gm, p.kf, p.iFrom, Math.max(p.nf, 1));
+    else if(p.kf === 'bar0' || p.kf === 'bar1') from = slot(Gm, p.kf, p.iFrom, Math.max(p.nf, 1));
+    else return;
+    const r = el.getBoundingClientRect(), br = bg.getBoundingClientRect();
+    const cx = r.left - br.left + r.width/2, cy = r.top - br.top + r.height/2;
+    anim(el, [{transform:`translate(${from.x - cx}px,${from.y - cy}px)`, zIndex:9}, {transform:'none', zIndex:9}],
+      {duration:300, delay:idx*230, easing:'cubic-bezier(.3,.8,.3,1)', fill:'backwards'});
+  });
+}
+</script>
+</body>
+</html>

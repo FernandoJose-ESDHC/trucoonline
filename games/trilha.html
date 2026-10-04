@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Trilha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:10px}
+.twrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.tb{position:relative;width:var(--S);height:var(--S);border-radius:14px;background:
+  radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.18),transparent 60%),linear-gradient(135deg,#d8b27a,#c08b52 60%,#a8743f);
+  border:6px solid #3b2a18;box-shadow:0 14px 30px rgba(0,0,0,.5),inset 0 0 18px rgba(0,0,0,.25)}
+.tb svg{position:absolute;inset:0;width:100%;height:100%}
+.tb svg line,.tb svg rect{stroke:#4a2f14;stroke-width:.07;fill:none;stroke-linecap:round}
+.pt{position:absolute;width:var(--P);height:var(--P);transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;cursor:default}
+.pt::before{content:"";width:22%;height:22%;border-radius:50%;background:#4a2f14;box-shadow:0 1px 0 rgba(255,255,255,.3)}
+.pt.tg{cursor:pointer}
+.pt.tg::before{width:38%;height:38%;background:rgba(62,207,122,.95);box-shadow:0 0 10px rgba(62,207,122,.9)}
+.pt.lastfrom::before{width:34%;height:34%;background:transparent;border:3px dashed rgba(231,180,58,.95);box-sizing:border-box}
+.pt.gone::after{content:"✕";position:absolute;color:#8e0f1c;font-weight:900;font-size:calc(var(--P)*.5);text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.pc{position:absolute;inset:8%;border-radius:50%;transition:transform .15s}
+.pc.c0{background:radial-gradient(circle at 35% 30%,#fff,#ece3d0 55%,#bdae93);box-shadow:0 4px 0 #988a70,0 6px 10px rgba(0,0,0,.5)}
+.pc.c1{background:radial-gradient(circle at 35% 30%,#6a6a6a,#2a2a2a 55%,#0d0d0d);box-shadow:0 4px 0 #000,0 6px 10px rgba(0,0,0,.6)}
+.pc::before{content:"";position:absolute;inset:20%;border-radius:50%;border:2px solid rgba(0,0,0,.15)}
+.pc.c1::before{border-color:rgba(231,180,58,.45)}
+.pt.mine{cursor:pointer}
+.pc.can{animation:pulse 1.3s infinite}
+.pc.sel{transform:scale(1.14);box-shadow:0 0 0 4px var(--blue),0 8px 14px rgba(0,0,0,.5)}
+.pc.last{box-shadow:0 0 0 3px var(--gold),0 6px 10px rgba(0,0,0,.5)}
+.pc.inmill::after{content:"";position:absolute;inset:-9%;border-radius:50%;border:2px solid rgba(231,180,58,.75)}
+.pt.rm{cursor:pointer}
+.pt.rm .pc{animation:rmpulse 1s ease-in-out infinite}
+@keyframes rmpulse{0%,100%{box-shadow:0 0 0 3px #ff5a5a,0 0 10px rgba(255,90,90,.7)}50%{box-shadow:0 0 0 6px #ff5a5a,0 0 22px rgba(255,90,90,1)}}
+.pbar{display:flex;justify-content:space-between;align-items:center;width:calc(var(--S) + 12px);gap:8px}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;display:flex;align-items:center;gap:6px}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pbar .side{display:flex;align-items:center;gap:8px;flex:none}
+.hand{display:flex;align-items:center;gap:2px}
+.hand i{display:block;width:12px;height:12px;border-radius:50%}
+.hand i.c0{background:#ece3d0;box-shadow:0 1px 0 #988a70} .hand i.c1{background:#2a2a2a;box-shadow:0 1px 0 #000,0 0 0 1px rgba(231,180,58,.4)}
+.cnt{font-weight:800;color:#ffe6a6;font-size:13px;white-space:nowrap}
+.dotc{width:14px;height:14px;border-radius:50%;flex:none}
+.dotc.c0{background:#ece3d0} .dotc.c1{background:#2a2a2a;border:1px solid rgba(231,180,58,.6)}
+.tip{font-size:13px;font-weight:700;color:#e3f3ea;text-align:center;min-height:18px}
+@media (max-width:520px){ .hand i{width:9px;height:9px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="trilha-ai.js"></script>
+<script>
+"use strict";
+/* =============================== TRILHA ===============================
+   Moinho / Nine Men's Morris. 24 casas em 3 quadrados (anel 0 externo),
+   casa = anel*8 + k, k de 0 a 7 no sentido horário a partir do canto de
+   cima à esquerda. Cores: 0 brancas (começam), 1 pretas.
+   Uma vez = colocar/mover (+ remover, se fechou trilha). A remoção é uma
+   segunda etapa da mesma vez (stage 'remove').
+   ===================================================================== */
+const CNAME = ['Brancas', 'Pretas'];
+const QUIET_MAX = 50;
+const ADJL = TrilhaAI.ADJL, MILLS = TrilhaAI.MILLS;
+// posição (linha, coluna) de cada casa numa grade 7×7
+const XY = [];
+for(let r=0;r<3;r++){ const o = r, e = 6 - r;
+  XY.push([o,o],[o,3],[o,e],[3,e],[e,e],[e,3],[e,o],[3,o]); }
+const maskOf = (b, c) => b.reduce((m, v, i) => v === c ? m | (1 << i) : m, 0);
+const countOf = (b, c) => b.filter(v => v === c).length;
+const total = (st, c) => countOf(st.b, c) + st.hand[c];
+const phaseOf = (st, c) => st.hand[c] > 0 ? 'place' : countOf(st.b, c) <= 3 ? 'fly' : 'move';
+function formsMill(b, c, at){ return MILLS.some(m => (m >> at & 1) && [...Array(24).keys()].every(i => !(m >> i & 1) || b[i] === c)); }
+function removableSet(b, c){       // peças da cor c que podem ser removidas
+  const own = maskOf(b, c), r = TrilhaAI.removable(own);
+  return [...Array(24).keys()].filter(i => r >> i & 1);
+}
+const inMill = (b, c) => { const m = TrilhaAI.millMask(maskOf(b, c)); return [...Array(24).keys()].filter(i => m >> i & 1); };
+// lances básicos (sem remoção) de quem joga
+function baseMoves(st){
+  const seen = new Set(), out = [];
+  for(const m of TrilhaAI.legal(st)){ const k = m.from + ':' + m.to; if(!seen.has(k)){ seen.add(k); out.push([m.from, m.to]); } }
+  return out;
+}
+const aiState = st => ({b:st.b, hand:st.hand, turn:st.turn, keys:Object.keys(st.rep || {})});
+const BOT_CFG = { facil:{time:500, depth:2, noise:60}, normal:{time:600, depth:4}, dificil:{time:1500, depth:60} };
+
+// termina a vez de quem jogou: fim de jogo, repetição, 50 lances
+function endTurn(st, seat, ev){
+  const me = st.turn, op = 1 - me;
+  st.stage = 'play'; st.turn = op;
+  if(total(st, op) < 3){
+    st.result = {winners:[seat], text:`${esc(st.names[1-seat])} ficou com só 2 peças. Vitória de <b>${esc(st.names[seat])}</b>!`};
+    return;
+  }
+  if(!baseMoves(st).length){
+    st.result = {winners:[seat], text:`${esc(st.names[1-seat])} ficou sem lances (todas as peças bloqueadas). Vitória de <b>${esc(st.names[seat])}</b>!`};
+    return;
+  }
+  if(!st.hand[0] && !st.hand[1]){
+    const k = TrilhaAI.keyOf(aiState(st));
+    st.rep[k] = (st.rep[k] || 0) + 1;
+    if(st.rep[k] >= 3){ st.result = {draw:true, winners:[], text:'Empate: a mesma posição se repetiu 3 vezes.'}; return; }
+    if(st.quiet >= QUIET_MAX){ st.result = {draw:true, winners:[], text:`Empate: ${QUIET_MAX} lances seguidos sem nenhuma peça removida.`}; return; }
+    if(phaseOf(st, op) === 'fly' && !st.flyWarned[op]){ st.flyWarned[op] = true; ev.push({k:'banner', text:`${CNAME[op]} voando!`}, {k:'log', text:`${esc(st.names[1-seat])} ficou com 3 peças: agora pode voar.`}); }
+  }
+}
+function doRemove(st, at, seat, ev){
+  const op = 1 - st.turn;
+  st.b[at] = -1; st.last.rm = at; st.quiet = 0; st.rep = {};
+  ev.push({k:'snd', s:'capture'});
+  endTurn(st, seat, ev);
+}
+
+Mesa.run({
+  id:'trilha', name:'Trilha', icon:'⚪', players:2, tagline:'O moinho — online ou contra o computador',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'cor', label:'Você joga com', default:'0', choices:[['0','Brancas (começa)'],['1','Pretas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : CNAME[(s === 0) === (o.cor !== '1') ? 0 : 1],
+  setup(players, o){
+    const c0 = o.cor === '1' ? 1 : o.cor === 'r' ? pick([0,1]) : 0;
+    return {b:Array(24).fill(-1), hand:[9,9], turn:0, colors:[c0, 1 - c0], names:players.map(p => p.name),
+      stage:'play', last:null, quiet:0, rep:{}, flyWarned:[false,false], moves:0, result:null};
+  },
+  startEvents(st){ return [{k:'log', text:`${esc(st.names[st.colors.indexOf(0)])} começa com as brancas.`}]; },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.colors[seat] !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const me = st.turn, op = 1 - me, ev = [];
+    if(a.t === 'resign'){
+      st.result = {winners:[1 - seat], text:`${esc(st.names[seat])} abandonou. Vitória de ${esc(st.names[1-seat])}.`};
+      return {events:[{k:'log', text:`${esc(st.names[seat])} abandonou a partida.`}]};
+    }
+    const isSq = x => Number.isInteger(x) && x >= 0 && x < 24;
+    if(st.stage === 'remove'){
+      if(a.t !== 'remove') return {ok:false, err:'Você fechou uma trilha: escolha uma peça do adversário para remover.'};
+      if(!isSq(a.at) || st.b[a.at] !== op) return {ok:false, err:'Escolha uma peça do adversário.'};
+      if(!removableSet(st.b, op).includes(a.at)) return {ok:false, err:'Essa peça está numa trilha — escolha outra (só dá para tirar de trilha se todas estiverem em trilha).'};
+      doRemove(st, a.at, seat, ev);
+      return {events:ev};
+    }
+    // colocar ou mover
+    const ph = phaseOf(st, me);
+    let from = -1;
+    if(a.t === 'place'){
+      if(ph !== 'place') return {ok:false, err:'Todas as suas peças já foram colocadas: agora é mover.'};
+    } else if(a.t === 'move'){
+      if(ph === 'place') return {ok:false, err:'Primeiro coloque todas as suas peças.'};
+      from = a.from;
+      if(!isSq(from) || st.b[from] !== me) return {ok:false, err:'Escolha uma peça sua.'};
+    } else return {ok:false, err:'Jogada inválida.'};
+    const to = a.to;
+    if(!isSq(to) || st.b[to] !== -1) return {ok:false, err:'Escolha uma casa vazia.'};
+    if(ph === 'move' && !ADJL[from].includes(to)) return {ok:false, err:'A peça só anda para uma casa vizinha ligada por uma linha.'};
+    if(from >= 0) st.b[from] = -1; else st.hand[me]--;
+    st.b[to] = me; st.moves++;
+    st.last = {from, to, rm:-1, c:me};
+    if(!st.hand[0] && !st.hand[1] && from >= 0) st.quiet++;
+    ev.push({k:'snd', s:'move'});
+    if(formsMill(st.b, me, to) && countOf(st.b, op) > 0){
+      ev.push({k:'banner', text:'TRILHA!'}, {k:'log', text:`${esc(st.names[seat])} fechou uma trilha.`});
+      const rm = a.rm;
+      if(isSq(rm) && st.b[rm] === op && removableSet(st.b, op).includes(rm)){ doRemove(st, rm, seat, ev); return {events:ev, pause:250}; }
+      st.stage = 'remove';
+      return {events:ev};
+    }
+    endTurn(st, seat, ev);
+    return {events:ev};
+  },
+  bot(st, seat, o){
+    const cfg = BOT_CFG[o.diff] || BOT_CFG.normal;
+    if(st.stage === 'remove'){
+      // refaz a posição de antes do lance e escolhe a melhor remoção para ele
+      const L = st.last, pre = {b:st.b.slice(), hand:st.hand.slice(), turn:st.turn, keys:Object.keys(st.rep || {})};
+      pre.b[L.to] = -1; if(L.from >= 0) pre.b[L.from] = st.turn; else pre.hand[st.turn]++;
+      const m = TrilhaAI.think(pre, cfg, {from:L.from, to:L.to});
+      const ok = removableSet(st.b, 1 - st.turn);
+      return {t:'remove', at: m && ok.includes(m.rm) ? m.rm : ok[0]};
+    }
+    const m = TrilhaAI.think(aiState(st), cfg) || TrilhaAI.legal(aiState(st))[0];
+    return m.from < 0 ? {t:'place', to:m.to, rm:m.rm} : {t:'move', from:m.from, to:m.to, rm:m.rm};
+  },
+  botDelay(st, s, o){ return st.stage === 'remove' ? 450 : o.diff === 'dificil' ? 250 : 500; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 0, mine = seat >= 0 && st.turn === my && !st.result;
+    return {b:st.b, hand:st.hand, turn:st.turn, my, colors:st.colors, stage:st.stage, last:st.last, quiet:st.quiet,
+      ph:[phaseOf(st, 0), phaseOf(st, 1)], mills:[inMill(st.b, 0), inMill(st.b, 1)],
+      moves: mine && st.stage === 'play' ? baseMoves(st) : [],
+      removable: mine && st.stage === 'remove' ? removableSet(st.b, 1 - my) : []};
+  },
+  topInfo(g){
+    const mine = g.turn === g.my;
+    let t;
+    if(g.stage === 'remove') t = mine ? 'Trilha! Remova uma peça adversária' : 'O adversário fechou trilha…';
+    else if(!mine) t = 'Vez do adversário';
+    else t = {place:'Sua vez: coloque uma peça', move:'Sua vez: mova uma peça', fly:'Sua vez: voe com uma peça'}[g.ph[g.my]];
+    return `<div class="status">${t}</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Deixar o adversário com <b>só 2 peças</b> ou <b>sem nenhum lance</b>.</p>
+  <h3>Tabuleiro</h3><p>Três quadrados, um dentro do outro, ligados pelo meio dos lados: 24 casas. Cada jogador tem <b>9 peças</b>. As brancas começam.</p>
+  <h3>1ª fase — colocar</h3><p>Cada um, na sua vez, coloca uma peça numa casa vazia, até os dois colocarem as 9.</p>
+  <h3>2ª fase — mover</h3><p>Na sua vez, mova uma peça para uma casa <b>vizinha vazia</b>, seguindo as linhas. Não pode passar a vez.</p>
+  <h3>3ª fase — voar</h3><p>Quem fica com <b>3 peças</b> pode mover qualquer uma delas para <b>qualquer casa vazia</b> do tabuleiro.</p>
+  <h3>Trilha</h3><ul><li>Formar uma <b>trilha</b> = 3 peças suas em linha reta (num lado de um quadrado ou numa das linhas que ligam os quadrados).</li>
+  <li>Quem forma trilha (colocando ou movendo) <b>remove uma peça do adversário</b> na mesma vez.</li>
+  <li>Não pode remover peça que esteja numa trilha formada — a não ser que <b>todas</b> as peças do adversário estejam em trilhas.</li>
+  <li>Abrir uma trilha (tirar uma peça dela) e fechá-la de novo num lance seguinte vale como trilha nova.</li></ul>
+  <h3>Fim</h3><ul><li>Perde quem ficar com 2 peças ou, na sua vez, não tiver nenhum lance (todas as peças bloqueadas).</li>
+  <li><b>Empate</b> se a mesma posição (com o mesmo jogador da vez) acontecer <b>3 vezes</b>, ou após <b>${QUIET_MAX} lances seguidos</b> (somando os dois jogadores, depois que todas as peças foram colocadas) sem nenhuma remoção.</li></ul>
+  <h3>Como jogar aqui</h3><p>Colocar: toque numa casa vazia. Mover: toque numa peça sua (as que podem andar piscam) e depois no destino verde.
+  Ao fechar trilha, as peças que podem ser removidas ficam com um anel vermelho: toque numa delas. Peças com aro dourado estão em trilha.</p>`,
+  render(g, v, ui){
+    const st = ui.stage;
+    const S = Math.floor(clamp(Math.min(st.clientWidth - 34, st.clientHeight - 130), 250, 620));
+    st.style.setProperty('--S', S + 'px'); st.style.setProperty('--P', Math.floor(S / 7 * .86) + 'px');
+    if(!st.querySelector('.tb')){
+      const ln = (a, b) => `<line x1="${XY[a][1]}" y1="${XY[a][0]}" x2="${XY[b][1]}" y2="${XY[b][0]}"/>`;
+      let svg = '';
+      for(let r=0;r<3;r++) svg += `<rect x="${r}" y="${r}" width="${6-2*r}" height="${6-2*r}"/>`;
+      for(let k=1;k<8;k+=2) svg += ln(k, 16 + k);
+      st.innerHTML = `<div class="twrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="side"><span class="hand" id="hTop"></span><span class="cnt" id="cTop"></span></span></div>
+        <div class="tb" id="tb"><svg viewBox="-.5 -.5 7 7">${svg}</svg>${XY.map(([r,c], i) => `<div class="pt" data-i="${i}" style="left:${(c+.5)/7*100}%;top:${(r+.5)/7*100}%"></div>`).join('')}</div>
+        <div class="tip" id="tip"></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><span class="side"><span class="hand" id="hBot"></span><span class="cnt" id="cBot"></span><button class="tbtn" id="bRes">🏳️</button></span></div></div>`;
+      $('#bRes').title = 'Abandonar';
+      $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      $('#tb').addEventListener('click', e => { const el = e.target.closest('.pt'); if(el) clickPt(+el.dataset.i, ui); });
+      tsel = -1;
+    }
+    if(!g.moves.length) tsel = -1;
+    const placing = g.moves.length && g.moves[0][0] < 0;
+    const movable = new Set(g.moves.map(m => m[0]));
+    const targets = new Set(placing ? g.moves.map(m => m[1]) : g.moves.filter(m => m[0] === tsel).map(m => m[1]));
+    const rmSet = new Set(g.removable), millSet = new Set(g.mills[0].concat(g.mills[1]));
+    const L = g.last;
+    $$('#tb .pt').forEach(el => {
+      const i = +el.dataset.i, val = g.b[i];
+      el.className = 'pt' + (targets.has(i) ? ' tg' : '') + (rmSet.has(i) ? ' rm' : '') + (movable.has(i) && !placing ? ' mine' : '') +
+        (L && L.from === i && val < 0 ? ' lastfrom' : '') + (L && L.rm === i && val < 0 ? ' gone' : '');
+      let pz = el.querySelector('.pc');
+      if(val < 0){ if(pz) pz.remove(); return; }
+      if(!pz || !pz.classList.contains('c' + val)){
+        if(pz) pz.remove();
+        pz = document.createElement('div'); el.appendChild(pz);
+        // peça que acabou de chegar: anima vindo da origem (ou de cima, se foi colocada)
+        if(L && L.to === i && lastAnimKey !== v.gameNo + ':' + g.b.join('')){
+          const f = Math.min(1, CFG.speed || 1);
+          if(L.from >= 0){
+            const dx = (XY[L.from][1] - XY[i][1]) / 7 * S, dy = (XY[L.from][0] - XY[i][0]) / 7 * S;
+            anim(pz, [{transform:`translate(${dx}px,${dy}px)`}, {transform:'none'}], {duration:320 * f, easing:'cubic-bezier(.3,.8,.3,1)'});
+          } else anim(pz, [{transform:'scale(1.6)', opacity:0}, {transform:'none', opacity:1}], {duration:260 * f, easing:'ease-out'});
+        }
+      }
+      pz.className = 'pc c' + val + (i === tsel ? ' sel' : '') + (movable.has(i) && !placing && tsel < 0 ? ' can' : '') +
+        (L && L.to === i ? ' last' : '') + (millSet.has(i) ? ' inmill' : '');
+    });
+    lastAnimKey = v.gameNo + ':' + g.b.join('');
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn), live = v.phase === 'game';
+    const mc = g.colors[me], oc = g.colors[op];
+    const nm = (s, c, you) => `<span class="dotc c${c}"></span>${esc(v.seats[s] ? v.seats[s].name : '')}${you ? ' (você)' : ''}`;
+    $('#nmBot').innerHTML = nm(me, mc, true); $('#nmTop').innerHTML = nm(op, oc, false);
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', ts === me && live); $('#nmTop').classList.toggle('vez', ts === op && live);
+    const hand = c => `<i class="c${c}"></i>`.repeat(g.hand[c]);
+    $('#hBot').innerHTML = hand(mc); $('#hTop').innerHTML = hand(oc);
+    const cnt = c => { const n = countOf(g.b, c); return g.hand[c] ? `${n} no tabuleiro` : `${n} peça${n === 1 ? '' : 's'}${g.ph[c] === 'fly' ? ' · voando' : ''}`; };
+    $('#cBot').textContent = cnt(mc); $('#cTop').textContent = cnt(oc);
+    $('#bRes').disabled = !live;
+    let tip = '';
+    if(live && g.turn === g.my){
+      if(g.stage === 'remove') tip = 'Toque numa peça com anel vermelho para removê-la.';
+      else if(placing) tip = `Toque numa casa vazia para colocar (faltam ${g.hand[g.my]}).`;
+      else if(tsel >= 0) tip = g.ph[g.my] === 'fly' ? 'Toque em qualquer casa verde para voar.' : 'Toque no destino verde (ou em outra peça).';
+      else tip = g.ph[g.my] === 'fly' ? 'Com 3 peças você voa: escolha uma peça.' : 'Escolha uma peça para mover.';
+    } else if(live && g.stage !== 'remove' && !g.hand[0] && !g.hand[1] && g.quiet >= QUIET_MAX - 10) tip = `Sem remoção há ${g.quiet} lances (empate em ${QUIET_MAX}).`;
+    $('#tip').textContent = tip;
+  }
+});
+let tsel = -1, lastAnimKey = '';
+function clickPt(i, ui){
+  const v = ui.view, g = v && v.game; if(!g) return;
+  if(g.removable.length){
+    if(g.removable.includes(i)){ ui.act({t:'remove', at:i}); return; }
+    toast(g.b[i] === 1 - g.my ? 'Essa peça está numa trilha: escolha uma com anel vermelho.' : 'Escolha uma peça do adversário com anel vermelho.');
+    return;
+  }
+  if(!g.moves.length) return;
+  if(g.moves[0][0] < 0){
+    if(g.b[i] === -1){ ui.act({t:'place', to:i}); return; }
+    toast('Escolha uma casa vazia.'); return;
+  }
+  if(tsel >= 0 && g.moves.some(m => m[0] === tsel && m[1] === i)){ ui.act({t:'move', from:tsel, to:i}); tsel = -1; return; }
+  if(g.b[i] === g.my){
+    if(g.moves.some(m => m[0] === i)) tsel = tsel === i ? -1 : i;
+    else { toast('Essa peça está bloqueada.'); tsel = -1; }
+    ui.rerender(); return;
+  }
+  if(tsel >= 0 && g.b[i] === -1) toast(g.ph[g.my] === 'fly' ? 'Escolha uma casa vazia.' : 'Só dá para andar para uma casa vizinha ligada por linha.');
+  tsel = -1; ui.rerender();
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

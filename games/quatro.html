@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Quatro em Linha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:10px}
+.q4wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.q4box{display:flex;flex-direction:column;align-items:center}
+.q4{position:relative;padding:calc(var(--q)*.16);border-radius:calc(var(--q)*.28);
+  background:linear-gradient(180deg,#2d66cf,#1c4597 70%,#163a80);box-shadow:0 14px 30px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.25),inset 0 -4px 0 rgba(0,0,0,.25)}
+.prev{display:grid;grid-template-columns:repeat(7,var(--q));height:calc(var(--q)*.9);position:relative}
+.prev .cell::before{display:none}
+.q4 .grid{display:grid;grid-template-columns:repeat(7,var(--q));grid-template-rows:repeat(6,var(--q));position:relative}
+.cell{width:var(--q);height:var(--q);position:relative;cursor:pointer}
+.cell::before{content:"";position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle at 50% 40%,#0c3a24,#06241a);box-shadow:inset 0 4px 7px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.18)}
+.colhl{position:absolute;top:0;bottom:0;width:var(--q);border-radius:calc(var(--q)*.2);background:rgba(255,255,255,.1);pointer-events:none;display:none}
+.disc{position:absolute;inset:10%;border-radius:50%;z-index:2;pointer-events:none}
+.disc.c0{background:radial-gradient(circle at 36% 30%,#ff8c8c,#dc2433 52%,#8e0f1c);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),0 3px 6px rgba(0,0,0,.45)}
+.disc.c1{background:radial-gradient(circle at 36% 30%,#fff6b8,#f4c41c 52%,#a67900);box-shadow:inset 0 -4px 0 rgba(0,0,0,.2),0 3px 6px rgba(0,0,0,.45)}
+.disc::before{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid rgba(0,0,0,.14)}
+.disc.last::after{content:"";position:absolute;left:50%;top:50%;width:18%;height:18%;margin:-9% 0 0 -9%;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 0 6px #fff}
+.disc.win{animation:q4win 1s ease-in-out infinite;z-index:3}
+@keyframes q4win{0%,100%{box-shadow:0 0 0 3px #fff,0 0 14px 4px rgba(255,255,255,.8)}50%{box-shadow:0 0 0 5px var(--gold),0 0 26px 8px rgba(231,180,58,.95)}}
+.disc.ghost{opacity:.55;inset:14%}
+.q4box.off .cell{cursor:default}
+.pbar{display:flex;justify-content:space-between;align-items:center;width:calc(var(--q)*7.32);gap:8px}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pbar .dot{width:16px;height:16px;border-radius:50%;flex:none}
+.pbar .dot.c0{background:#dc2433} .pbar .dot.c1{background:#f4c41c}
+.pbar .info{font-weight:800;color:#ffe6a6;font-size:13px;white-space:nowrap}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="quatro-ai.js"></script>
+<script>
+"use strict";
+/* ========================= QUATRO EM LINHA =========================
+   Tabuleiro de 7 colunas × 6 linhas. As peças caem até a casa livre
+   mais baixa da coluna. Vence quem formar 4 em linha (horizontal,
+   vertical ou diagonal); tabuleiro cheio sem isso é empate.
+   Casas: índice = linha*7 + coluna, linha 0 embaixo. Cores: 0 vermelhas
+   (começam), 1 amarelas.
+   ===================================================================== */
+const COLS = 7, ROWS = 6;
+const CNAME = ['Vermelhas', 'Amarelas'];
+const DIRS4 = [[0,1],[1,0],[1,1],[1,-1]];
+function dropRow(b, c){ for(let r=0;r<ROWS;r++) if(b[r*COLS + c] < 0) return r; return -1; }
+// as 4 (ou mais) casas alinhadas que passam por (r,c)
+function lineAt(b, r, c){
+  const v = b[r*COLS + c];
+  for(const [dr,dc] of DIRS4){
+    const cells = [r*COLS + c];
+    for(const s of [1,-1]){
+      let rr = r + dr*s, cc = c + dc*s;
+      while(rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && b[rr*COLS + cc] === v){ cells.push(rr*COLS + cc); rr += dr*s; cc += dc*s; }
+    }
+    if(cells.length >= 4) return cells;
+  }
+  return null;
+}
+const legalCols = b => [...Array(COLS).keys()].filter(c => b[(ROWS-1)*COLS + c] < 0);
+
+/* o bot de verdade está em quatro-ai.js */
+const BOT_CFG = { facil:{time:400, depth:4, noise:40}, normal:{time:450, depth:9}, dificil:{time:1500, depth:42, solve:8, book:true} };
+function botCol(st, diff){
+  const c = QuatroAI.think(st.b, st.turn, BOT_CFG[diff] || BOT_CFG.normal);
+  const ok = legalCols(st.b);
+  return ok.includes(c) ? c : ok[0];
+}
+
+Mesa.run({
+  id:'quatro', name:'Quatro em Linha', icon:'🔴', players:2, tagline:'Online ou contra o computador',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'cor', label:'Você joga com', default:'0', choices:[['0','Vermelhas (começa)'],['1','Amarelas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : CNAME[(s === 0) === (o.cor !== '1') ? 0 : 1],
+  setup(players, o){
+    const c0 = o.cor === '1' ? 1 : o.cor === 'r' ? pick([0,1]) : 0;
+    return {b:Array(COLS*ROWS).fill(-1), turn:0, colors:[c0, 1 - c0], names:players.map(p => p.name), n:0, last:null, win:null, result:null};
+  },
+  startEvents(st){ return [{k:'log', text:`${esc(st.names[st.colors.indexOf(0)])} começa com as vermelhas.`}]; },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.colors[seat] !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t === 'resign'){
+      const w = 1 - seat;
+      st.result = {winners:[w], text:`${esc(st.names[seat])} abandonou. Vitória de ${esc(st.names[w])}.`};
+      return {events:[{k:'log', text:`${esc(st.names[seat])} abandonou a partida.`}]};
+    }
+    const c = a.c;
+    if(!Number.isInteger(c) || c < 0 || c >= COLS) return {ok:false, err:'Coluna inválida.'};
+    const r = dropRow(st.b, c);
+    if(r < 0) return {ok:false, err:'Essa coluna está cheia.'};
+    st.b[r*COLS + c] = st.turn; st.n++;
+    st.last = {c, r, n:st.n};
+    const ev = [{k:'snd', s:'move'}];
+    const line = lineAt(st.b, r, c);
+    if(line){
+      st.win = line;
+      st.result = {winners:[seat], text:`<b>${esc(st.names[seat])}</b> fez quatro em linha com as ${CNAME[st.turn].toLowerCase()}!`};
+      ev.push({k:'banner', text:'QUATRO EM LINHA!'});
+    } else if(st.n === COLS*ROWS){
+      st.result = {draw:true, winners:[], text:'Tabuleiro cheio sem quatro em linha: <b>empate</b>.'};
+    }
+    st.turn = 1 - st.turn;
+    return {events:ev};
+  },
+  bot(st, seat, o){ return {c:botCol(st, o.diff)}; },
+  botDelay(st, s, o){ return st.n === 0 ? 700 : o.diff === 'dificil' ? 300 : 550; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 0;
+    return {b:st.b, turn:st.turn, my, colors:st.colors, last:st.last, win:st.win, n:st.n,
+      moves:(seat >= 0 && st.turn === my && !st.result) ? legalCols(st.b) : []};
+  },
+  topInfo(g){
+    if(g.win) return `<div class="status">Quatro em linha!</div>`;
+    return `<div class="status">${g.turn === g.my ? 'Sua vez' : 'Vez do adversário'} · ${g.n} peça${g.n === 1 ? '' : 's'} no tabuleiro</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Ser o primeiro a formar uma linha de <b>4 peças da sua cor</b> — na horizontal, na vertical ou na diagonal.</p>
+  <h3>Como jogar</h3><ul><li>O tabuleiro fica em pé: 7 colunas e 6 linhas.</li>
+  <li>Na sua vez, escolha uma coluna: a peça <b>cai até a casa livre mais baixa</b> dela.</li>
+  <li>Não dá para jogar numa coluna cheia nem passar a vez.</li><li>As <b>vermelhas</b> começam; depois os dois jogadores alternam.</li></ul>
+  <h3>Fim</h3><ul><li>Quem formar 4 em linha vence na hora (as peças vencedoras ficam piscando).</li>
+  <li>Se as 42 casas forem preenchidas sem ninguém formar 4 em linha, é <b>empate</b>.</li></ul>
+  <h3>Dicas</h3><ul><li>A coluna do meio participa de mais linhas possíveis — comece por ela.</li>
+  <li>Cuidado ao jogar logo <b>embaixo</b> de uma casa em que o adversário completaria 4: você entrega a vitória a ele.</li>
+  <li>Duas ameaças ao mesmo tempo (ou uma em cima da outra) não têm defesa.</li></ul>
+  <h3>Como jogar aqui</h3><p>Toque em qualquer lugar da coluna escolhida. A última peça jogada tem um pontinho branco. O botão 🏳️ abandona a partida.</p>`,
+  render(g, v, ui){
+    const st = ui.stage;
+    const q = Math.floor(clamp(Math.min((st.clientWidth - 28) / 7.4, (st.clientHeight - 120) / 7.3), 34, 92));
+    st.style.setProperty('--q', q + 'px');
+    if(!st.querySelector('.q4')){
+      st.innerHTML = `<div class="q4wrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="info" id="iTop"></span></div>
+        <div class="q4box" id="q4box"><div class="prev" id="prev"></div><div class="q4" id="q4"><div class="grid" id="grid"><div class="colhl" id="colhl"></div></div></div></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><button class="tbtn" id="bRes">🏳️ Abandonar</button></div></div>`;
+      const grid = $('#grid');
+      for(let vr=ROWS-1; vr>=0; vr--) for(let c=0;c<COLS;c++) grid.insertAdjacentHTML('beforeend', `<div class="cell" data-c="${c}" data-i="${vr*COLS + c}"></div>`);
+      for(let c=0;c<COLS;c++) $('#prev').insertAdjacentHTML('beforeend', `<div class="cell" data-c="${c}" style="cursor:pointer"></div>`);
+      $$('#prev .cell').forEach(el => el.classList.add('pv'));
+      const q4 = $('#q4box');
+      q4.addEventListener('click', e => {
+        const el = e.target.closest('[data-c]'); if(!el) return;
+        const G = ui.view && ui.view.game; if(!G || !G.moves.length) return;
+        const c = +el.dataset.c;
+        if(!G.moves.includes(c)){ toast('Essa coluna está cheia.'); return; }
+        hoverCol = -1; showHover(G);
+        ui.act({c});
+      });
+      q4.addEventListener('mousemove', e => {
+        const el = e.target.closest('[data-c]'); const c = el ? +el.dataset.c : -1;
+        if(c !== hoverCol){ hoverCol = c; showHover(ui.view && ui.view.game); }
+      });
+      q4.addEventListener('mouseleave', () => { hoverCol = -1; showHover(ui.view && ui.view.game); });
+      $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+    }
+    // peças: atualiza só o que mudou (para não cortar a animação de queda)
+    const winSet = new Set(g.win || []);
+    const animKey = v.gameNo + ':' + g.n;
+    $$('#grid .cell').forEach(cell => {
+      const i = +cell.dataset.i, val = g.b[i];
+      let d = cell.querySelector('.disc');
+      if(val < 0){ if(d) d.remove(); return; }
+      if(!d || !d.classList.contains('c' + val)){
+        if(d) d.remove();
+        d = document.createElement('div'); d.className = 'disc c' + val; cell.appendChild(d);
+        if(g.last && g.last.r * COLS + g.last.c === i && lastAnim !== animKey){
+          lastAnim = animKey;
+          const fall = (ROWS - g.last.r) * q + q * .2, f = Math.min(1, CFG.speed || 1);
+          anim(d, [{transform:`translateY(${-fall}px)`, easing:'cubic-bezier(.5,0,1,1)'}, {transform:'translateY(0)', offset:.72, easing:'ease-out'},
+            {transform:`translateY(${-q*.14}px)`, offset:.86, easing:'ease-in'}, {transform:'translateY(0)'}], {duration:(240 + 55*(ROWS - g.last.r)) * f});
+        }
+      }
+      d.classList.toggle('last', !!(g.last && g.last.r * COLS + g.last.c === i) && !g.win);
+      d.classList.toggle('win', winSet.has(i));
+    });
+    $('#q4box').classList.toggle('off', !g.moves.length);
+    showHover(g);
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn), live = v.phase === 'game';
+    const nm = (s, you) => `<span class="dot c${g.colors[s]}"></span>${esc(v.seats[s] ? v.seats[s].name : '')}${you ? ' (você)' : ''}`;
+    $('#nmBot').innerHTML = nm(me, true); $('#nmTop').innerHTML = nm(op, false);
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', ts === me && live); $('#nmTop').classList.toggle('vez', ts === op && live);
+    $('#iTop').textContent = CNAME[g.colors[op]];
+    $('#bRes').disabled = !live;
+  }
+});
+let hoverCol = -1, lastAnim = '';
+// destaque da coluna e peça "fantasma" em cima do tabuleiro
+function showHover(g){
+  const hl = $('#colhl'); if(!hl) return;
+  const can = g && g.moves.length && hoverCol >= 0 && g.moves.includes(hoverCol);
+  hl.style.display = can ? 'block' : 'none';
+  if(can) hl.style.left = `calc(var(--q) * ${hoverCol})`;
+  $$('#prev .cell').forEach(el => {
+    const want = can && +el.dataset.c === hoverCol;
+    const has = el.querySelector('.disc');
+    if(want && !has) el.innerHTML = `<div class="disc ghost c${g.my}"></div>`;
+    else if(!want && has) el.innerHTML = '';
+  });
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

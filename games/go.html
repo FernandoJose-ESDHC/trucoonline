@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Go</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:8px;flex-direction:column;gap:8px}
+.gwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.goban{width:var(--bd);height:var(--bd);border-radius:8px;box-shadow:0 14px 30px rgba(0,0,0,.55),inset 0 0 0 2px rgba(0,0,0,.25);
+  background:linear-gradient(135deg,#e9bf6e 0%,#dcab55 35%,#e6b965 60%,#d19d48 100%);position:relative;touch-action:manipulation}
+.goban svg{width:100%;height:100%;display:block}
+.goban .pt{cursor:pointer}
+.pbar{display:flex;align-items:center;gap:8px;width:var(--bd);justify-content:space-between}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pbar .info{font-weight:800;color:#ffe6a6;font-size:13px;white-space:nowrap}
+.stn{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px}
+.stn.b{background:radial-gradient(circle at 35% 30%,#666,#111 60%)} .stn.w{background:radial-gradient(circle at 35% 30%,#fff,#d8d8d8 70%,#aaa);box-shadow:0 0 0 1px #888}
+.ctrl{display:flex;gap:8px;width:var(--bd);justify-content:center}
+.ctrl .tbtn{padding:9px 16px;font-size:15px}
+.ctrl .tbtn.hl{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.passed{font-size:11px;color:#9fe;margin-left:4px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="go-ai.js"></script>
+<script>
+"use strict";
+/* ============================== MOTOR — GO ==============================
+   Pretas (1) começam. Captura por falta de liberdades, suicídio proibido,
+   superko posicional (nenhuma jogada pode repetir uma posição anterior),
+   passar, fim com dois passes seguidos e contagem por área (chinesa) com
+   komi de 6,5 para as brancas. Pedras mortas: estimativa por simulações.
+   O tabuleiro e as capturas usam o mesmo motor do bot (go-ai.js).
+   ======================================================================= */
+const KOMI = 6.5;
+const COLN = 'ABCDEFGHJKLMNOPQRST';                // sem a letra I, como é costume
+const cname = c => c === 1 ? 'Pretas' : 'Brancas';
+const ptName = (i, N) => COLN[i % N] + (N - (i / N | 0));
+const BOT_CFG = {
+  facil:{ms:400, tree:false, rave:true},
+  normal:{ms:1000, tree:true, rave:true},
+  dificil:{ms:2000, tree:true, rave:true}
+};
+function boardOf(st){ const bd = new GoAI.Board(st.N); bd.load(st.b, st.turn); return bd; }
+function finish(st, how){
+  if(how === 'pass'){
+    const dead = GoAI.estimate(st.b, st.N, st.turn, KOMI, 800);
+    const sc = GoAI.score(st.b, st.N, dead);
+    const w = sc.white + KOMI, bl = sc.black, win = bl > w ? 1 : 2;
+    st.final = {dead, terr:sc.terr, black:bl, white:sc.white, stB:sc.stones[1], stW:sc.stones[2], arB:sc.area[1], arW:sc.area[2]};
+    const ws = st.colors.indexOf(win), diff = Math.abs(bl - w);
+    st.result = {winners:[ws], text:`<b>${esc(st.names[ws])}</b> (${cname(win)}) venceu por ${String(diff).replace('.', ',')} pontos.<br>
+      Pretas: ${sc.stones[1]} pedras + ${sc.area[1]} de território = <b>${bl}</b><br>
+      Brancas: ${sc.stones[2]} pedras + ${sc.area[2]} de território + 6,5 de komi = <b>${String(w).replace('.', ',')}</b>` +
+      (dead.length ? `<br><small>${dead.length > 1 ? dead.length + ' pedras consideradas mortas (esmaecidas' : '1 pedra considerada morta (esmaecida'} no tabuleiro).</small>` : '')};
+  }
+}
+
+Mesa.run({
+  id:'go', name:'Go', icon:'⚫', players:2, tagline:'O jogo de cercar território — 9×9 ou 13×13',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'size', label:'Tabuleiro', default:'9', choices:[['9','9×9'],['13','13×13']]},
+    {key:'cor', label:'Você joga com', default:'b', choices:[['b','Pretas (começa)'],['w','Brancas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : ((s === 0) === (o.cor !== 'w') ? 'Pretas' : 'Brancas'),
+  setup(players, o){
+    const N = o.size === '13' ? 13 : 9;
+    const c0 = o.cor === 'w' ? 2 : o.cor === 'r' ? pick([1,2]) : 1;
+    const bd = new GoAI.Board(N);
+    return {N, b:new Array(N*N).fill(0), turn:1, colors:[c0, 3 - c0], names:players.map(p => p.name), caps:[0,0,0],
+      hist:[bd.hash()], passes:0, last:-1, lastPass:0, moveNo:0, result:null, final:null};
+  },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
+    if(seat !== st.colors.indexOf(st.turn)) return {ok:false, err:'Não é a sua vez.'};
+    const me = st.turn;
+    if(a.t === 'resign'){
+      const w = 1 - seat;
+      st.result = {winners:[w], text:`${esc(st.names[seat])} desistiu. Vitória de <b>${esc(st.names[w])}</b>!`};
+      return {events:[{k:'log', text:`${esc(st.names[seat])} desistiu`}]};
+    }
+    if(a.t === 'pass'){
+      st.passes++; st.lastPass = me; st.last = -1; st.turn = 3 - me; st.moveNo++;
+      const ev = [{k:'log', text:`${esc(st.names[seat])} (${cname(me)}) passou`}, {k:'say', seat, text:'Passo'}, {k:'snd', s:'card'}];
+      if(st.passes >= 2){
+        finish(st, 'pass');
+        ev.push({k:'banner', text:'Fim — contagem'});
+        return {events:ev, pause:3800};
+      }
+      return {events:ev};
+    }
+    if(a.t !== 'play') return {ok:false, err:'Jogada inválida.'};
+    const i = a.i;
+    if(!Number.isInteger(i) || i < 0 || i >= st.N*st.N) return {ok:false, err:'Ponto inválido.'};
+    if(st.b[i]) return {ok:false, err:'Esse ponto já está ocupado.'};
+    const bd = boardOf(st), p = bd.pt(i);
+    if(!bd.isLegal(p, me)) return {ok:false, err:'Suicídio não é permitido: a pedra ficaria sem liberdades.'};
+    const cap = bd.play(p, me), h = bd.hash();
+    if(st.hist.includes(h)) return {ok:false, err:'Ko: essa jogada repetiria uma posição anterior. Jogue em outro lugar primeiro.'};
+    st.b = bd.toArray(); st.hist.push(h); st.caps[me] += cap;
+    st.passes = 0; st.lastPass = 0; st.last = i; st.turn = 3 - me; st.moveNo++;
+    const ev = [{k:'snd', s: cap ? 'capture' : 'move'}];
+    if(cap) ev.push({k:'log', text:`${esc(st.names[seat])} capturou ${cap} pedra${cap > 1 ? 's' : ''} em ${ptName(i, st.N)}`});
+    if(cap >= 4) ev.push({k:'banner', text:`Capturou ${cap} pedras!`});
+    return {events:ev};
+  },
+  bot(st, seat, o){
+    const cfg = BOT_CFG[o.diff] || BOT_CFG.normal, me = st.turn, N = st.N;
+    const sign = me === 1 ? 1 : -1;
+    const r = GoAI.think({N, b:st.b, turn:me, hist:st.hist, last:st.last, passes:st.passes},
+      Object.assign({komi:KOMI}, cfg, N > 9 && cfg.ms < 1e8 ? {ms:cfg.ms * 1.5} : {}));   // 13×13: um pouco mais de tempo
+    // o adversário passou: se pela estimativa eu já ganho, passo também
+    if(st.passes === 1){
+      const dead = GoAI.estimate(st.b, N, me, KOMI, 300), sc = GoAI.score(st.b, N, dead);
+      const margin = (sc.black - sc.white - KOMI) * sign;
+      if(margin > 0) return {t:'pass'};
+    }
+    // o bot só passa pelas regras abaixo; se a busca preferir passar, usa o melhor lance de verdade
+    const mv = r.move >= 0 ? r.move : r.alt, rate = r.move >= 0 ? r.rate : r.altRate;
+    if(mv < 0) return {t:'pass'};
+    // desiste quando a partida está perdida de vez (só Normal e Difícil, já no fim)
+    if(o.diff !== 'facil' && rate < 0.03 && st.moveNo > N*N*0.45 && r.sims > 1500){
+      // confirma pela posse média dos pontos nas simulações: só desiste se estiver bem atrás
+      let est = 0; for(let i=0;i<N*N;i++) est += r.ownAt(i);
+      if((est - KOMI) * sign < -N) return {t:'resign'};
+    }
+    // tudo decidido (todo ponto vazio já tem dono claro) e o lance escolhido não muda nada: passa
+    let open = 0;
+    for(let i=0;i<N*N;i++) if(!st.b[i] && Math.abs(r.ownAt(i)) < 0.8) open++;
+    if(!open && Math.abs(r.ownAt(mv)) >= 0.8){
+      const bd = boardOf(st), p = bd.pt(mv), W = bd.W;
+      let urgent = false;
+      for(const q of [p-W, p-1, p+1, p+W]) if((bd.b[q] === 1 || bd.b[q] === 2) && bd.inAtari(bd.head[q])) urgent = true;
+      if(!urgent) return {t:'pass'};
+    }
+    return {t:'play', i:mv};
+  },
+  botDelay(st, s, o){ return st.moveNo < 2 ? 500 : 250; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 1;
+    return {N:st.N, b:st.b, turn:st.turn, my, colors:st.colors, caps:st.caps, last:st.last, lastPass:st.lastPass, passes:st.passes,
+      moveNo:st.moveNo, final:st.final, over:!!st.result};
+  },
+  topInfo(g, v){
+    if(g.over) return `<div class="status">Fim de partida</div>`;
+    const mine = g.turn === g.my;
+    return `<div class="status">${mine ? 'Sua vez' : 'Vez do adversário'} · <span class="stn ${g.turn === 1 ? 'b' : 'w'}"></span>${cname(g.turn)}${g.passes === 1 ? ' · o outro passou' : ''}</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Cercar mais área do que o adversário. No fim, cada um soma <b>as suas pedras vivas + os pontos vazios que cercou</b> (contagem por área, a chinesa). As brancas ganham <b>6,5 pontos de komi</b> para compensar as pretas começarem (o meio ponto evita empate).</p>
+  <h3>Como jogar</h3><ul><li>Joga-se nas <b>interseções</b> das linhas, uma pedra por vez, alternando. As <b>pretas começam</b>.</li>
+  <li>As pedras não andam. Pedras da mesma cor ligadas por linhas (não na diagonal) formam um <b>grupo</b>.</li>
+  <li>As <b>liberdades</b> de um grupo são os pontos vazios vizinhos. Quando um grupo perde a última liberdade, ele é <b>capturado</b> e sai do tabuleiro.</li>
+  <li>Toque num ponto vazio para jogar (no tabuleiro 13×13 do celular: toque uma vez para ver a pedra e outra para confirmar). Passe o mouse para ver a prévia.</li></ul>
+  <h3>Casos especiais</h3><ul><li><b>Suicídio é proibido:</b> não pode jogar onde a sua pedra (ou grupo) ficaria sem liberdades — a não ser que essa jogada capture pedras do adversário.</li>
+  <li><b>Ko (superko):</b> nenhuma jogada pode repetir uma posição que já existiu no tabuleiro. No ko comum, quem teve a pedra capturada precisa jogar em outro lugar antes de recapturar.</li>
+  <li><b>Passar:</b> quando não houver mais nada útil, passe a vez. <b>Dois passes seguidos</b> encerram a partida.</li>
+  <li><b>Desistir:</b> o botão 🏳️ entrega a partida.</li></ul>
+  <h3>Contagem e pedras mortas</h3><p>Pedras que não teriam como escapar (sem dois olhos, cercadas no território do outro) são <b>mortas</b>: saem antes da contagem e o lugar delas vira território do adversário. Aqui isso é <b>estimado automaticamente</b>: o computador simula centenas de continuações a partir da posição final e considera morta a pedra que acaba capturada na maioria delas. Na tela final o território aparece marcado com quadradinhos e as pedras mortas ficam esmaecidas. Se discordar da estimativa, é melhor capturar as pedras antes de passar (na contagem por área isso não custa pontos).</p>
+  <h3>Dicas</h3><ul><li>Um grupo com <b>dois olhos</b> (dois pontos vazios internos separados) nunca pode ser capturado.</li><li>Cantos e bordas fazem território com menos pedras; no começo, jogue na 3ª e 4ª linhas.</li></ul>`,
+  render(g, v, ui){
+    const st = ui.stage, N = g.N;
+    const wide = st.clientWidth > st.clientHeight * 1.15;
+    const avail = Math.min(st.clientWidth - 16, st.clientHeight - 128);
+    const bd = Math.floor(clamp(avail, 240, 760));
+    st.style.setProperty('--bd', bd + 'px');
+    if(!st.querySelector('.goban') || st.dataset.n !== String(N)){
+      st.dataset.n = N; gsel = -1;
+      st.innerHTML = `<div class="gwrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="info" id="inTop"></span></div>
+        <div class="goban" id="gb"></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><span class="info" id="inBot"></span></div>
+        <div class="ctrl"><button class="tbtn" id="bPass">Passar a vez</button><button class="tbtn" id="bRes">🏳️ Desistir</button></div></div>`;
+      $('#bRes').onclick = () => modal('<h2>Desistir?</h2><p>Você perde a partida.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      $('#bPass').onclick = () => {
+        if(!ui.isMyTurn()) return;
+        const gg = ui.view.game;
+        if(gg.passes === 1) modal('<h2>Passar e encerrar?</h2><p>O adversário já passou. Se você passar também, a partida acaba e vai para a contagem.</p>',
+          [{label:'Passar e contar', fn:() => ui.act({t:'pass'})}, {label:'Continuar jogando', cls:'b-no'}]);
+        else ui.act({t:'pass'});
+      };
+    }
+    $('#gb').innerHTML = goSvg(g, ui);
+    wireBoard(g, ui, bd / (N + 1));
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn), opc = 3 - g.my, playing = v.phase === 'game' && !g.over;
+    const nm = (s, c) => `<span class="stn ${c === 1 ? 'b' : 'w'}"></span>${esc(v.seats[s] ? v.seats[s].name : '')}${s === me ? ' (você)' : ''}`;
+    $('#nmBot').innerHTML = nm(me, g.my) + (g.lastPass === g.my && g.passes ? '<span class="passed">passou</span>' : '');
+    $('#nmTop').innerHTML = nm(op, opc) + (g.lastPass === opc && g.passes ? '<span class="passed">passou</span>' : '');
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', playing && ts === me); $('#nmTop').classList.toggle('vez', playing && ts === op);
+    const capTxt = c => `${g.caps[c]} captura${g.caps[c] === 1 ? '' : 's'}` + (c === 2 ? ' · komi 6,5' : '');
+    if(g.final){
+      const f = g.final, pts = c => c === 1 ? f.black : String(f.white + KOMI).replace('.', ',');
+      $('#inBot').textContent = pts(g.my) + ' pontos'; $('#inTop').textContent = pts(opc) + ' pontos';
+    } else { $('#inBot').textContent = capTxt(g.my); $('#inTop').textContent = capTxt(opc); }
+    const mine = playing && ts === me;
+    $('#bPass').disabled = !mine; $('#bRes').disabled = !playing;
+    $('#bPass').classList.toggle('hl', mine && g.passes === 1);
+  }
+});
+let gsel = -1, ghover = -1;
+// desenha o tabuleiro inteiro em SVG (coordenadas: 1 unidade por casa)
+function goSvg(g, ui){
+  const N = g.N, S = N + 1;
+  const hs = N === 9 ? [[2,2],[2,6],[4,4],[6,2],[6,6]] : [[3,3],[3,9],[6,6],[9,3],[9,9]];
+  let s = `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg"><defs>
+    <radialGradient id="gB" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#6b6b6b"/><stop offset=".45" stop-color="#222"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#e9e6df"/><stop offset="1" stop-color="#b9b4a8"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx=".05" dy=".08" stdDeviation=".05" flood-opacity=".5"/></filter></defs>`;
+  // linhas
+  for(let k=1;k<=N;k++){
+    s += `<line x1="1" y1="${k}" x2="${N}" y2="${k}" stroke="#3d2a12" stroke-width="${k === 1 || k === N ? .045 : .028}"/>`;
+    s += `<line x1="${k}" y1="1" x2="${k}" y2="${N}" stroke="#3d2a12" stroke-width="${k === 1 || k === N ? .045 : .028}"/>`;
+  }
+  for(const [r, c] of hs) s += `<circle cx="${c+1}" cy="${r+1}" r=".1" fill="#3d2a12"/>`;
+  // coordenadas
+  for(let k=0;k<N;k++){
+    s += `<text x="${k+1}" y="${S - .22}" font-size=".3" text-anchor="middle" fill="#5a3d16" font-weight="700">${COLN[k]}</text>`;
+    s += `<text x=".3" y="${k+1.1}" font-size=".3" text-anchor="middle" fill="#5a3d16" font-weight="700">${N - k}</text>`;
+  }
+  const dead = new Set(g.final ? g.final.dead : []);
+  const terr = g.final ? g.final.terr : null;
+  for(let i=0;i<N*N;i++){
+    const r = i / N | 0, c = i % N, x = c + 1, y = r + 1, v = g.b[i];
+    if(v){
+      const dd = dead.has(i);
+      s += `<circle cx="${x}" cy="${y}" r=".47" fill="url(#g${v === 1 ? 'B' : 'W'})" ${dd ? 'opacity=".35"' : 'filter="url(#sh)"'}/>`;
+      if(i === g.last && !g.final) s += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${v === 1 ? '#fff' : '#111'}" stroke-width=".06"/>`;
+    }
+    if(terr && terr[i]) s += `<rect x="${x - .16}" y="${y - .16}" width=".32" height=".32" fill="${terr[i] === 1 ? '#111' : '#fff'}" stroke="${terr[i] === 1 ? '#fff' : '#000'}" stroke-width=".02" opacity=".9"/>`;
+  }
+  // prévia (passar o mouse / primeiro toque)
+  const pv = gsel >= 0 ? gsel : ghover;
+  if(pv >= 0 && !g.b[pv] && !g.over && g.turn === g.my && ui.isMyTurn())
+    s += `<circle cx="${pv % N + 1}" cy="${(pv / N | 0) + 1}" r=".45" fill="url(#g${g.my === 1 ? 'B' : 'W'})" opacity="${gsel >= 0 ? .8 : .5}"/>`;
+  // alvos de clique
+  for(let i=0;i<N*N;i++) s += `<rect class="pt" data-i="${i}" x="${i % N + .5}" y="${(i / N | 0) + .5}" width="1" height="1" fill="transparent"/>`;
+  return s + '</svg>';
+}
+function wireBoard(g, ui, cell){
+  const twoTap = cell < 34 && matchMedia('(pointer:coarse)').matches;
+  $$('#gb .pt').forEach(el => {
+    const i = +el.dataset.i;
+    el.onclick = () => {
+      if(!ui.isMyTurn() || g.over) return;
+      if(g.b[i]){ toast('Esse ponto já está ocupado.'); return; }
+      if(twoTap && gsel !== i){ gsel = i; ui.rerender(); return; }
+      gsel = -1; ghover = -1; ui.act({t:'play', i});
+    };
+    el.onmouseenter = () => { if(twoTap || !ui.isMyTurn() || g.b[i]) return; if(ghover !== i){ ghover = i; $('#gb').innerHTML = goSvg(g, ui); wireBoard(g, ui, cell); } };
+  });
+  $('#gb').onmouseleave = () => { if(ghover >= 0){ ghover = -1; $('#gb').innerHTML = goSvg(g, ui); wireBoard(g, ui, cell); } };
+}
+</script>
+</body>
+</html>

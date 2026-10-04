@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Resta Um</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
+.ru{display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
+/* tabuleiro redondo de madeira */
+.board{position:relative;width:var(--bd);height:var(--bd);border-radius:50%;flex:none;
+  background:radial-gradient(circle at 42% 34%,rgba(255,240,210,.22),rgba(255,240,210,0) 55%),
+    repeating-radial-gradient(ellipse at 38% 30%,#b9824b 0 5px,#a96f3b 5px 9px,#be8a55 9px 12px,#a46a37 12px 17px),#a8723f;
+  border:calc(var(--cs)*.12) solid #6b4220;
+  box-shadow:0 18px 40px rgba(0,0,0,.55),inset 0 5px 0 rgba(255,255,255,.16),inset 0 -10px 22px rgba(0,0,0,.35),0 0 0 2px #3d240f}
+.board::after{content:"";position:absolute;inset:calc(var(--cs)*.22);border-radius:50%;border:2px solid rgba(60,30,8,.25);pointer-events:none}
+.cell{position:absolute;width:var(--cs);height:var(--cs);display:grid;place-items:center;border:none;background:none;padding:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;outline:none}
+.cell:focus-visible{outline:3px solid #fff;outline-offset:-3px;border-radius:50%}
+.hole{position:absolute;width:calc(var(--cs)*.56);height:calc(var(--cs)*.56);border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#1e1006 0 42%,#3d230e 66%,#6a4220 100%);
+  box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 1px 0 rgba(255,235,200,.28);transition:box-shadow .15s}
+.peg{position:absolute;width:calc(var(--cs)*.78);height:calc(var(--cs)*.78);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.95) 0 6%,rgba(255,255,255,.35) 13%,rgba(255,255,255,0) 30%),
+    radial-gradient(circle at 60% 72%,rgba(255,160,140,.45),rgba(255,160,140,0) 40%),
+    radial-gradient(circle at 50% 50%,#e2483a 0 45%,#a51e15 78%,#6d0f09 100%);
+  box-shadow:0 calc(var(--cs)*.06) calc(var(--cs)*.06) rgba(0,0,0,.55),0 1px 0 rgba(0,0,0,.4);transition:transform .15s,box-shadow .15s}
+.fly{position:absolute;z-index:5;pointer-events:none}
+/* alvo do "perfeito" */
+.cell.goal .hole::after{content:"★";position:absolute;inset:0;display:grid;place-items:center;color:rgba(231,180,58,.75);font-size:calc(var(--cs)*.3)}
+.cell.goal .peg{box-shadow:0 calc(var(--cs)*.06) calc(var(--cs)*.06) rgba(0,0,0,.55),0 0 0 calc(var(--cs)*.05) rgba(231,180,58,.65)}
+/* último pulo */
+.cell.lastf .hole{box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 0 0 2px rgba(255,235,190,.55)}
+.cell.lasto .hole{box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 0 0 2px rgba(255,235,190,.3)}
+.cell.lastt .peg{box-shadow:0 calc(var(--cs)*.06) calc(var(--cs)*.06) rgba(0,0,0,.55),0 0 0 2px rgba(255,245,220,.9)}
+/* seleção e destinos */
+.cell.sel .peg{transform:translateY(calc(var(--cs)*-.07)) scale(1.1);box-shadow:0 0 0 3px var(--gold),0 calc(var(--cs)*.16) calc(var(--cs)*.14) rgba(0,0,0,.5)}
+.cell.dest .hole{box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 0 0 3px var(--nos),0 0 16px var(--nos);animation:destP 1s ease-in-out infinite}
+@keyframes destP{50%{box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 0 0 4px #9ff0bf,0 0 22px var(--nos)}}
+.cell.hintf .peg{animation:hintP 1s ease-in-out infinite}
+@keyframes hintP{0%,100%{box-shadow:0 0 0 3px var(--gold),0 0 8px rgba(231,180,58,.6)}50%{box-shadow:0 0 0 5px #ffe08a,0 0 24px rgba(231,180,58,1)}}
+.cell.hintt .hole{box-shadow:inset 0 3px 5px rgba(0,0,0,.75),0 0 0 3px var(--gold),0 0 14px rgba(231,180,58,.9)}
+.cell.hintt .hole::before{content:"";position:absolute;inset:-35%;border-radius:50%;border:2px dashed rgba(255,224,138,.9);animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.board.stuck .peg{filter:saturate(.55) brightness(.85)}
+/* contador, mensagens e botões */
+.ruMsg{min-height:38px;max-width:min(560px,96vw);text-align:center;font-weight:700;font-size:14px;line-height:1.35;color:#ffe9c4;
+  background:rgba(0,0,0,.28);border-radius:12px;padding:9px 12px;display:block}
+.ruMsg.good{color:#bff5d4} .ruMsg.bad{color:#ffc2b8} .ruMsg b{color:#fff}
+.ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.ctrl .tbtn{font-size:15px;padding:10px 14px;border-radius:10px;min-width:44px}
+.ctrl .tbtn.y{background:var(--gold);color:#3a2600;border-color:transparent;font-weight:800}
+.ctrl .tbtn.g{background:var(--nos);color:#06301a;border-color:transparent;font-weight:800}
+.info{display:flex;gap:14px;font-weight:800;font-size:14px;color:#ffe6a6}
+.info .pc{color:#fff}
+.think::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.rate{display:inline-block;padding:2px 10px;border-radius:20px;background:var(--gold);color:#3a2600;font-weight:900;margin-right:4px}
+.mini{display:inline-grid;grid-template-columns:repeat(7,9px);gap:2px;vertical-align:middle;margin:4px 0}
+.mini i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12)}
+.mini i.p{background:#e2483a} .mini i.x{background:transparent} .mini i.g{box-shadow:0 0 0 1.5px var(--gold)}
+@media (max-width:420px){ .ctrl .tbtn{font-size:14px;padding:9px 11px} .ruMsg{font-size:13px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="restaum-ai.js"></script>
+<script>
+"use strict";
+/* ============================ RESTA UM ================================
+   Pule um pino sobre o vizinho (na horizontal ou vertical) para uma casa
+   vazia; o pino pulado sai. Meta: terminar com um pino só — no centro
+   (inglês) ou na casa marcada (francês) é o "Perfeito!".
+   A Dica usa o solucionador de verdade (restaum-ai.js), que analisa a
+   posição aos poucos, em segundo plano, enquanto você pensa.
+   ===================================================================== */
+// buraco inicial e casa "perfeita" (em r*7+c). No francês, com o centro vazio,
+// é impossível terminar com um pino só — por isso o buraco começa na 2ª fileira.
+const BOARDS = {
+  en:{nome:'Inglês', casas:33, hole:24, perfect:24, alvo:'no centro'},
+  fr:{nome:'Francês', casas:37, hole:10, perfect:38, alvo:'na casa marcada com ★'}
+};
+const AI = RestaUmAI;
+const G_ = kind => AI.geo(kind);
+const perfIdx = kind => G_(kind).idx[BOARDS[kind].perfect];
+const fmtTime = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s >= 60 ? `${Math.floor(s/60)}min ${String(s%60).padStart(2,'0')}s` : `${s}s`; };
+const plural = (n, a, b) => n === 1 ? a : b;
+const countPegs = b => b.reduce((a, x) => a + (x ? 1 : 0), 0);
+function initBoard(kind){ const G = G_(kind), b = Array(G.n).fill(1); b[G.idx[BOARDS[kind].hole]] = 0; return b; }
+function findJump(G, from, to){ for(const m of G.J) if(m[0] === from && m[2] === to) return m; return null; }
+const canJump = (b, m) => !!(m && b[m[0]] && b[m[1]] && !b[m[2]]);
+function legal(kind, b){ return AI.moves(kind, b); }
+
+// avaliação no fim
+function rating(pegs, perfect){
+  if(pegs === 1) return perfect ? ['Perfeito!', 'Um pino só, e bem na casa de honra.'] : ['Ótimo!', 'Sobrou um pino só.'];
+  if(pegs === 2) return ['Muito bom!', 'Sobraram 2 pinos.'];
+  if(pegs === 3) return ['Bom!', 'Sobraram 3 pinos.'];
+  if(pegs === 4) return ['Razoável', 'Sobraram 4 pinos.'];
+  if(pegs <= 6) return ['Dá para melhorar', `Sobraram ${pegs} pinos.`];
+  return ['Iniciante', `Sobraram ${pegs} pinos. Tente de novo!`];
+}
+function miniBoard(kind, b){
+  const G = G_(kind); let h = '<span class="mini" aria-hidden="true">';
+  for(let cell=0; cell<49; cell++){ const i = G.idx[cell]; h += i < 0 ? '<i class="x"></i>' : `<i class="${b[i] ? 'p' : ''} ${cell === BOARDS[kind].perfect ? 'g' : ''}"></i>`; }
+  return h + '</span>';
+}
+function endText(st){
+  const n = countPegs(st.b), G = G_(st.kind), on = n === 1 && st.b[perfIdx(st.kind)] === 1;
+  const [t, d] = rating(n, on);
+  const secs = (st.end || Date.now()) - st.start;
+  return `<span class="rate">${t}</span> ${d}<br>${miniBoard(st.kind, st.b)}<br>` +
+    `${st.hist.length} ${plural(st.hist.length,'pulo','pulos')} em <b>${fmtTime(secs)}</b>` +
+    (st.undos ? ` · ${st.undos} ${plural(st.undos,'jogada desfeita','jogadas desfeitas')}` : '') +
+    (st.hints ? ` · ${st.hints} ${plural(st.hints,'dica','dicas')}` : ' · sem dicas');
+}
+// texto da dica (o mesmo no anfitrião e na tela)
+function hintMsg(kind, h){
+  const alvo = BOARDS[kind].alvo;
+  const und = h.undo > 0 ? ` Desfazendo ${h.undo} ${plural(h.undo,'jogada','jogadas')}, volta a dar para terminar perfeito.` : '';
+  switch(h.kind){
+    case 'perfect': return `💡 Pule o pino destacado para a casa marcada. Ainda dá para terminar <b>perfeito</b> (${alvo}).`;
+    case 'one': return `💡 Terminar ${alvo} já não dá, mas este pulo ainda leva a <b>um pino só</b>.${und}`;
+    case 'dead': return `Daqui não dá mais para terminar com um pino; desfaça algumas jogadas.${und}`;
+    case 'slow': return `💡 Não deu tempo de analisar todas as possibilidades; este pulo parece um bom caminho.`;
+    default: return `Terminar ${alvo} já não dá, e não consegui confirmar a tempo se ainda dá para um pino só. Este pulo parece o melhor.${und}`;
+  }
+}
+
+Mesa.run({
+  id:'restaum', name:'Resta Um', icon:'🔴', solo:true, players:1, tagline:'O clássico quebra-cabeça de pinos',
+  options:[{key:'tab', label:'Tabuleiro', default:'en', choices:[['en','Inglês (33 casas)'],['fr','Francês (37 casas)']]}],
+  modeLabel: o => o.tab === 'fr' ? 'FRANCÊS · 37 CASAS' : 'INGLÊS · 33 CASAS',
+  setup(players, o){
+    const kind = o.tab === 'fr' ? 'fr' : 'en';
+    return {kind, b:initBoard(kind), hist:[], last:null, start:Date.now(), end:null, hints:0, undos:0, hint:null, hintSeq:0, stuck:false, result:null};
+  },
+  waiting(st){ return st.result ? [] : [0]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result || seat !== 0) return {ok:false, err:'Jogada inválida.'};
+    const G = G_(st.kind);
+    const okIdx = x => Number.isInteger(x) && x >= 0 && x < G.n;
+    if(a.t === 'jump'){
+      if(!okIdx(a.from) || !okIdx(a.to)) return {ok:false, err:'Casa inválida.'};
+      const m = findJump(G, a.from, a.to);
+      if(!m || !st.b[a.from]) return {ok:false, err:'Esse pulo não vale: pule sobre um pino vizinho até uma casa vazia, na horizontal ou vertical.'};
+      if(!st.b[m[1]]) return {ok:false, err:'Precisa ter um pino no meio para pular.'};
+      if(st.b[m[2]]) return {ok:false, err:'A casa de destino precisa estar vazia.'};
+      st.b[m[0]] = 0; st.b[m[1]] = 0; st.b[m[2]] = 1;
+      st.hist.push(m.slice()); st.last = m.slice(); st.hint = null;
+      const ev = [{k:'jump', m:m.slice()}, {k:'snd', s:'capture'}];
+      const n = countPegs(st.b);
+      if(n === 1){
+        st.end = Date.now();
+        const on = st.b[perfIdx(st.kind)] === 1;
+        st.result = {winners:[0], text:endText(st)};
+        ev.push({k:'banner', text: on ? 'Perfeito!' : 'Resta um!'});
+      } else if(!legal(st.kind, st.b).length){
+        st.stuck = true; st.end = Date.now();
+        ev.push({k:'banner', text:rating(n, false)[0], bad: n > 3}, {k:'snd', s: n <= 3 ? 'win' : 'lose'});
+      }
+      return {events:ev};
+    }
+    if(a.t === 'undo'){
+      if(!st.hist.length) return {ok:false, err:'Nada para desfazer.'};
+      const n = a.n == null ? 1 : a.n;
+      if(!Number.isInteger(n) || n < 1 || n > st.hist.length) return {ok:false, err:'Não dá para desfazer tantas jogadas.'};
+      for(let i=0;i<n;i++){ const m = st.hist.pop(); st.b[m[0]] = 1; st.b[m[1]] = 1; st.b[m[2]] = 0; }
+      st.last = st.hist.length ? st.hist[st.hist.length - 1].slice() : null;
+      st.undos += n; st.hint = null; st.stuck = false; st.end = null;
+      return {events:[{k:'undo'}, {k:'snd', s:'move'}]};
+    }
+    if(a.t === 'restart'){
+      st.b = initBoard(st.kind); st.hist = []; st.last = null; st.hint = null; st.stuck = false;
+      st.start = Date.now(); st.end = null; st.hints = 0; st.undos = 0;
+      return {events:[{k:'snd', s:'deal', n:8}, {k:'restart'}]};
+    }
+    if(a.t === 'hint'){
+      // a análise roda na tela (em segundo plano); aqui só conferimos e registramos
+      const kinds = ['perfect', 'one', 'dead', 'unknown', 'slow'];
+      if(!kinds.includes(a.kind)) return {ok:false, err:'Dica inválida.'};
+      let m = null;
+      if(a.m != null){
+        if(!Array.isArray(a.m) || !okIdx(a.m[0]) || !okIdx(a.m[2])) return {ok:false, err:'Dica inválida.'};
+        m = findJump(G, a.m[0], a.m[2]);
+        if(!canJump(st.b, m)) return {ok:false, err:'Dica desatualizada.'};
+      }
+      if(a.kind !== 'dead' && !m) return {ok:false, err:'Dica inválida.'};
+      const undo = Number.isInteger(a.undo) && a.undo > 0 && a.undo <= st.hist.length ? a.undo : 0;
+      st.hints++; st.hintSeq++;
+      st.hint = {m: m ? m.slice() : null, kind:a.kind, undo, seq:st.hintSeq};
+      return {events:[{k:'snd', s: a.kind === 'perfect' || a.kind === 'one' ? 'card' : 'alert'}]};
+    }
+    if(a.t === 'finish'){
+      if(!st.stuck) return {ok:false, err:'Ainda há pulos possíveis.'};
+      st.end = st.end || Date.now();
+      st.result = {winners: countPegs(st.b) === 1 ? [0] : [], text:endText(st)};
+      return {events:[]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  // "bot" = o solucionador jogando sozinho (usado nos testes automáticos)
+  bot(st){
+    if(st.stuck) return {t:'finish'};
+    const r = AI.hint(st.kind, st.b, perfIdx(st.kind), 1500);
+    const m = r.move || AI.greedy(st.kind, st.b);
+    return m ? {t:'jump', from:m[0], to:m[2]} : {t:'finish'};
+  },
+  botDelay(){ return 380; },
+  view(st){
+    return {kind:st.kind, b:st.b, hist:st.hist, last:st.last, start:st.start, end:st.end, hints:st.hints, undos:st.undos,
+      hint:st.hint, stuck:st.stuck, over:!!st.result, pegs:countPegs(st.b)};
+  },
+  topInfo(g){
+    return `<div class="info"><span class="pc">🔴 ${g.pegs} ${plural(g.pegs,'pino','pinos')}</span><span>↷ ${g.hist.length} ${plural(g.hist.length,'pulo','pulos')}</span><span id="clock"></span></div>`;
+  },
+  onEvent(e){
+    if(e.k === 'start' || e.k === 'restart'){ sel = -1; pendingAnim = null; }
+    else if(e.k === 'jump') pendingAnim = e.m;
+    else if(e.k === 'undo') pendingAnim = null;
+  },
+  render, rules
+});
+
+/* ------------------------- análise em segundo plano ------------------------- */
+// Depois de cada pulo, o solucionador começa a estudar a posição aos pedacinhos
+// (alguns milissegundos por vez), sem travar a tela. Quando você pede a dica,
+// muitas vezes a resposta já está pronta.
+const BG = {key:'', an:null, undoJob:null, undo:-1, undoDone:false, timer:0, work:0, want:false, waitT:0, kind:'', b:null, hist:null};
+function bgFor(g){
+  const key = g.kind + ':' + g.b.join('') + ':' + g.hist.length;
+  if(key === BG.key) return;
+  clearTimeout(BG.timer);
+  Object.assign(BG, {key, kind:g.kind, b:g.b.slice(), hist:g.hist.map(m => m.slice()), an:null, undoJob:null, undo:-1, undoDone:false, work:0, want:false});
+  if(g.over || g.stuck) { if(g.stuck) startUndoSearch(); else return; }
+  BG.timer = setTimeout(bgTick, 60);
+}
+function bgTick(){
+  const fast = BG.want, slice = fast ? 36 : 12;
+  const t0 = performance.now();
+  try{
+    if(!BG.stuckOnly()){
+      if(!BG.an) BG.an = AI.analyzer(BG.kind, BG.b, perfIdx(BG.kind));
+      if(!BG.an.result) BG.an.step(slice);
+      else if(needUndo() && !BG.undoDone) undoStep(slice);
+    } else if(!BG.undoDone) undoStep(slice);
+  }catch(e){ console.error(e); BG.undo = Math.max(0, BG.undo); BG.undoDone = true; if(BG.an && !BG.an.result) BG.an.result = {status:'timeout'}; }
+  BG.work += performance.now() - t0;
+  if(BG.want) maybeDeliver();
+  const done = BG.stuckOnly() ? BG.undoDone : (BG.an && BG.an.result && (!needUndo() || BG.undoDone));
+  if(!done && (BG.work < 20000 || BG.want)) BG.timer = setTimeout(bgTick, fast ? 4 : 30);
+}
+BG.stuckOnly = () => !legal(BG.kind, BG.b).length;
+function needUndo(){ const r = BG.an && BG.an.result; return !!(r && (r.status !== 'ok' || !r.perfect)) && BG.hist.length > 0; }
+// quantas jogadas desfazer para voltar a uma posição que ainda termina perfeito.
+// Vai do começo da partida para a frente: posições com solução se resolvem rápido;
+// a primeira sem solução encerra a busca. Enquanto isso, BG.undo já guarda um
+// número que com certeza funciona (a posição mais recente confirmada).
+function startUndoSearch(){ BG.undoJob = null; BG.undo = -1; BG.undoDone = false; }
+function undoStep(ms){
+  const end = performance.now() + ms, target = perfIdx(BG.kind), len = BG.hist.length;
+  if(!BG.undoJob){ BG.undoJob = {k:len - 1, job:null}; BG.undo = len; }   // o começo sempre tem solução
+  const U = BG.undoJob;
+  while(performance.now() < end && !BG.undoDone){
+    if(U.k < 1){ BG.undoDone = true; return; }       // k = 0 é a posição atual (sem solução)
+    if(!U.job){
+      const b = BG.b.slice();
+      for(let k=0;k<U.k;k++){ const m = BG.hist[len - 1 - k]; b[m[0]] = 1; b[m[1]] = 1; b[m[2]] = 0; }
+      if(AI.known(BG.kind, target, b)){ BG.undo = U.k; U.k--; continue; }
+      U.job = AI.makeJob(BG.kind, b, target);
+    }
+    const st = U.job.step(Math.max(1, end - performance.now()));
+    if(st === 'ok'){ BG.undo = U.k; U.k--; U.job = null; }
+    else if(st === 'dead'){ BG.undoDone = true; U.job = null; }
+  }
+}
+// pedido de dica: entrega quando a análise terminar (ou desiste depois de alguns segundos)
+function askHint(ui){
+  const v = ui.view, g = v && v.game; if(!g || v.phase !== 'game' || g.over) return;
+  bgFor(g);
+  BG.want = true; BG.waitT = performance.now(); BG.ui = ui; BG.work = 0;
+  setMsg('<span class="think">🤔 Pensando</span>', '');
+  clearTimeout(BG.timer); bgTick();
+}
+function maybeDeliver(){
+  const ui = BG.ui; if(!ui) return;
+  const waited = performance.now() - BG.waitT;
+  const stuck = BG.stuckOnly();
+  const r = BG.an && BG.an.result;
+  const undoReady = BG.undoDone || BG.hist.length === 0;
+  if(stuck){
+    if(!undoReady && waited < 6000) return;
+    BG.want = false; ui.act({t:'hint', kind:'dead', m:null, undo:Math.max(0, BG.undo)}); return;
+  }
+  if(r && r.status === 'ok' && r.perfect){ BG.want = false; ui.act({t:'hint', kind:'perfect', m:r.move}); return; }
+  if(r && (undoReady || waited > 6000)){
+    BG.want = false;
+    const undo = Math.max(0, BG.undo);
+    if(r.status === 'ok') ui.act({t:'hint', kind:'one', m:r.move, undo});
+    else if(r.status === 'dead') ui.act({t:'hint', kind:'dead', m:null, undo});
+    else ui.act({t:'hint', kind:'unknown', m:AI.greedy(BG.kind, BG.b), undo});
+    return;
+  }
+  if(!r && waited > 6000){
+    // não deu tempo: sugere um pulo razoável, sem prometer nada
+    BG.want = false;
+    const sure = BG.an && BG.an.phase === 'any';      // já se sabe que o perfeito não dá
+    ui.act({t:'hint', kind: sure ? 'unknown' : 'slow', m:AI.greedy(BG.kind, BG.b), undo: sure ? Math.max(0, BG.undo) : 0});
+  }
+}
+
+/* ------------------------------ interface ------------------------------ */
+let sel = -1, pendingAnim = null;
+function setMsg(html, cls){ const el = $('#ruMsg'); if(el){ el.innerHTML = html; el.className = 'ruMsg ' + (cls || ''); } }
+
+function render(g, v, ui){
+  const st = ui.stage, G = G_(g.kind);
+  // tamanhos a partir do palco
+  const W = st.clientWidth - 16, H = st.clientHeight - 16;
+  const ctrlH = 46 + 44 + 24;
+  const bd = Math.floor(clamp(Math.min(W, H - ctrlH, 640), 240, 640));
+  const cs = bd / 7.6;
+  st.style.setProperty('--bd', bd + 'px'); st.style.setProperty('--cs', cs + 'px');
+  st.style.setProperty('--gap', clamp((H - bd - ctrlH) / 4 + 8, 8, 18) + 'px');
+  if(!st.querySelector('.ru') || st.querySelector('.ru').dataset.kind !== g.kind){
+    st.innerHTML = `<div class="ru" data-kind="${g.kind}"><div class="board" id="bd" role="grid" aria-label="Tabuleiro ${BOARDS[g.kind].nome}"></div>
+      <div class="ruMsg" id="ruMsg" aria-live="polite"></div>
+      <div class="ctrl"><button class="tbtn" id="bUndo">↶ Desfazer</button><button class="tbtn y" id="bHint">💡 Dica</button>
+        <button class="tbtn" id="bNew">🔄 Reiniciar</button><button class="tbtn g hidden" id="bEnd">🏁 Encerrar</button><button class="tbtn y hidden" id="bBack"></button></div></div>`;
+    $('#bUndo').onclick = () => { sel = -1; ui.act({t:'undo'}); };
+    $('#bHint').onclick = () => { sel = -1; askHint(ui); };
+    $('#bNew').onclick = () => modal('<h2>Reiniciar?</h2><p>O tabuleiro volta ao começo.</p>',
+      [{label:'Reiniciar', cls:'b-up', fn:() => { sel = -1; ui.act({t:'restart'}); }}, {label:'Continuar', cls:'b-no'}]);
+    $('#bEnd').onclick = () => ui.act({t:'finish'});
+    $('#bBack').onclick = () => { const v2 = ui.view, h = v2 && v2.game && v2.game.hint; if(h && h.undo){ sel = -1; ui.act({t:'undo', n:h.undo}); } };
+  }
+  const playing = v.phase === 'game' && !g.over;
+  const moves = playing && !g.stuck ? legal(g.kind, g.b) : [];
+  if(sel >= 0 && !g.b[sel]) sel = -1;
+  const dests = new Map(moves.filter(m => m[0] === sel).map(m => [m[2], m]));
+  const hm = g.hint && g.hint.m, last = g.last || [];
+  const perf = BOARDS[g.kind].perfect;
+  // casas
+  let html = '';
+  for(let i=0;i<G.n;i++){
+    const cell = G.cells[i], r = Math.floor(cell / 7), c = cell % 7;
+    const cls = ['cell'];
+    if(cell === perf) cls.push('goal');
+    if(i === sel) cls.push('sel');
+    if(dests.has(i)) cls.push('dest');
+    if(hm && sel < 0){ if(i === hm[0]) cls.push('hintf'); if(i === hm[2]) cls.push('hintt'); }
+    if(last.length){ if(i === last[0]) cls.push('lastf'); if(i === last[1]) cls.push('lasto'); if(i === last[2]) cls.push('lastt'); }
+    const x = (c - 3) * cs + bd / 2 - cs / 2 - cs * .12, y = (r - 3) * cs + bd / 2 - cs / 2 - cs * .12;
+    html += `<button class="${cls.join(' ')}" data-i="${i}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px"
+      aria-label="Linha ${r+1}, coluna ${c+1}: ${g.b[i] ? 'pino' : 'vazia'}${dests.has(i) ? ' (destino)' : ''}"><span class="hole"></span>${g.b[i] ? '<span class="peg"></span>' : ''}</button>`;
+  }
+  const board = $('#bd');
+  board.innerHTML = html;
+  board.classList.toggle('stuck', !!g.stuck);
+  $$('.cell', board).forEach(el => el.onclick = () => tap(+el.dataset.i, g, ui, moves));
+  // animação do último pulo
+  if(pendingAnim){ animateJump(board, pendingAnim, cs); pendingAnim = null; }
+  // botões
+  $('#bUndo').disabled = !playing || !g.hist.length;
+  $('#bHint').disabled = !playing;
+  $('#bNew').disabled = !playing;
+  $('#bEnd').classList.toggle('hidden', !(playing && g.stuck));
+  const back = playing && g.hint && g.hint.undo > 0 ? g.hint.undo : 0;
+  $('#bBack').classList.toggle('hidden', !back);
+  $('#bBack').textContent = back ? `↶ Voltar ${back} ${plural(back,'jogada','jogadas')}` : '';
+  // mensagem
+  if(g.over) setMsg('Fim de jogo.', '');
+  else if(g.stuck){
+    const [t, d] = rating(g.pegs, false);
+    const und = g.hint && g.hint.undo ? ` Desfazendo ${g.hint.undo} ${plural(g.hint.undo,'jogada','jogadas')}, volta a dar para terminar perfeito.` : '';
+    setMsg(`Sem mais pulos! <span class="rate">${t}</span> ${d}${und || ' Desfaça para tentar melhorar ou toque em <b>Encerrar</b>.'}`, g.pegs <= 3 ? 'good' : 'bad');
+  }
+  else if(BG.want) {}  // continua "pensando"
+  else if(g.hint && sel < 0) setMsg(hintMsg(g.kind, g.hint), g.hint.kind === 'perfect' || g.hint.kind === 'one' ? 'good' : g.hint.kind === 'slow' ? '' : 'bad');
+  else if(sel >= 0) setMsg('Agora toque na casa <b>verde</b> para onde o pino vai pular.', '');
+  else if(!g.hist.length) setMsg(`Toque num pino que possa pular sobre o vizinho até uma casa vazia. Meta: sobrar <b>um pino só</b> — ${BOARDS[g.kind].alvo} é perfeito!`, '');
+  else setMsg(`Faltam ${g.pegs - 1} ${plural(g.pegs - 1,'pulo','pulos')} para restar um.`, '');
+  bgFor(g);
+  startClock(ui);
+}
+function tap(i, g, ui, moves){
+  if(!moves.length) return;
+  if(sel >= 0){
+    const m = moves.find(x => x[0] === sel && x[2] === i);
+    if(m){ sel = -1; ui.act({t:'jump', from:m[0], to:m[2]}); return; }
+  }
+  if(g.b[i]){
+    const mine = moves.filter(m => m[0] === i);
+    if(!mine.length){ sel = -1; toast('Esse pino não tem como pular agora.'); Snd.error(); ui.rerender(); return; }
+    if(mine.length === 1){ sel = -1; ui.act({t:'jump', from:i, to:mine[0][2]}); return; }   // só um destino: pula direto
+    sel = sel === i ? -1 : i; Snd.card(); ui.rerender(); return;
+  }
+  if(sel >= 0){ sel = -1; ui.rerender(); }
+}
+// o pino sobe, voa por cima do vizinho e cai na casa vazia; o pulado some
+function animateJump(board, m, cs){
+  const cells = $$('.cell', board), A = cells[m[0]], O = cells[m[1]], C = cells[m[2]];
+  if(!A || !O || !C) return;
+  const dur = Math.round(320 * Math.min(1, CFG.speed));
+  if(dur < 30) return;
+  const dx = A.offsetLeft - C.offsetLeft, dy = A.offsetTop - C.offsetTop;
+  const land = C.querySelector('.peg');
+  C.style.zIndex = 4; setTimeout(() => { C.style.zIndex = ''; }, dur + 30);
+  if(land) anim(land, [{transform:`translate(${dx}px,${dy}px)`, zIndex:5},
+    {transform:`translate(${dx/2}px,${dy/2}px) scale(1.35) translateY(${-cs*.25}px)`, offset:.5},
+    {transform:'none'}], {duration:dur, easing:'cubic-bezier(.3,.7,.4,1)'});
+  const ghost = document.createElement('span'); ghost.className = 'peg fly';
+  O.appendChild(ghost);
+  const a2 = anim(ghost, [{transform:'scale(1)', opacity:1}, {transform:'scale(1)', opacity:1, offset:.45}, {transform:'scale(.2) translateY(30%)', opacity:0}], {duration:dur, easing:'ease-in'});
+  if(a2) a2.onfinish = () => ghost.remove(); else ghost.remove();
+}
+function startClock(ui){
+  clearInterval(window._clk);
+  const tick = () => { const c = $('#clock'), v = ui.view, g = v && v.game; if(!c || !g) return;
+    const s = Math.round(((g.end || Date.now()) - g.start) / 1000); c.textContent = `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+  tick(); window._clk = setInterval(tick, 1000);
+}
+
+function rules(){
+  return `<h3>Objetivo</h3><p>Ir tirando pinos até sobrar <b>um só</b>. Terminar com o último pino na casa de honra é o <b>Perfeito!</b> — no centro (tabuleiro inglês) ou na casa marcada com ★ (tabuleiro francês).</p>
+  <h3>Como jogar</h3><ul><li>No começo todas as casas têm pino, menos uma.</li>
+  <li>Um pino <b>pula sobre um pino vizinho</b> (na horizontal ou na vertical, nunca na diagonal) e cai na casa <b>vazia</b> logo depois. O pino pulado sai do tabuleiro.</li>
+  <li>Toque no pino e depois no destino (as casas verdes). Se o pino só tiver um pulo possível, ele pula direto.</li>
+  <li>O jogo acaba quando não há mais nenhum pulo possível. Você pode <b>desfazer</b> quantas jogadas quiser.</li></ul>
+  <h3>Tabuleiros</h3><ul><li><b>Inglês (33 casas)</b>: em cruz, com o buraco no centro. O perfeito é terminar no centro.</li>
+  <li><b>Francês (37 casas)</b>: a cruz com os cantos preenchidos. Com o centro vazio é <i>impossível</i> terminar com um pino só (dá para provar com uma contagem nas diagonais), por isso o buraco começa na 2ª fileira e o perfeito é terminar na casa ★ da 6ª fileira.</li></ul>
+  <h3>Avaliação</h3><table><tr><th>Sobraram</th><th>Resultado</th></tr><tr><td>1 na casa de honra</td><td>Perfeito!</td></tr><tr><td>1</td><td>Ótimo!</td></tr>
+  <tr><td>2</td><td>Muito bom!</td></tr><tr><td>3</td><td>Bom!</td></tr><tr><td>4</td><td>Razoável</td></tr><tr><td>5 ou 6</td><td>Dá para melhorar</td></tr><tr><td>7 ou mais</td><td>Iniciante</td></tr></table>
+  <h3>Dica 💡</h3><p>A dica usa um solucionador de verdade: ele procura um caminho até o perfeito a partir da posição atual e mostra o próximo pulo. Se o perfeito já não for possível, ele procura um caminho até um pino só; se nem isso der, avisa e diz quantas jogadas desfazer para voltar ao caminho do perfeito (o botão <b>Voltar</b> faz isso de uma vez). A análise começa sozinha, em segundo plano, a cada pulo — por isso a resposta costuma ser imediata.</p>
+  <h3>Para jogar melhor</h3><ul><li>Comece tirando pinos dos braços da cruz e deixe o centro para o fim.</li><li>Evite deixar pinos sozinhos, longe dos outros: eles não têm em quem pular.</li>
+  <li>Pense em "pacotes": às vezes três ou quatro pulos seguidos limpam um braço inteiro.</li></ul>`;
+}
+</script>
+</body>
+</html>

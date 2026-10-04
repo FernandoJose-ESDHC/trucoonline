@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Mancala</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:8px}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:8px;width:var(--bw);max-width:100%}
+.mrow.v{width:min(100%,380px)}
+.mrow .info{white-space:nowrap}
+.mrow .nm{font-weight:800;padding:4px 12px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.mrow .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.mrow .info{font-size:13px;font-weight:700;color:#ffe6a6;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.mboard{display:grid;gap:calc(var(--p)*.1);padding:calc(var(--p)*.16);border-radius:calc(var(--p)*.5);
+  background:linear-gradient(160deg,#9a6638,#6e4220 55%,#4f2d14);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -4px 10px rgba(0,0,0,.35),0 16px 34px rgba(0,0,0,.55);
+  border:3px solid #3b220e;position:relative}
+.mboard.h{grid-template-columns:repeat(8,var(--p));grid-template-rows:repeat(2,var(--p))}
+.mboard.v{grid-template-columns:repeat(2,var(--p));grid-template-rows:repeat(8,var(--p))}
+.pit,.store{position:relative;border-radius:50%;background:radial-gradient(circle at 50% 40%,#3a210d,#5a3517 70%,#6d4220);
+  box-shadow:inset 0 calc(var(--p)*.06) calc(var(--p)*.14) rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.18);transition:box-shadow .2s,transform .15s}
+.store{border-radius:calc(var(--p)*.5)}
+.mboard.h .store{grid-row:1/3} .mboard.v .store{grid-column:1/3}
+.pit.can{cursor:pointer;box-shadow:inset 0 calc(var(--p)*.06) calc(var(--p)*.14) rgba(0,0,0,.7),0 0 0 3px rgba(231,180,58,.75),0 0 14px rgba(231,180,58,.5)}
+@media (hover:hover){ .pit.can:hover{transform:scale(1.05)} }
+.pit.from{box-shadow:inset 0 calc(var(--p)*.06) calc(var(--p)*.14) rgba(0,0,0,.7),0 0 0 3px rgba(90,176,255,.85)}
+.pit.lastp,.store.lastp{box-shadow:inset 0 calc(var(--p)*.06) calc(var(--p)*.14) rgba(0,0,0,.7),0 0 0 3px rgba(62,207,122,.9),0 0 14px rgba(62,207,122,.6)}
+.pit.dest{box-shadow:inset 0 calc(var(--p)*.06) calc(var(--p)*.14) rgba(0,0,0,.7),0 0 0 3px rgba(255,255,255,.7)}
+.pit.capt,.store.capt{animation:capt .5s ease-in-out 2}
+@keyframes capt{50%{box-shadow:inset 0 0 0 100px rgba(255,90,90,.35),0 0 18px rgba(255,90,90,.9)}}
+.pit.hot{animation:hot .25s}
+@keyframes hot{50%{box-shadow:inset 0 0 0 100px rgba(231,180,58,.28)}}
+.sd{position:absolute;width:var(--sd);height:var(--sd);margin:calc(var(--sd)*-.5) 0 0 calc(var(--sd)*-.5);border-radius:50%;
+  box-shadow:0 1px 2px rgba(0,0,0,.6),inset 0 -1px 2px rgba(0,0,0,.35)}
+.sd.new{animation:seedIn .28s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes seedIn{from{transform:translateY(-120%) scale(.3);opacity:.2}}
+.cnt{position:absolute;bottom:-4px;right:-4px;min-width:calc(var(--p)*.34);height:calc(var(--p)*.34);border-radius:20px;padding:0 4px;
+  background:rgba(0,0,0,.72);color:#fff;font-weight:900;font-size:calc(var(--p)*.2);display:grid;place-items:center;border:1px solid rgba(255,255,255,.3);z-index:2}
+.store .cnt{font-size:calc(var(--p)*.3);min-width:calc(var(--p)*.5);height:calc(var(--p)*.44);bottom:auto;right:auto;left:50%;top:calc(var(--p)*.12);transform:translateX(-50%);
+  background:rgba(0,0,0,.55);color:var(--gold)}
+.mboard.v .store .cnt{left:calc(var(--p)*.12);top:40%;transform:translateY(-50%)}
+.mboard.v .mrow{width:100%}
+.store.mine .cnt{color:var(--nos)}
+.slbl{position:absolute;font-size:calc(var(--p)*.13);font-weight:800;letter-spacing:1px;color:rgba(255,230,166,.75);left:0;right:0;text-align:center;pointer-events:none}
+.mboard.h .slbl{bottom:calc(var(--p)*.12)} .mboard.v .slbl{top:auto;bottom:calc(var(--p)*.1);left:calc(var(--p)*.06);right:auto;width:calc(var(--p)*.62)}
+.hint{font-size:13px;color:#cfe;text-align:center;min-height:18px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="mancala-ai.js"></script>
+<script>
+"use strict";
+/* ============================ MANCALA (KALAH) ============================
+   Casas 0–5 do jogador 0 e depósito 6; casas 7–12 do jogador 1 e depósito 13.
+   A casa em frente de i é 12 − i. Semeia em ordem crescente (anti-horário),
+   pulando o depósito do adversário.
+   ======================================================================= */
+const STORE = [6, 13];
+const sideOf = i => i < 6 ? 0 : (i > 6 && i < 13) ? 1 : -1;
+const sum6 = (p, s) => { let t = 0; for(let k=0;k<6;k++) t += p[(s ? 7 : 0) + k]; return t; };
+// aplica a semeadura e devolve o que aconteceu (para animar)
+function sow(p, s, i){
+  const before = p.slice();
+  let n = p[i]; p[i] = 0;
+  const path = [];
+  let pos = i;
+  while(n > 0){ pos = (pos + 1) % 14; if(pos === STORE[1-s]) continue; p[pos]++; path.push(pos); n--; }
+  let extra = pos === STORE[s], cap = null;
+  if(!extra && sideOf(pos) === s && p[pos] === 1 && p[12-pos] > 0){
+    cap = {pit:pos, opp:12-pos, n:1 + p[12-pos]};
+    p[STORE[s]] += cap.n; p[pos] = 0; p[12-pos] = 0;
+  }
+  let sweep = null;
+  const a = sum6(p, 0), b = sum6(p, 1);
+  if(a === 0 || b === 0){
+    sweep = [a, b];
+    p[6] += a; p[13] += b;
+    for(let k=0;k<6;k++){ p[k] = 0; p[7+k] = 0; }
+  }
+  return {seat:s, from:i, path, extra: extra && !sweep, cap, sweep, before};
+}
+const legal = (p, s) => [0,1,2,3,4,5].map(k => (s ? 7 : 0) + k).filter(i => p[i] > 0);
+const stepMs = n => clamp(Math.round(1700 / Math.max(1, n)), 70, 150);   // tempo por semente na animação
+const BOT = { facil:{time:300, depth:2, noise:120}, normal:{time:800, depth:5}, dificil:{time:1500, depth:60} };
+
+Mesa.run({
+  id:'mancala', name:'Mancala', icon:'🌰', players:2, tagline:'Kalah — semeie, capture e encha seu depósito',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'sementes', label:'Sementes por casa', default:'4', choices:[['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'comeca', label:'Quem começa', default:'0', choices:[['0','Jogador 1'],['1','Jogador 2'],['r','Sorteio']]}
+  ],
+  modeLabel: o => `${o.sementes} SEMENTES · BOT ${({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || '')}`,
+  seatLabel: s => 'Jogador ' + (s+1),
+  setup(players, o){
+    const n = clamp(+o.sementes || 4, 3, 6);
+    const pits = Array(14).fill(n); pits[6] = 0; pits[13] = 0;
+    const turn = o.comeca === 'r' ? (Math.random() < .5 ? 0 : 1) : (+o.comeca === 1 ? 1 : 0);
+    return {pits, turn, names:players.map(p => p.name), seeds:n, last:null, moveNo:0, result:null, starter:turn};
+  },
+  startEvents(st){ return [{k:'log', text:`Começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){ return st.result ? [] : [st.turn]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(st.result || seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(!a || typeof a.i !== 'number') return {ok:false, err:'Jogada inválida.'};
+    const i = a.i | 0;
+    if(sideOf(i) !== seat) return {ok:false, err:'Escolha uma casa do seu lado.'};
+    if(!st.pits[i]) return {ok:false, err:'Essa casa está vazia.'};
+    const r = sow(st.pits, seat, i);
+    st.last = r; st.moveNo++;
+    const ev = [{k:'snd', s:'move'}], nm = esc(st.names[seat]);
+    let pause = r.path.length * stepMs(r.path.length) + 220;
+    if(r.cap){ ev.push({k:'snd', s:'capture'}, {k:'banner', text:`Captura! +${r.cap.n}`}, {k:'log', text:`${nm} capturou ${r.cap.n} sementes.`}); pause += 650; }
+    if(r.sweep){
+      pause += 700;
+      const [x, y] = [st.pits[6], st.pits[13]];
+      const w = x === y ? null : (x > y ? 0 : 1);
+      st.result = w == null ? {draw:true, winners:[], text:`Empate: ${x} × ${y}.`}
+        : {winners:[w], text:`<b>${esc(st.names[w])}</b> venceu por ${Math.max(x,y)} × ${Math.min(x,y)}.`, scores:[x, y]};
+      ev.push({k:'log', text:`Um lado ficou vazio: cada um recolhe as sementes do próprio lado. Final ${x} × ${y}.`});
+    } else if(r.extra){
+      ev.push({k:'say', seat, text:'Joga de novo!'}, {k:'log', text:`${nm} caiu no depósito e joga de novo.`});
+    } else st.turn = 1 - seat;
+    return {events:ev, pause};
+  },
+  bot(st, seat, o){
+    const r = MancalaAI.think(st.pits, seat, BOT[o.diff] || BOT.normal);
+    return {i: legal(st.pits, seat).includes(r.move) ? r.move : legal(st.pits, seat)[0]};
+  },
+  botFallback(st, seat){ const l = legal(st.pits, seat); return l.length ? {i:l[0]} : null; },
+  botDelay(st, s, o){ return o.diff === 'dificil' ? 250 : 450; },
+  view(st, seat){ return {pits:st.pits, turn:st.turn, names:st.names, last:st.last, moveNo:st.moveNo, seeds:st.seeds, done:!!st.result}; },
+  topInfo(g, v){
+    const me = v.me >= 0 ? v.me : 0;
+    return `<div class="status">Você <span style="color:var(--nos)">${g.pits[STORE[me]]}</span> × <span style="color:var(--eles)">${g.pits[STORE[1-me]]}</span> · ${g.done ? 'fim' : g.turn === me ? 'sua vez' : 'vez do adversário'}</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Terminar com <b>mais sementes no seu depósito</b> (a casa grande à sua direita) do que o adversário no dele.</p>
+  <h3>Tabuleiro</h3><p>Cada jogador tem <b>6 casas</b> na sua fileira (a de baixo, para você) e um <b>depósito</b>. No começo cada casa tem 4 sementes (dá para escolher 3, 4, 5 ou 6).</p>
+  <h3>Como jogar</h3><ul><li>Na sua vez, toque numa casa sua que tenha sementes.</li>
+  <li>Você pega <b>todas</b> as sementes dela e vai soltando <b>uma por casa</b>, no sentido <b>anti-horário</b> (na sua fileira, da esquerda para a direita), passando pelo <b>seu</b> depósito e seguindo pela fileira do adversário.</li>
+  <li>O depósito do adversário é <b>pulado</b>. Se der a volta completa, a casa de onde saiu também recebe semente.</li></ul>
+  <h3>Joga de novo</h3><p>Se a <b>última semente</b> cair no <b>seu depósito</b>, você joga outra vez.</p>
+  <h3>Captura</h3><p>Se a última semente cair numa <b>casa sua que estava vazia</b> e a casa <b>em frente</b> (do adversário) tiver sementes, você captura as sementes da frente <b>mais</b> a sua semente e põe tudo no seu depósito.</p>
+  <p class="hint">Regra escolhida aqui: se a casa em frente estiver vazia, <b>não há captura</b> — a semente fica onde caiu. É a forma mais comum nos torneios de Kalah e evita "capturar" uma semente só.</p>
+  <h3>Fim</h3><p>O jogo acaba assim que <b>um dos lados fica sem sementes</b> nas 6 casas. O outro jogador recolhe todas as sementes que sobraram do lado dele para o próprio depósito. Ganha quem tiver mais sementes no depósito; com o mesmo número é empate.</p>
+  <h3>Dicas</h3><ul><li>Uma casa com o número exato de sementes para chegar ao depósito dá jogada extra — use isso para emendar várias.</li>
+  <li>Cuidado com casas vazias do seu lado em frente a montes grandes do adversário (e vice-versa).</li>
+  <li>No computador, passe o mouse numa casa para ver onde cai a última semente.</li></ul>`,
+  render(g, v, ui){ drawMancala(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ M.key = ''; M.disp = null; } }
+});
+
+/* ------------------------------ interface ------------------------------ */
+const M = {key:'', disp:null, timers:[], anim:false, layout:'', target:null};
+const SEEDC = [['#ffd36b','#b8860b'],['#ff7a7a','#a8202a'],['#7ad3ff','#1c6fa8'],['#9cf29c','#2c8a3a'],['#e3a8ff','#7c3aa8'],['#fff4d6','#b9a37a']];
+function seedPos(i, k, store, vert){
+  // espiral de "girassol" com um pouco de bagunça (sempre igual para a mesma casa/semente)
+  const ang = k * 2.39996 + i * 1.3, rr = Math.min(1, Math.sqrt((k % 22 + .6) / 22));
+  const jit = ((i*31 + k*17) % 7 - 3) * .012;
+  let x = .5 + Math.cos(ang) * rr * .33 + jit, y = .5 + Math.sin(ang) * rr * .33 - jit;
+  // depósito: sementes longe do número (em cima no deitado, à esquerda no em pé)
+  if(store){ if(vert){ x = .64 + (x - .5) * .9; y = .5 + (y - .5) * 1.1; } else { y = .6 + (y - .5) * .95; x = .5 + (x - .5) * 1.05; } }
+  return [x * 100, y * 100];
+}
+function paintPit(i, n, fresh){
+  const el = M.cells && M.cells[i]; if(!el) return;
+  const store = i === 6 || i === 13, show = Math.min(n, store ? 40 : 24);
+  const box = el.querySelector('.seeds');
+  let h = '';
+  for(let k=0;k<show;k++){
+    const [x, y] = seedPos(i, k, store, M.layout === 'v'), c = SEEDC[(i*5 + k*3) % SEEDC.length];
+    h += `<span class="sd${fresh && k === show - 1 ? ' new' : ''}" style="left:${x}%;top:${y}%;background:radial-gradient(circle at 35% 30%,#fff 0 8%,${c[0]} 30%,${c[1]})"></span>`;
+  }
+  box.innerHTML = h;
+  el.querySelector('.cnt').textContent = n;
+}
+function paintAll(p){ for(let i=0;i<14;i++) paintPit(i, p[i]); }
+function stopAnim(){ M.timers.forEach(clearTimeout); M.timers = []; M.anim = false; }
+function later(ms, fn){ M.timers.push(setTimeout(fn, ms * CFG.speed)); }
+// anima a semeadura casa por casa a partir do tabuleiro de antes
+function animate(last, final, ui){
+  stopAnim(); M.anim = true; M.target = final;
+  const d = last.before.slice();
+  d[last.from] = 0; paintAll(d);
+  const step = stepMs(last.path.length);
+  last.path.forEach((pos, k) => later(k * step + 60, () => {
+    d[pos]++; paintPit(pos, d[pos], true);
+    const el = M.cells[pos]; if(el){ el.classList.remove('hot'); void el.offsetWidth; el.classList.add('hot'); }
+    if(k % 2 === 0) Snd.card();
+  }));
+  let t = last.path.length * step + 120;
+  if(last.cap){
+    const c = last.cap, st = STORE[last.seat];
+    later(t, () => { [c.pit, c.opp].forEach(i => M.cells[i] && M.cells[i].classList.add('capt')); });
+    t += 520;
+    later(t, () => { d[st] += c.n; d[c.pit] = 0; d[c.opp] = 0; paintPit(c.pit, 0); paintPit(c.opp, 0); paintPit(st, d[st], true);
+      [c.pit, c.opp].forEach(i => M.cells[i] && M.cells[i].classList.remove('capt')); M.cells[st].classList.add('capt'); });
+    t += 150;
+  }
+  if(last.sweep){ t += 250; later(t, () => paintAll(M.target)); t += 300; }
+  later(t, () => { M.anim = false; M.disp = M.target.slice(); paintAll(M.target); ui.rerender(); });
+}
+// onde cai a última semente (para a dica do mouse)
+function landing(p, s, i){ let n = p[i], pos = i; while(n > 0){ pos = (pos + 1) % 14; if(pos === STORE[1-s]) continue; n--; } return pos; }
+function drawMancala(g, v, ui){
+  const st = ui.stage, me = v.me >= 0 ? v.me : 0, op = 1 - me;
+  const W = st.clientWidth - 16, H = st.clientHeight - 16;
+  const vert = H > W * 1.15 && W < 640;
+  const reserve = vert ? 150 : 96;
+  const p = Math.floor(vert ? Math.min((H - reserve) / 8.9, (W - 10) / 2.5, 96) : Math.min((W - 10) / 8.9, (H - reserve) / 2.5, 112));
+  const lay = (vert ? 'v' : 'h') + p;
+  st.style.setProperty('--p', p + 'px'); st.style.setProperty('--sd', Math.max(7, Math.round(p * .19)) + 'px');
+  if(!st.querySelector('.mboard') || M.layout !== (vert ? 'v' : 'h') || M.lay !== lay || M.me !== me){
+    M.layout = vert ? 'v' : 'h'; M.lay = lay; M.me = me;
+    const myLo = me ? 7 : 0, opLo = op ? 7 : 0;
+    // posição de cada casa na grade (linha, coluna) a partir do ponto de vista de quem joga
+    const pos = {};
+    for(let k=0;k<6;k++){
+      if(vert){ pos[myLo + k] = [k + 2, 1]; pos[opLo + k] = [7 - k, 2]; }
+      else { pos[myLo + k] = [2, k + 2]; pos[opLo + k] = [1, 7 - k]; }
+    }
+    const cell = (i, cls) => {
+      const isStore = i === 6 || i === 13, mine = isStore && i === STORE[me];
+      const grid = isStore ? (vert ? `grid-row:${mine ? 8 : 1};grid-column:1/3` : `grid-column:${mine ? 8 : 1};grid-row:1/3`) : `grid-row:${pos[i][0]};grid-column:${pos[i][1]}`;
+      return `<div class="${cls}${mine ? ' mine' : ''}" data-i="${i}" style="${grid}"><div class="seeds"></div><span class="cnt">0</span>${isStore ? `<span class="slbl">${mine ? 'SEU' : 'DELE'}</span>` : ''}</div>`;
+    };
+    let cells = '';
+    for(let i=0;i<14;i++) cells += cell(i, (i === 6 || i === 13) ? 'store' : 'pit');
+    const bw = vert ? p * 2 + p * .1 + p * .32 + 6 : p * 8 + p * .7 + p * .32 + 6;
+    st.style.setProperty('--bw', Math.round(bw) + 'px');
+    st.innerHTML = `<div class="mrow ${vert ? 'v' : ''}"><span class="nm" id="mnTop" data-seat="${op}"></span><span class="info" id="miTop"></span></div>
+      <div class="mboard ${vert ? 'v' : 'h'}" id="mb">${cells}</div>
+      <div class="mrow ${vert ? 'v' : ''}"><span class="nm" id="mnBot" data-seat="${me}"></span><span class="info" id="miBot"></span></div><div class="hint" id="mh"></div>`;
+    M.cells = {}; $$('#mb [data-i]').forEach(el => M.cells[+el.dataset.i] = el);
+    $$('#mb .pit').forEach(el => {
+      const i = +el.dataset.i;
+      el.onclick = () => { if(el.classList.contains('can')){ $$('#mb .dest').forEach(x => x.classList.remove('dest')); ui.act({i}); } };
+      el.onmouseenter = () => { if(!el.classList.contains('can')) return; const t = landing(ui.view.game.pits, me, i); M.cells[t] && t !== i && M.cells[t].classList.add('dest'); };
+      el.onmouseleave = () => $$('#mb .dest').forEach(x => x.classList.remove('dest'));
+    });
+    M.key = '';     // repinta tudo
+  }
+  // animação do último lance
+  const key = v.gameNo + ':' + g.moveNo;
+  if(M.key !== key){
+    const prevKey = M.key; M.key = key;
+    if(g.last && prevKey && prevKey.split(':')[0] === String(v.gameNo) && +prevKey.split(':')[1] === g.moveNo - 1) animate(g.last, g.pits.slice(), ui);
+    else { stopAnim(); M.disp = g.pits.slice(); paintAll(g.pits); }
+  } else if(M.anim) M.target = g.pits.slice();
+  else paintAll(g.pits);
+  // destaques
+  const myTurn = !M.anim && v.waiting.includes(me) && !g.done;
+  $$('#mb [data-i]').forEach(el => { el.classList.remove('can','from','lastp'); });
+  if(!M.anim && g.last){
+    M.cells[g.last.from] && M.cells[g.last.from].classList.add('from');
+    const lp = g.last.path[g.last.path.length - 1];
+    if(lp != null && M.cells[lp]) M.cells[lp].classList.add('lastp');
+  }
+  if(myTurn) legal(g.pits, me).forEach(i => M.cells[i].classList.add('can'));
+  const nameOf = s => v.seats[s] ? v.seats[s].name : '';
+  $('#mnBot').textContent = nameOf(me) + (v.me >= 0 ? ' (você)' : ''); $('#mnTop').textContent = nameOf(op);
+  const showTurn = !g.done && v.phase === 'game';
+  $('#mnBot').classList.toggle('vez', showTurn && g.turn === me); $('#mnTop').classList.toggle('vez', showTurn && g.turn === op);
+  $('#miBot').textContent = `${g.pits[STORE[me]]} no depósito · ${sum6(g.pits, me)} no lado`;
+  $('#miTop').textContent = `${g.pits[STORE[op]]} no depósito · ${sum6(g.pits, op)} no lado`;
+  $('#mh').textContent = g.done ? '' : M.anim ? 'Semeando…' : myTurn ? 'Sua vez: toque numa casa sua com sementes' : `Vez de ${nameOf(g.turn)}…`;
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

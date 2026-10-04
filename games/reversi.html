@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Reversi</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:10px;flex-direction:column;gap:8px}
+.rboard{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));gap:1px;background:#0b3d22;
+  border:7px solid #3b2a18;border-radius:8px;box-shadow:0 14px 30px rgba(0,0,0,.55),inset 0 0 0 1px #0b3d22;position:relative}
+.rsq{width:var(--sq);height:var(--sq);background:radial-gradient(circle at 50% 40%,#2f9a5c,#23804a);position:relative;display:grid;place-items:center}
+.rsq.mv{cursor:pointer}
+.rsq.mv::after{content:"";position:absolute;width:24%;height:24%;border-radius:50%;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18)}
+.rsq.mv.me::after{background:rgba(231,180,58,.75);box-shadow:0 0 8px rgba(231,180,58,.8)}
+@media (hover:hover){ .rsq.mv.me:hover::after{width:70%;height:70%;opacity:.5} }
+.rsq.lst{box-shadow:inset 0 0 0 3px rgba(231,180,58,.9)}
+/* pontinhos de referência do tabuleiro */
+.rsq.st::before{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:#0b3d22;right:-4px;bottom:-4px;z-index:1}
+/* disco com duas faces: .f é a cor atual, .k a cor de trás (aparece durante a virada) */
+.dk{width:82%;height:82%;position:relative;transform-style:preserve-3d;z-index:2}
+.dk i{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.dk i.k{transform:rotateY(180deg)}
+.dk.b i.f,.dk.w i.k{background:radial-gradient(circle at 35% 30%,#5a5a5a,#1b1b1b 55%,#050505);box-shadow:0 3px 0 #000,0 5px 8px rgba(0,0,0,.5)}
+.dk.w i.f,.dk.b i.k{background:radial-gradient(circle at 35% 30%,#fff,#ece8df 55%,#bdb6a8);box-shadow:0 3px 0 #8f887a,0 5px 8px rgba(0,0,0,.5)}
+.dk.flip{animation:rflip .5s ease-in-out both}
+.dk.put{animation:rput .3s cubic-bezier(.2,.9,.3,1.4) both}
+@keyframes rflip{0%{transform:perspective(300px) rotateY(180deg)}50%{transform:perspective(300px) rotateY(90deg) scale(1.12)}100%{transform:perspective(300px) rotateY(0)}}
+@keyframes rput{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+.pbar{display:flex;justify-content:space-between;align-items:center;width:calc(var(--sq)*8 + 21px);gap:8px;max-width:100%}
+.pbar .nm{font-weight:800;padding:4px 12px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.cnt{font-weight:900;color:#ffe6a6;font-size:16px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.disc{display:inline-block;width:16px;height:16px;border-radius:50%;flex:none}
+.disc.b{background:radial-gradient(circle at 35% 30%,#666,#111)} .disc.w{background:radial-gradient(circle at 35% 30%,#fff,#bbb);box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.bar2{display:flex;gap:6px;align-items:center;flex:none}
+.pbar .nm{flex:0 1 auto}
+@media (max-width:480px){ .rtx{display:none} .pbar .nm{font-size:14px;padding:4px 10px} .cnt{font-size:15px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="reversi-ai.js"></script>
+<script>
+"use strict";
+/* ============================ MOTOR — REVERSI ============================
+   Tabuleiro 8×8, casa = linha*8 + coluna. Pretas ('b') começam.
+   Um lance só vale se virar ao menos uma peça do adversário, cercando-a
+   em linha reta (horizontal, vertical ou diagonal). Quem não tem lance passa.
+   ======================================================================== */
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const other = c => c === 'b' ? 'w' : 'b';
+const CNAME = {b:'Pretas', w:'Brancas'};
+function initial(){
+  const b = Array(64).fill('');
+  b[27] = 'w'; b[36] = 'w'; b[28] = 'b'; b[35] = 'b';
+  return {b, turn:'b', last:null, seq:0, result:null, passed:null, moves:0};
+}
+// peças viradas ao jogar em i (vazio se o lance não vale)
+function flipsAt(b, i, me){
+  if(b[i]) return [];
+  const op = other(me), r0 = i >> 3, c0 = i & 7; let out = [];
+  for(const [dr,dc] of DIRS){
+    let r = r0 + dr, c = c0 + dc; const run = [];
+    while(r >= 0 && r < 8 && c >= 0 && c < 8 && b[r*8+c] === op){ run.push(r*8+c); r += dr; c += dc; }
+    if(run.length && r >= 0 && r < 8 && c >= 0 && c < 8 && b[r*8+c] === me) out = out.concat(run);
+  }
+  return out;
+}
+function legalMoves(b, me){
+  const out = [];
+  for(let i=0;i<64;i++){ if(b[i]) continue; const f = flipsAt(b, i, me); if(f.length) out.push(i); }
+  return out;
+}
+const count = (b, c) => b.reduce((n,x) => n + (x === c ? 1 : 0), 0);
+const sqName = i => 'abcdefgh'[i & 7] + (8 - (i >> 3));
+
+/* o bot de verdade está em reversi-ai.js */
+const BOT_CFG = { facil:{time:300, depth:3, noise:30, exact:6}, normal:{time:800, depth:7, exact:10}, dificil:{time:1500, exact:14} };
+function botMove(st, diff){
+  const ms = legalMoves(st.b, st.turn);
+  if(ms.length <= 1) return ms[0];
+  let s = -1;
+  try{ s = ReversiAI.think(st.b, st.turn, BOT_CFG[diff] || BOT_CFG.normal); }catch(e){ console.error(e); }
+  return ms.includes(s) ? s : ms[0];
+}
+function finishText(st){
+  const nb = count(st.b,'b'), nw = count(st.b,'w');
+  return `Pretas <b>${nb}</b> × <b>${nw}</b> Brancas`;
+}
+
+Mesa.run({
+  id:'reversi', name:'Reversi', icon:'⚫', players:2, tagline:'Cerque e vire as peças do adversário',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'cor', label:'Você joga com', default:'b', choices:[['b','Pretas (começa)'],['w','Brancas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : ((s === 0) === (o.cor !== 'w') ? 'Pretas' : 'Brancas'),
+  setup(players, o){
+    const st = initial();
+    const c0 = o.cor === 'w' ? 'w' : o.cor === 'r' ? pick(['b','w']) : 'b';
+    st.colors = [c0, other(c0)]; st.names = players.map(p => p.name);
+    return st;
+  },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.result) return {ok:false, err:'A partida acabou.'};
+    if(a.t === 'resign'){
+      st.result = {winners:[1 - seat], text:`${esc(st.names[seat])} abandonou. ${finishText(st)}`};
+      return {events:[]};
+    }
+    if(st.colors[seat] !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const i = a.i;
+    if(!Number.isInteger(i) || i < 0 || i > 63) return {ok:false, err:'Casa inválida.'};
+    if(st.b[i]) return {ok:false, err:'Essa casa já está ocupada.'};
+    const fl = flipsAt(st.b, i, st.turn);
+    if(!fl.length) return {ok:false, err:'Lance inválido: precisa cercar e virar ao menos uma peça.'};
+    const me = st.turn;
+    st.b[i] = me; fl.forEach(x => st.b[x] = me);
+    st.last = {i, flips:fl, c:me}; st.seq++; st.moves++; st.passed = null;
+    const ev = [{k:'snd', s: fl.length >= 5 ? 'capture' : 'move'}];
+    if(fl.length >= 6) ev.push({k:'say', seat, text:`Virou ${fl.length}!`});
+    if([0,7,56,63].includes(i)) ev.push({k:'log', text:`${esc(st.names[seat])} pegou o canto ${sqName(i)}.`});
+    const op = other(me);
+    if(legalMoves(st.b, op).length){ st.turn = op; }
+    else if(legalMoves(st.b, me).length){
+      // adversário sem lance: passa a vez
+      const ps = st.colors.indexOf(op);
+      st.passed = {seat:ps, seq:st.seq};
+      ev.push({k:'banner', text:`${st.names[ps]} passa a vez`, bad:true}, {k:'snd', s:'alert'},
+              {k:'log', text:`${esc(st.names[ps])} (${CNAME[op]}) não tinha lance e passou a vez.`});
+    } else {
+      const nb = count(st.b,'b'), nw = count(st.b,'w');
+      const wc = nb > nw ? 'b' : nw > nb ? 'w' : null;
+      if(!wc) st.result = {draw:true, winners:[], text:`Empate! ${finishText(st)}`};
+      else { const ws = st.colors.indexOf(wc); st.result = {winners:[ws], text:`${finishText(st)} — vitória de <b>${esc(st.names[ws])}</b>!`}; }
+    }
+    return {events:ev};
+  },
+  bot(st, seat, o){ return {i:botMove(st, o.diff)}; },
+  botFallback(st){ const ms = legalMoves(st.b, st.turn); return ms.length ? {i:ms[0]} : null; },
+  botDelay(st, s, o){ return o.diff === 'dificil' ? 450 : o.diff === 'normal' ? 550 : 700; },
+  view(st, seat){
+    const my = seat >= 0 ? st.colors[seat] : 'b';
+    return {b:st.b, turn:st.turn, my, last:st.last, seq:st.seq, colors:st.colors, passed:st.passed, done:!!st.result,
+      moves: st.result ? [] : legalMoves(st.b, st.turn), cnt:{b:count(st.b,'b'), w:count(st.b,'w')}};
+  },
+  topInfo(g){
+    const t = g.done ? 'Fim de jogo' : g.turn === g.my ? 'Sua vez' : 'Vez do adversário';
+    return `<div class="status"><span class="bar2"><span class="disc b"></span>${g.cnt.b} · <span class="disc w"></span>${g.cnt.w} — ${t}</span></div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Terminar a partida com <b>mais peças da sua cor</b> no tabuleiro.</p>
+  <h3>Início</h3><p>Tabuleiro 8×8 com quatro peças no centro, em diagonal (duas pretas e duas brancas). As <b>pretas começam</b>.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Na sua vez, coloque uma peça numa casa vazia de forma a <b>cercar</b> uma ou mais peças do adversário em linha reta — na horizontal, na vertical ou na diagonal — entre a peça nova e outra peça sua.</li>
+  <li>Todas as peças cercadas <b>viram</b> para a sua cor. Um mesmo lance pode cercar em várias direções ao mesmo tempo.</li>
+  <li>Só vale o lance que vira <b>pelo menos uma</b> peça. As casas possíveis aparecem marcadas com um pontinho.</li></ul>
+  <h3>Passar a vez</h3><p>Se você não tiver nenhum lance válido, passa a vez automaticamente (aparece um aviso) e o adversário joga de novo. Se você tiver lance, é obrigado a jogar.</p>
+  <h3>Fim</h3><p>A partida acaba quando <b>nenhum dos dois</b> consegue jogar (normalmente com o tabuleiro cheio). Vence quem tiver mais peças; com o mesmo número, é empate.</p>
+  <h3>Dicas</h3><ul><li>Os <b>cantos</b> nunca mais viram: são as melhores casas.</li>
+  <li>Cuidado com as casas encostadas num canto vazio (principalmente a diagonal, a "casa X"): elas costumam entregar o canto.</li>
+  <li>Virar muitas peças no começo raramente é bom: o importante é ter <b>mais opções de lance</b> que o adversário.</li></ul>`,
+  render(g, v, ui){
+    const st = ui.stage;
+    const sq = Math.floor(clamp(Math.min(st.clientWidth - 40, st.clientHeight - 120) / 8 - 1, 30, 84));
+    st.style.setProperty('--sq', sq + 'px');
+    const flip = false;
+    if(!st.querySelector('.rboard')){
+      st.innerHTML = `<div class="pbar"><span class="nm" id="nmTop"></span><span class="cnt" id="cTop"></span></div><div class="rboard" id="bd"></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><span class="bar2"><span class="cnt" id="cBot"></span><button class="tbtn" id="bRes" title="Abandonar">🏳️<span class="rtx"> Abandonar</span></button></span></div>`;
+      $('#bRes').onclick = () => modal('<h2>Abandonar?</h2><p>Você perde a partida.</p>', [{label:'Abandonar', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      animSeq = g.seq;
+    }
+    const myTurn = ui.isMyTurn() && g.turn === g.my && !g.done;
+    const mv = new Set(myTurn ? g.moves : []);
+    const fresh = g.seq !== animSeq; animSeq = g.seq;
+    const lastFl = g.last ? new Set(g.last.flips) : new Set();
+    let html = '';
+    for(let vi=0; vi<64; vi++){
+      const i = flip ? 63 - vi : vi, p = g.b[i];
+      const cls = ['rsq'];
+      if(mv.has(i)) cls.push('mv', 'me');
+      if(g.last && g.last.i === i) cls.push('lst');
+      if(i === 9 || i === 13 || i === 41 || i === 45) cls.push('st');
+      let dk = '';
+      if(p){
+        const an = fresh && g.last ? (g.last.i === i ? ' put' : lastFl.has(i) ? ' flip' : '') : '';
+        dk = `<div class="dk ${p}${an}"><i class="f"></i><i class="k"></i></div>`;
+      }
+      html += `<div class="${cls.join(' ')}" data-i="${i}">${dk}</div>`;
+    }
+    $('#bd').innerHTML = html;
+    // atraso em cascata na virada, a partir da peça jogada
+    if(fresh && g.last){
+      const r0 = g.last.i >> 3, c0 = g.last.i & 7;
+      $$('#bd .dk.flip').forEach(el => { const i = +el.parentNode.dataset.i; const d = Math.max(Math.abs((i>>3) - r0), Math.abs((i&7) - c0)); el.style.animationDelay = (60 + d * 70) + 'ms'; });
+    }
+    $$('#bd .rsq.mv').forEach(el => el.onclick = () => ui.act({i:+el.dataset.i}));
+    $$('#bd .rsq:not(.mv)').forEach(el => el.onclick = () => { if(myTurn && !g.b[+el.dataset.i]) toast('Aí não vira nenhuma peça. Jogue numa casa com pontinho.'); });
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn);
+    const myc = g.my, opc = other(myc);
+    $('#nmBot').innerHTML = `<span class="disc ${myc}"></span>${esc(v.seats[me] ? v.seats[me].name : 'Você')} (você)`;
+    $('#nmTop').innerHTML = `<span class="disc ${opc}"></span>${esc(v.seats[op] ? v.seats[op].name : '')}`;
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', ts === me && !g.done); $('#nmTop').classList.toggle('vez', ts === op && !g.done);
+    $('#cBot').textContent = g.cnt[myc] + (g.cnt[myc] === 1 ? ' peça' : ' peças'); $('#cTop').textContent = g.cnt[opc] + (g.cnt[opc] === 1 ? ' peça' : ' peças');
+    $('#bRes').disabled = v.phase !== 'game';
+  }
+});
+let animSeq = -1;
+</script>
+</body>
+</html>

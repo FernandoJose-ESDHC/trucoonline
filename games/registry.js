@@ -25,7 +25,31 @@ const JOGOS = [
   { id:'xadrez', name:'Xadrez', cat:'tabuleiro', icon:'♟️', url:'games/xadrez.html',
     players:'2', online:true, desc:'Regras completas: roque, en passant, promoção, xeque-mate e empates.' },
   { id:'damas', name:'Damas', cat:'tabuleiro', icon:'⛀', url:'games/damas.html',
-    players:'2', online:true, desc:'Damas brasileiras: captura obrigatória, lei da maioria e dama que voa.' }
+    players:'2', online:true, desc:'Damas brasileiras: captura obrigatória, lei da maioria e dama que voa.' },
+  { id:'ultima', name:'Última Carta', cat:'cartas', icon:'🌈', url:'games/ultima.html',
+    players:'2 a 8', online:true, desc:'Cores, números, Pular, Inverter e +4: esvazie a mão e não esqueça de gritar ÚLTIMA!' },
+  { id:'domino', name:'Dominó', cat:'tabuleiro', icon:'⚅', url:'games/domino.html',
+    players:'2 a 4 · duplas', online:true, desc:'Duplo-seis em duplas (sem compra) ou individual com monte. Bata ou tranque o jogo.' },
+  { id:'ludo', name:'Ludo', cat:'tabuleiro', icon:'🎲', url:'games/ludo.html',
+    players:'2 a 4', online:true, desc:'Dê a volta no tabuleiro e leve as 4 peças ao centro. Capture os adversários!' },
+  { id:'trilha', name:'Trilha', cat:'tabuleiro', icon:'⭕', url:'games/trilha.html',
+    players:'2', online:true, desc:'O moinho: forme trilhas de 3 para tirar peças do adversário. Coloque, mova e voe.' },
+  { id:'batalha', name:'Batalha Naval', cat:'tabuleiro', icon:'⚓', url:'games/batalha.html',
+    players:'2', online:true, desc:'Posicione a frota e afunde os navios inimigos. Navios não se tocam, nem na diagonal.' },
+  { id:'reversi', name:'Reversi', cat:'tabuleiro', icon:'🔘', url:'games/reversi.html',
+    players:'2', online:true, desc:'Cerque e vire as peças do adversário; quem tiver mais peças no fim vence.' },
+  { id:'quatro', name:'Quatro em Linha', cat:'tabuleiro', icon:'🔴', url:'games/quatro.html',
+    players:'2', online:true, desc:'Solte as peças nas colunas e faça 4 em linha antes do adversário.' },
+  { id:'gamao', name:'Gamão', cat:'tabuleiro', icon:'🟤', url:'games/gamao.html',
+    players:'2', online:true, desc:'Dados, barra, bloqueios e retirada. Partida até 3, 5 ou 7 pontos com gammon.' },
+  { id:'go', name:'Go', cat:'tabuleiro', icon:'⚫', url:'games/go.html',
+    players:'2', online:true, desc:'Cerque território no 9×9 ou 13×13: capturas, ko, contagem chinesa e komi 6,5.' },
+  { id:'mancala', name:'Mancala', cat:'tabuleiro', icon:'🌰', url:'games/mancala.html',
+    players:'2', online:true, desc:'Kalah: semeie no sentido anti-horário, capture e encha seu depósito.' },
+  { id:'restaum', name:'Resta Um', cat:'solo', icon:'📍', url:'games/restaum.html',
+    players:'1', online:false, desc:'Pule os pinos até sobrar um só — no centro é perfeito! Com dica que resolve.' },
+  { id:'senha', name:'Senha', cat:'solo', icon:'🔐', url:'games/senha.html',
+    players:'1', online:false, desc:'Descubra a combinação de cores — ou desafie o computador a descobrir a sua.' }
 ];
 const CATEGORIAS = [
   ['todos','Todos'], ['truco','Truco'], ['cartas','Cartas'], ['tabuleiro','Tabuleiro'], ['solo','Solo']

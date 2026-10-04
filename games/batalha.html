@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Batalha Naval</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden}
+.bwrap{display:flex;gap:14px;align-items:center;justify-content:center;width:100%;height:100%}
+.bwrap.col{flex-direction:column;gap:6px}
+.bcol{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.btitle{font-weight:800;font-size:14px;color:#ffe6a6;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.btitle .nm{padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent}
+.btitle .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.sea{position:relative;display:grid;grid-template-columns:repeat(11,var(--c));grid-template-rows:repeat(11,var(--c));
+  background:linear-gradient(180deg,#0e3d5c,#0a2c45);border:3px solid #072033;border-radius:8px;box-shadow:0 12px 26px rgba(0,0,0,.5);touch-action:none}
+.sea .hd{display:grid;place-items:center;font-size:calc(var(--c)*.42);font-weight:800;color:#9fd0ee;background:#082538}
+.sea .cl{position:relative;border-right:1px solid rgba(160,215,255,.13);border-bottom:1px solid rgba(160,215,255,.13);
+  background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.05),transparent 60%)}
+.sea.target .cl.ok{cursor:crosshair}
+@media (hover:hover){ .sea.target .cl.ok:hover{background:rgba(231,180,58,.3)} }
+.sea.target.myturn{box-shadow:0 0 0 3px var(--gold),0 0 22px rgba(231,180,58,.5),0 12px 26px rgba(0,0,0,.5)}
+.hull{position:absolute;border-radius:calc(var(--c)*.5);pointer-events:none;
+  background:linear-gradient(180deg,#b8c3cc,#7f8c97 55%,#5b6670);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),0 2px 6px rgba(0,0,0,.5);z-index:1}
+.hull::after{content:"";position:absolute;inset:32% 18%;border-radius:20px;
+  background:repeating-linear-gradient(90deg,#3c4650 0 calc(var(--c)*.18),transparent calc(var(--c)*.18) calc(var(--c)*.5))}
+.hull.v::after{background:repeating-linear-gradient(180deg,#3c4650 0 calc(var(--c)*.18),transparent calc(var(--c)*.18) calc(var(--c)*.5));inset:18% 32%}
+.hull.sunk{background:linear-gradient(180deg,#7a3a32,#4e1d18);opacity:.9}
+.hull.sel{box-shadow:0 0 0 3px var(--gold),0 0 14px rgba(231,180,58,.8);z-index:3}
+.hull.ghost{opacity:.75;z-index:4;background:linear-gradient(180deg,#9fe9b9,#3ecf7a)}
+.hull.ghost.bad{background:linear-gradient(180deg,#ffb0b0,#ff5a5a)}
+.hull.drag{opacity:.35}
+.mk{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:2}
+.mk.kw::before{content:"";width:28%;height:28%;border-radius:50%;background:#cfeaff;box-shadow:0 0 0 calc(var(--c)*.08) rgba(207,234,255,.25)}
+.mk.kd::before{content:"";width:16%;height:16%;border-radius:50%;background:rgba(207,234,255,.35)}
+.mk.kh::before{content:"";width:56%;height:56%;border-radius:50%;background:radial-gradient(circle,#ffe17a 0 20%,#ff5a2a 45%,#b3121f 80%);box-shadow:0 0 calc(var(--c)*.3) rgba(255,90,42,.9)}
+.mk.ks::before{content:"✕";font-size:calc(var(--c)*.6);font-weight:900;color:#ffd0c8;text-shadow:0 0 4px #000}
+.mk.last{animation:lastShot 1s ease-out 2}
+@keyframes lastShot{0%{box-shadow:inset 0 0 0 3px rgba(231,180,58,1)}100%{box-shadow:inset 0 0 0 3px rgba(231,180,58,0)}}
+.fleet{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:center;font-size:12px;font-weight:700;color:#cfe;max-width:calc(var(--c)*11 + 6px)}
+.fleet span{white-space:nowrap}.fleet .gone{text-decoration:line-through;opacity:.45}
+.fleet i{display:inline-block;width:7px;height:7px;border-radius:2px;background:#9fb3c2;margin-left:1px;vertical-align:middle}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ctl button{padding:11px 14px;border-radius:12px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.ctl button:disabled{opacity:.45;cursor:not-allowed}
+.dock{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:calc(var(--c)*11 + 6px)}
+.dock .shp{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:10px;background:rgba(0,0,0,.35);border:2px solid transparent;cursor:pointer;font-size:13px;font-weight:800}
+.dock .shp.sel{border-color:var(--gold)} .dock .shp.ok{color:#bff5d4}
+.dock .shp b{display:inline-flex;gap:2px}.dock .shp b i{width:9px;height:9px;border-radius:2px;background:#9fb3c2}
+.phint{font-size:13px;color:#cfe;text-align:center;max-width:calc(var(--c)*11 + 6px);line-height:1.4}
+.big2{font-size:15px;font-weight:800;color:var(--gold);text-align:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="batalha-ai.js"></script>
+<script>
+"use strict";
+/* ============================ BATALHA NAVAL ============================
+   Grade 10×10 (linhas A–J, colunas 1–10), índice = linha*10 + coluna.
+   shots[s] = o que o jogador s sabe do mar do adversário:
+   0 desconhecido · 1 água · 2 acerto · 3 navio afundado · 4 água deduzida.
+   ===================================================================== */
+const FLEET = [
+  {n:'Porta-aviões', len:5}, {n:'Encouraçado', len:4}, {n:'Cruzador', len:3}, {n:'Submarino', len:3}, {n:'Destróier', len:2}
+];
+const ROWS = 'ABCDEFGHIJ';
+const cname = i => ROWS[(i/10)|0] + (i%10 + 1);
+const cellsOf = (r, c, v, len) => BatalhaAI.cellsOf(r, c, v, len);
+const NB8 = BatalhaAI.NB8;
+// confere uma frota [{r,c,v}×5]; devolve as casas de cada navio ou uma mensagem de erro
+function checkFleet(f){
+  if(!Array.isArray(f) || f.length !== FLEET.length) return 'Posicione os 5 navios.';
+  const owner = new Int8Array(100).fill(-1), out = [];
+  for(let k=0;k<FLEET.length;k++){
+    const s = f[k];
+    if(!s || !Number.isInteger(s.r) || !Number.isInteger(s.c)) return 'Navio fora do mar.';
+    const v = !!s.v, len = FLEET[k].len;
+    if(s.r < 0 || s.c < 0 || (v ? s.r + len > 10 || s.c > 9 : s.c + len > 10 || s.r > 9)) return `${FLEET[k].n} fora do mar.`;
+    const cs = cellsOf(s.r, s.c, v, len);
+    for(const x of cs){ if(owner[x] >= 0) return `${FLEET[k].n} em cima de outro navio.`; owner[x] = k; }
+    out.push(cs);
+  }
+  for(let k=0;k<out.length;k++) for(const x of out[k]) for(const y of NB8[x]) if(owner[y] >= 0 && owner[y] !== k) return `${FLEET[k].n} encostado no ${FLEET[owner[y]].n} — navios não podem se tocar, nem na diagonal.`;
+  return out;
+}
+const alive = sh => sh.hits < sh.cells.length;
+const lensLeft = (st, seat) => st.fleets[1-seat].filter(alive).map(s => s.cells.length);
+
+Mesa.run({
+  id:'batalha', name:'Batalha Naval', icon:'⚓', players:2, tagline:'Afunde a frota inimiga antes que afundem a sua',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'denovo', label:'Acertou, atira de novo', default:'sim', choices:[['sim','Sim'],['nao','Não']]}
+  ],
+  modeLabel: o => (o.denovo === 'nao' ? 'TIROS ALTERNADOS · ' : '') + 'BOT ' + ({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'}[o.diff] || ''),
+  seatLabel: s => 'Almirante ' + (s+1),
+  setup(players, o){
+    return {names:players.map(p => p.name), phase:'place', ready:[false,false], fleets:[null,null],
+      shots:[Array(100).fill(0), Array(100).fill(0)], nShots:[0,0], turn:0, extra:o.denovo !== 'nao', last:null, result:null};
+  },
+  startEvents(){ return [{k:'log', text:'Posicionem as frotas!'}]; },
+  waiting(st){
+    if(st.result) return [];
+    if(st.phase === 'place') return [0,1].filter(s => !st.ready[s]);
+    return [st.turn];
+  },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a) return {ok:false, err:'Jogada inválida.'};
+    if(st.phase === 'place'){
+      if(a.t !== 'ready' || st.ready[seat]) return {ok:false, err:'Aguarde o adversário posicionar a frota.'};
+      const cs = checkFleet(a.fleet);
+      if(typeof cs === 'string') return {ok:false, err:cs};
+      st.fleets[seat] = cs.map((cells, k) => ({n:FLEET[k].n, cells, hits:0}));
+      st.ready[seat] = true;
+      const ev = [{k:'log', text:`${esc(st.names[seat])} posicionou a frota.`}, {k:'snd', s:'move'}];
+      if(st.ready[0] && st.ready[1]){
+        st.phase = 'play'; st.turn = Math.random() < .5 ? 0 : 1;
+        ev.push({k:'banner', text:'Fogo à vontade!'}, {k:'log', text:`Começa ${esc(st.names[st.turn])}.`}, {k:'snd', s:'alert'});
+        return {events:ev, pause:900};
+      }
+      return {events:ev};
+    }
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t !== 'shot' || !Number.isInteger(a.i) || a.i < 0 || a.i > 99) return {ok:false, err:'Tiro inválido.'};
+    const K = st.shots[seat], i = a.i;
+    if(K[i] !== 0) return {ok:false, err: K[i] === 4 ? 'Ali é água com certeza (encosta num navio afundado).' : 'Você já atirou aí.'};
+    st.nShots[seat]++;
+    const ship = st.fleets[1-seat].find(s => s.cells.includes(i)), nm = esc(st.names[seat]);
+    const ev = [];
+    let pause = 450;
+    if(!ship){
+      K[i] = 1; st.last = {seat, i, r:'agua'};
+      ev.push({k:'snd', s:'card'}, {k:'log', text:`${nm} atirou em ${cname(i)}: água.`});
+      st.turn = 1 - seat; pause = 750;
+    } else {
+      K[i] = 2; ship.hits++;
+      if(!alive(ship)){
+        ship.cells.forEach(x => K[x] = 3);
+        ship.cells.forEach(x => NB8[x].forEach(y => { if(K[y] === 0) K[y] = 4; }));
+        st.last = {seat, i, r:'afundou', ship:ship.n};
+        ev.push({k:'snd', s:'capture'}, {k:'banner', text:`Afundou o ${ship.n}!`}, {k:'log', text:`${nm} atirou em ${cname(i)} e <b>afundou o ${ship.n}</b>!`});
+        pause = 1100;
+        if(!st.fleets[1-seat].some(alive)){
+          st.result = {winners:[seat], text:`<b>${nm}</b> afundou a frota inteira com ${st.nShots[seat]} tiros.`};
+          return {events:ev, pause:600};
+        }
+      } else {
+        st.last = {seat, i, r:'acerto'};
+        ev.push({k:'snd', s:'move'}, {k:'say', seat:1-seat, text:'Fogo a bordo!'}, {k:'log', text:`${nm} atirou em ${cname(i)}: acertou!`});
+      }
+      if(!st.extra) st.turn = 1 - seat;
+    }
+    return {events:ev, pause};
+  },
+  bot(st, seat, o){
+    if(st.phase === 'place') return {t:'ready', fleet:BatalhaAI.spreadFleet()};
+    const K = st.shots[seat];                                  // só o que esse jogador sabe
+    let i = BatalhaAI.shoot(K, lensLeft(st, seat), o.diff);
+    if(i < 0 || K[i] !== 0) i = K.indexOf(0);
+    return {t:'shot', i};
+  },
+  botFallback(st, seat){ return st.phase === 'place' ? {t:'ready', fleet:BatalhaAI.randomFleet()} : {t:'shot', i:st.shots[seat].indexOf(0)}; },
+  botDelay(st, s, o){ return st.phase === 'place' ? 900 : 650; },
+  view(st, seat){
+    const me = seat >= 0 ? seat : 0, op = 1 - me;
+    const pub = f => f ? f.map(s => ({n:s.n, len:s.cells.length, sunk:!alive(s)})) : FLEET.map(s => ({n:s.n, len:s.len, sunk:false}));
+    return {
+      phase:st.phase, names:st.names, ready:st.ready, turn:st.turn, extra:st.extra, last:st.last, done:!!st.result, nShots:st.nShots,
+      // minha frota completa (só a minha!)
+      myFleet: seat >= 0 && st.fleets[me] ? st.fleets[me].map(s => ({n:s.n, cells:s.cells, sunk:!alive(s)})) : null,
+      myShots: st.shots[me], theirShots: st.shots[op],
+      // do adversário só o que já foi descoberto: navios afundados
+      oppSunk: st.fleets[op] ? st.fleets[op].filter(s => !alive(s)).map(s => ({n:s.n, cells:s.cells})) : [],
+      myStatus: pub(st.fleets[me]), oppStatus: pub(st.fleets[op])
+    };
+  },
+  topInfo(g, v){
+    if(g.phase === 'place') return `<div class="status">Posicionamento</div>`;
+    const me = v.me >= 0 ? v.me : 0, sunk = g.oppStatus.filter(s => s.sunk).length, lost = g.myStatus.filter(s => s.sunk).length;
+    return `<div class="status">Afundados: você <span style="color:var(--nos)">${sunk}</span> × <span style="color:var(--eles)">${lost}</span> · ${g.done ? 'fim' : g.turn === me ? 'sua vez' : 'vez do adversário'}</div>`;
+  },
+  rules: o => `<h3>Objetivo</h3><p>Afundar <b>todos os navios</b> do adversário antes que ele afunde os seus.</p>
+  <h3>Frota</h3><table><tr><th>Navio</th><th>Casas</th></tr>${FLEET.map(s => `<tr><td>${s.n}</td><td>${s.len}</td></tr>`).join('')}</table>
+  <h3>Posicionamento</h3><ul><li>Cada um arruma a frota no seu mar de 10×10 (linhas A–J, colunas 1–10), na horizontal ou vertical, sem o adversário ver.</li>
+  <li><b>Navios não podem se tocar</b>, nem de lado nem pela <b>diagonal</b>: em volta de cada navio sobra sempre uma faixa de água. Isso vale para os dois — e quando um navio afunda, todo mundo sabe que as casas em volta dele são água.</li>
+  <li>Toque em <b>Posicionar aleatório</b> para sortear, ou arraste os navios no mar. Toque num navio já posto para <b>girar</b> (ou use o botão Girar). Para pôr um navio, escolha-o na lista e toque na casa onde ele começa.</li>
+  <li>Quando estiver pronto, toque em <b>Pronto</b>. A batalha começa quando os dois confirmarem; quem atira primeiro é sorteado.</li></ul>
+  <h3>Tiros</h3><ul><li>Na sua vez, toque numa casa do mar do adversário.</li>
+  <li><b>Água</b> (bolinha clara): a vez passa. <b>Acerto</b> (fogo): ${o && o.denovo === 'nao' ? 'a vez passa mesmo assim (opção "Acertou, atira de novo" desligada).' : 'você <b>atira de novo</b> (opção "Acertou, atira de novo" — dá para desligar na tela inicial).'}</li>
+  <li>Quando todas as casas de um navio são atingidas, ele <b>afunda</b>: aparece no mar e as casas vizinhas são marcadas como água.</li></ul>
+  <h3>Fim</h3><p>Vence quem afundar a frota inteira primeiro.</p>`,
+  render(g, v, ui){ drawBatalha(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ P.ships = null; P.sel = -1; P.vert = false; P.sent = false; } }
+});
+
+/* ------------------------------ interface ------------------------------ */
+const P = {ships:null, sel:-1, vert:false, drag:null, sent:false};   // posicionamento local (só no meu aparelho)
+function localCells(){ return P.ships.map((s,k) => s ? cellsOf(s.r, s.c, s.v, FLEET[k].len) : null); }
+function placeOk(k, s){
+  const len = FLEET[k].len;
+  if(s.r < 0 || s.c < 0 || (s.v ? s.r + len > 10 || s.c > 9 : s.c + len > 10 || s.r > 9)) return false;
+  const mine = new Set(cellsOf(s.r, s.c, s.v, len)), other = new Set();
+  P.ships.forEach((t,j) => { if(t && j !== k) cellsOf(t.r, t.c, t.v, FLEET[j].len).forEach(x => other.add(x)); });
+  for(const x of mine){ if(other.has(x)) return false; for(const y of NB8[x]) if(other.has(y)) return false; }
+  return true;
+}
+function seaHTML(id, cls){
+  let h = `<div class="sea ${cls}" id="${id}"><div class="hd"></div>`;
+  for(let c=0;c<10;c++) h += `<div class="hd">${c+1}</div>`;
+  for(let r=0;r<10;r++){ h += `<div class="hd">${ROWS[r]}</div>`; for(let c=0;c<10;c++) h += `<div class="cl" data-i="${r*10+c}"></div>`; }
+  return h + '</div>';
+}
+function hullHTML(cells, cls){
+  const r = (cells[0]/10)|0, c = cells[0]%10, v = cells.length > 1 && cells[1] - cells[0] === 10;
+  const len = cells.length;
+  return `<div class="hull ${v ? 'v' : ''} ${cls || ''}" style="left:calc(var(--c)*${c+1} + 2px);top:calc(var(--c)*${r+1} + 2px);width:calc(var(--c)*${v ? 1 : len} - 4px);height:calc(var(--c)*${v ? len : 1} - 4px)"></div>`;
+}
+function marksHTML(K, opts){
+  let h = '';
+  for(let i=0;i<100;i++){
+    const k = K[i]; if(!k) continue;
+    if(k === 4 && !opts.ded) continue;
+    const cls = k === 1 ? 'kw' : k === 4 ? 'kd' : k === 2 ? 'kh' : opts.sunkX ? 'ks' : 'kh';
+    const r = (i/10)|0, c = i%10;
+    h += `<div class="mk ${cls}${opts.last === i ? ' last' : ''}" style="inset:auto;left:calc(var(--c)*${c+1});top:calc(var(--c)*${r+1});width:var(--c);height:var(--c)"></div>`;
+  }
+  return h;
+}
+const statusHTML = list => list.map(s => `<span class="${s.sunk ? 'gone' : ''}">${s.n} ${'<i></i>'.repeat(s.len)}</span>`).join('');
+function drawBatalha(g, v, ui){
+  const st = ui.stage, me = v.me >= 0 ? v.me : 0, op = 1 - me;
+  const W = st.clientWidth - 16, H = st.clientHeight - 16;
+  const nameOf = s => v.seats[s] ? v.seats[s].name : '';
+  if(g.phase === 'place' && !g.ready[me] && v.me >= 0){ drawPlace(g, v, ui, W, H); return; }
+  // batalha (ou esperando o outro posicionar)
+  const wide = W > H * 1.25;
+  let cT, cM;
+  if(wide){ cT = Math.floor(Math.min((W - 40) / 19.5, (H - 70) / 11.3, 52)); cM = Math.floor(cT * .78); }
+  else { cT = Math.floor(Math.min((W - 6) / 11.2, (H - 120) / 18.2, 48)); cM = Math.floor(Math.min(cT * .62, (H - cT * 11.3 - 120) / 11.2)); cM = Math.max(cM, 14); }
+  const myTurn = g.phase === 'play' && v.waiting.includes(me) && !g.done;
+  const waitingPlace = g.phase === 'place';
+  const lastMine = g.last && g.last.seat === me ? g.last.i : -1, lastTheirs = g.last && g.last.seat === op ? g.last.i : -1;
+  const target = `<div class="bcol" style="--c:${cT}px"><div class="btitle"><span class="nm ${myTurn ? 'vez' : ''}" data-seat="${op}">🎯 Mar de ${esc(nameOf(op))}</span></div>
+      ${seaHTML('seaT', 'target' + (myTurn ? ' myturn' : ''))}<div class="fleet">${statusHTML(g.oppStatus)}</div></div>`;
+  const mine = `<div class="bcol" style="--c:${cM}px"><div class="btitle"><span class="nm ${!myTurn && !g.done && !waitingPlace ? 'vez' : ''}" data-seat="${me}">⚓ Seu mar</span>
+      <span style="font-size:12px;color:#cfe">${g.nShots[op]} tiros recebidos</span></div>${seaHTML('seaM', 'mine')}${wide ? `<div class="fleet">${statusHTML(g.myStatus)}</div>` : ''}</div>`;
+  const msg = waitingPlace ? `Aguardando ${esc(nameOf(op))} posicionar a frota…` : g.done ? '' : myTurn ? (g.last && g.last.seat === me && g.last.r !== 'agua' ? 'Acertou! Atire de novo' : 'Sua vez: escolha uma casa no mar inimigo') : `Vez de ${esc(nameOf(op))}…`;
+  st.innerHTML = `<div class="bwrap ${wide ? '' : 'col'}">${wide ? target + `<div class="bcol">${mine}<div class="big2" id="bmsg">${msg}</div></div>` : `<div class="big2" id="bmsg">${msg}</div>` + target + mine}</div>`;
+  // mar do adversário: meus tiros + navios dele já afundados
+  const sT = $('#seaT');
+  sT.insertAdjacentHTML('beforeend', g.oppSunk.map(s => hullHTML(s.cells, 'sunk')).join('') + marksHTML(g.myShots, {ded:true, sunkX:true, last:lastMine}));
+  // meu mar: meus navios + tiros recebidos
+  const sM = $('#seaM');
+  if(g.myFleet) sM.insertAdjacentHTML('beforeend', g.myFleet.map(s => hullHTML(s.cells, s.sunk ? 'sunk' : '')).join(''));
+  sM.insertAdjacentHTML('beforeend', marksHTML(g.theirShots, {ded:false, sunkX:false, last:lastTheirs}));
+  $$('#seaT .cl').forEach(el => {
+    const i = +el.dataset.i;
+    if(myTurn && g.myShots[i] === 0){ el.classList.add('ok'); el.onclick = () => ui.act({t:'shot', i}); }
+    else if(myTurn && g.myShots[i] === 4) el.onclick = () => toast('Ali é água com certeza: encosta num navio afundado.');
+  });
+}
+/* ---------- tela de posicionamento ---------- */
+function drawPlace(g, v, ui, W, H){
+  const st = ui.stage;
+  if(!P.ships){ P.ships = BatalhaAI.randomFleet(); P.sel = -1; }
+  const c = Math.floor(Math.min((W - 6) / 11.2, (H - 230) / 11.2, 50));
+  st.style.setProperty('--c', c + 'px');
+  const all = P.ships.every(Boolean), cells = localCells();
+  const sel = P.sel;
+  st.innerHTML = `<div class="bwrap col">
+    <div class="big2">Posicione sua frota</div>
+    <div style="position:relative">${seaHTML('seaP', 'place')}</div>
+    <div class="dock">${FLEET.map((s,k) => `<div class="shp ${k === sel ? 'sel' : ''} ${P.ships[k] ? 'ok' : ''}" data-k="${k}">${P.ships[k] ? '✓' : '○'} ${s.n} <b>${'<i></i>'.repeat(s.len)}</b></div>`).join('')}</div>
+    <div class="ctl"><button class="b-no" id="bRot">⟳ Girar</button><button class="b-y" id="bRnd">🎲 Posicionar aleatório</button><button class="b-no" id="bClr">Limpar</button>
+      <button class="b-ok" id="bOk" ${all ? '' : 'disabled'}>✔ Pronto</button></div>
+    <div class="phint">${sel >= 0 ? (P.ships[sel] ? `Arraste o ${FLEET[sel].n} ou toque nele para girar.` : `Toque na casa onde o ${FLEET[sel].n} deve começar (${P.vert ? 'vertical' : 'horizontal'}).`) : 'Arraste os navios para mudar de lugar; toque num navio para girar.'}
+      Navios não podem se tocar, nem na diagonal.</div></div>`;
+  const sea = $('#seaP');
+  sea.insertAdjacentHTML('beforeend', cells.map((cs,k) => cs ? hullHTML(cs, k === sel ? 'sel' : '') : '').join(''));
+  drawGhost(sea);
+  $$('.dock .shp').forEach(el => el.onclick = () => { const k = +el.dataset.k; P.sel = P.sel === k ? -1 : k; ui.rerender(); });
+  $('#bRot').onclick = () => {
+    if(P.sel >= 0 && P.ships[P.sel]) rotate(P.sel); else P.vert = !P.vert;
+    ui.rerender();
+  };
+  $('#bRnd').onclick = () => { P.ships = BatalhaAI.randomFleet(); P.sel = -1; ui.rerender(); };
+  $('#bClr').onclick = () => { P.ships = FLEET.map(() => null); P.sel = 0; ui.rerender(); };
+  $('#bOk').onclick = () => { if(P.ships.every(Boolean)){ ui.act({t:'ready', fleet:P.ships.map(s => ({r:s.r, c:s.c, v:!!s.v}))}); } };
+  // arrastar e tocar
+  const cellAt = (x, y) => { const r = sea.getBoundingClientRect(), cw = r.width / 11, ch = r.height / 11;
+    return {row: Math.floor((y - r.top) / ch) - 1, col: Math.floor((x - r.left) / cw) - 1}; };
+  const owner = i => cells.findIndex(cs => cs && cs.includes(i));
+  sea.onpointerdown = e => {
+    const {row, col} = cellAt(e.clientX, e.clientY);
+    if(row < 0 || col < 0 || row > 9 || col > 9) return;
+    const i = row*10 + col, k = owner(i);
+    if(k >= 0){
+      const s = P.ships[k];
+      P.drag = {k, off: s.v ? row - s.r : col - s.c, x:e.clientX, y:e.clientY, moved:false, ghost:null, ok:false, wasSel: P.sel === k};
+      P.sel = k;
+      try{ sea.setPointerCapture(e.pointerId); }catch(_){}
+      e.preventDefault();
+    } else if(P.sel >= 0){
+      const k2 = P.sel, cur = P.ships[k2], s = {r:row, c:col, v: cur ? cur.v : P.vert};
+      if(placeOk(k2, s)){ P.ships[k2] = s; const nx = P.ships.findIndex(x => !x); P.sel = cur ? -1 : nx; Snd.move(); }
+      else toast('Não cabe aí: fora do mar ou encostado em outro navio.');
+      ui.rerender();
+    }
+  };
+  sea.onpointermove = e => {
+    const d = P.drag; if(!d) return;
+    if(!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 8) return;
+    d.moved = true;
+    const {row, col} = cellAt(e.clientX, e.clientY), s = P.ships[d.k];
+    const g2 = {r: s.v ? row - d.off : row, c: s.v ? col : col - d.off, v: s.v};
+    if(!d.ghost || d.ghost.r !== g2.r || d.ghost.c !== g2.c){ d.ghost = g2; d.ok = placeOk(d.k, g2); drawGhost(sea); }
+  };
+  sea.onpointerup = sea.onpointercancel = () => endDrag(ui);
+  P.ui = ui;
+}
+function endDrag(ui){
+  const d = P.drag; if(!d) return;
+  P.drag = null;
+  if(d.moved){ if(d.ghost && d.ok){ P.ships[d.k] = d.ghost; Snd.move(); } P.sel = -1; }
+  else if(d.wasSel) rotate(d.k);
+  ui.rerender();
+}
+// sombra do navio sendo arrastado (verde = cabe, vermelho = não cabe)
+function drawGhost(sea){
+  $$('.hull.ghost', sea).forEach(e => e.remove());
+  const d = P.drag; if(!d || !d.moved) return;
+  const hs = $$('.hull:not(.ghost)', sea); hs.forEach(h => h.classList.remove('drag'));
+  const idx = P.ships.slice(0, d.k).filter(Boolean).length; if(hs[idx]) hs[idx].classList.add('drag');
+  if(!d.ghost) return;
+  const s = d.ghost, len = FLEET[d.k].len;
+  const r = clamp(s.r, 0, s.v ? 10 - len : 9), c = clamp(s.c, 0, s.v ? 9 : 10 - len);
+  sea.insertAdjacentHTML('beforeend', hullHTML(cellsOf(r, c, s.v, len), 'ghost' + (d.ok ? '' : ' bad')));
+}
+window.addEventListener('pointerup', () => { if(P.drag && P.ui) endDrag(P.ui); });
+// gira o navio k em volta da casa onde começa (se não couber, tenta deslocar um pouco)
+function rotate(k){
+  const s = P.ships[k], len = FLEET[k].len;
+  const base = {r:s.r, c:s.c};
+  for(const t of [base, ...Array.from({length:len}, (_,d) => s.v ? {r:s.r, c:s.c - d} : {r:s.r - d, c:s.c})]){
+    const n = {r:t.r, c:t.c, v:!s.v};
+    if(placeOk(k, n)){ P.ships[k] = n; Snd.move(); return true; }
+  }
+  toast('Não dá para girar aqui: falta espaço.');
+  return false;
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>
