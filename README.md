@@ -407,3 +407,13 @@ python -m http.server 8000   # e acesse http://localhost:8000
 [MIT](LICENSE) — use, modifique e compartilhe à vontade.
 
 <p align="center"><sub>Feito por <a href="https://github.com/FernandoJose-ESDHC">@FernandoJose-ESDHC</a>. Bora um truco? 🃏</sub></p>
+
+## ☕ Apoie o Projeto
+
+A **Central de Jogos** é um projeto totalmente gratuito, de código aberto e sem anúncios. Se você se diverte jogando com os amigos e quer incentivar o desenvolvimento de novos jogos e melhorias contínuas, considere apoiar o projeto!
+
+Qualquer contribuição ajuda a manter a motivação em alta e o café sempre quentinho para as madrugadas de código. 💻☕
+
+[**👉 Clique aqui para contribuir através da Vakinha**](https://www.vakinha.com.br/6374932?utm_campaign=whatsapp&utm_medium=website&utm_content=6374932&utm_source=social-shares)
+
+---
