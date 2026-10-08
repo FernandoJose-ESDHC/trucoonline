@@ -1,8 +1,8 @@
 /* Service worker: guarda os arquivos para o jogo abrir sem internet.
    Estratégia "rede primeiro": online sempre pega a versão nova; offline usa
    a cópia guardada. Mude a versão para forçar limpeza. */
-const VERSION = 'central-v6';
-const CORE = ['./', './index.html', './manifest.json', './shared/core.css', './shared/core.js', './shared/mesa.js', './shared/melds.js', './games/registry.js',
+const VERSION = 'central-v7';
+const CORE = ['./', './index.html', './manifest.json', './shared/core.css', './shared/core.js', './shared/mesa.js', './shared/melds.js', './shared/peerjs.min.js', './games/registry.js',
   './games/truco.html', './games/canastra.html', './games/pife.html', './games/21.html', './games/paciencia.html', './games/xadrez.html', './games/xadrez-ai.js', './games/damas.html', './games/damas-ai.js',
   './games/ultima.html', './games/domino.html', './games/domino-ai.js', './games/ludo.html', './games/trilha.html', './games/trilha-ai.js', './games/batalha.html', './games/batalha-ai.js', './games/reversi.html', './games/reversi-ai.js', './games/quatro.html', './games/quatro-ai.js', './games/gamao.html', './games/gamao-ai.js', './games/go.html', './games/go-ai.js', './games/mancala.html', './games/mancala-ai.js', './games/restaum.html', './games/restaum-ai.js', './games/senha.html', './games/senha-ai.js',
   './docs/img/icon-192.png'];

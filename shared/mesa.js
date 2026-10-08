@@ -9,6 +9,20 @@
    ===================================================================== */
 "use strict";
 const Mesa = (() => {
+  // PeerJS (salas online) vem junto do site, em shared/peerjs.min.js — funciona também no app Android
+  const MESA_SRC = (document.currentScript && document.currentScript.src) || location.href;
+  let peerLoad = null;
+  function loadPeer(){
+    if(typeof Peer !== 'undefined') return Promise.resolve(true);
+    if(!peerLoad) peerLoad = new Promise(res => {
+      const s = document.createElement('script');
+      s.src = new URL('peerjs.min.js', MESA_SRC).href;
+      s.onload = () => res(typeof Peer !== 'undefined');
+      s.onerror = () => res(false);
+      document.head.appendChild(s);
+    });
+    return peerLoad;
+  }
   const PEER_OPTS = { debug:0, config:{ iceServers:[
     {urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'}]}};
   const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -71,7 +85,8 @@ const Mesa = (() => {
     sync();
     const bots = H.waiting.filter(s => !isHumanSeat(s));
     if(bots.length){
-      const s = bots[0];
+      // vários bots jogando ao mesmo tempo (ex.: disputa simultânea): revezam a vez
+      const s = bots[(H.botRR = ((H.botRR || 0) + 1)) % bots.length];
       const ms = D.botDelay ? D.botDelay(H.state, s, H.opts) : 650;
       H.botTimer = setTimeout(() => {
         if(H.phase !== 'game' || H.busy || !H.waiting.includes(s) || isHumanSeat(s)) return;
@@ -386,7 +401,8 @@ const Mesa = (() => {
     startGame();
   }
   function createRoom(){
-    const name = getName(); if(!name || !checkPeer()) return;
+    const name = getName(); if(!name) return;
+    if(typeof Peer === 'undefined'){ homeMsg('Carregando o modo online...'); loadPeer().then(ok => { if(ok){ homeMsg(''); createRoom(); } else checkPeer(); }); return; }
     H.opts = readOpts('opt_'); lsSet('central.opts.' + D.id, H.opts);
     setBusy(true); homeMsg('Criando sala...');
     const attempt = n => {
@@ -412,7 +428,8 @@ const Mesa = (() => {
     attempt(0);
   }
   function joinRoom(){
-    const name = getName(); if(!name || !checkPeer()) return;
+    const name = getName(); if(!name) return;
+    if(typeof Peer === 'undefined'){ homeMsg('Carregando o modo online...'); loadPeer().then(ok => { if(ok){ homeMsg(''); joinRoom(); } else checkPeer(); }); return; }
     const code = String($('#codeIn').value).toUpperCase().replace(/[^A-Z0-9]/g,'');
     if(code.length !== 5){ homeMsg('O código da sala tem 5 caracteres.'); return; }
     setBusy(true); homeMsg('Conectando na sala ' + code + '...');
@@ -509,10 +526,18 @@ const Mesa = (() => {
     const st = Stats.get(D.id);
     $('#histHome').textContent = (st.w || st.l || st.d) ? `Seu histórico: ${st.w} vitória(s) · ${st.l} derrota(s)${st.d ? ' · ' + st.d + ' empate(s)' : ''}` : '';
     if(location.hash.length > 1 && $('#codeIn')) $('#codeIn').value = location.hash.slice(1).toUpperCase().slice(0,5);
-    checkPeer(); render();
+    // com 1 lugar só (jogos que também têm disputa online), o botão vira "Jogar sozinho"
+    const soloLbl = () => { if(D.solo || !$('#bSolo')) return; const n = D.seats ? D.seats(readOpts('opt_')) : (D.players || 2);
+      $('#bSolo').textContent = n === 1 ? 'Jogar sozinho' : 'Jogar contra bots (offline)'; };
+    (D.options || []).forEach(o => { const el = $('#opt_' + o.key); if(el) el.addEventListener('change', soloLbl); });
+    soloLbl();
+    render();
     let auto = null; try{ auto = sessionStorage.getItem('central.autojoin'); sessionStorage.removeItem('central.autojoin'); }catch(_){}
-    if(auto && $('#codeIn') && CFG.name && typeof Peer !== 'undefined'){ $('#codeIn').value = auto; joinRoom(); }
-    else if(D.solo && qs.get('play') === '1') startSolo();
+    if(D.solo){ if(qs.get('play') === '1') startSolo(); return; }
+    loadPeer().then(() => {
+      checkPeer();
+      if(auto && $('#codeIn') && CFG.name && typeof Peer !== 'undefined'){ $('#codeIn').value = auto; joinRoom(); }
+    });
   }
 
   return { run, ui, _H:H, _NET:NET, _act:act, _step:step, _hostHandle:hostHandle };
