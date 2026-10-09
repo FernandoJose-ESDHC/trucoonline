@@ -66,6 +66,13 @@
 .legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:6px 0}
 .legend span{display:inline-flex;align-items:center;gap:5px;font-size:13px}
 .legend .peg{--s:24px}
+.opp{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:min(600px,96vw)}
+.opp .op{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.28);border-radius:10px;padding:3px 9px;font-size:12.5px;font-weight:700;color:#ffe9c4;border:1px solid rgba(255,255,255,.08)}
+.opp .op.me{border-color:rgba(231,180,58,.6)}
+.opp .op .nm{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.opp .op .tag{font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.12)}
+.opp .op .tag.win{background:var(--nos);color:#06301a}
+.solo1 #bVel,.solo1 #bChat{display:none!important}
 @media (max-width:420px){ .trow{gap:6px;padding:2px 4px} .slots{gap:4px} .fbt{font-size:10px} .fbt b{font-size:11px} .ctrl .lb{display:none} .ctrl .tbtn{padding:9px 12px} .snMsg{font-size:12px} }
 </style>
 </head>
@@ -119,14 +126,17 @@ function pushGuess(st, g){
 }
 
 Mesa.run({
-  id:'senha', name:'Senha', icon:'🔐', solo:true, tagline:'Descubra a combinação de cores',
-  seats: o => o.modo === 'cpu' ? 2 : 1,
+  id:'senha', name:'Senha', icon:'🔐', tagline:'Descubra a combinação de cores — sozinho ou em disputa',
+  seats: o => +o.jogadores > 1 ? +o.jogadores : (o.modo === 'cpu' ? 2 : 1),
   options:[
     {key:'diff', label:'Dificuldade', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
-    {key:'modo', label:'Modo', default:'voce', choices:[['voce','Você adivinha'],['cpu','O computador adivinha']]}
+    {key:'modo', label:'Modo (só eu)', default:'voce', choices:[['voce','Você adivinha'],['cpu','O computador adivinha']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'bots', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
   ],
-  modeLabel: o => (cfgOf(o).nome + ' · ' + (o.modo === 'cpu' ? 'O computador adivinha' : 'Você adivinha')).toUpperCase(),
+  modeLabel: o => (cfgOf(o).nome + ' · ' + (+o.jogadores > 1 ? 'Disputa · bots ' + (NIVEIS[o.bots] || 'Normal') : o.modo === 'cpu' ? 'O computador adivinha' : 'Você adivinha')).toUpperCase(),
   setup(players, o){
+    if(players.length > 1 && +o.jogadores > 1) return setupDispute(players, o);
     const cfg = cfgOf(o), cpu = o.modo === 'cpu';
     const st = {cfg:{P:cfg.P, C:cfg.C, rep:cfg.rep, max:cfg.max}, mode: cpu ? 'cpu' : 'voce', phase: cpu ? 'secret' : 'play',
       secret:null, hist:[], start:null, end:null, hints:0, hint:null, hintSeq:0, note:'', result:null, names:players.map(p => p.name)};
@@ -135,6 +145,7 @@ Mesa.run({
   },
   waiting(st){
     if(st.result) return [];
+    if(st.mode === 'disputa') return st.p.map((ps, s) => ps.out ? -1 : s).filter(s => s >= 0);
     if(st.mode === 'cpu') return [st.phase === 'secret' ? 0 : 1];
     return [0];
   },
@@ -142,6 +153,7 @@ Mesa.run({
   apply(st, seat, a){
     if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
     const cfg = st.cfg, X = ctxOf(cfg);
+    if(st.mode === 'disputa') return applyDispute(st, seat, a);
     // você escolhe a senha (modo "o computador adivinha")
     if(a.t === 'secret'){
       if(st.mode !== 'cpu' || st.phase !== 'secret' || seat !== 0) return {ok:false, err:'Agora não é hora de escolher a senha.'};
@@ -190,15 +202,19 @@ Mesa.run({
     }
     return {ok:false, err:'Jogada inválida.'};
   },
-  bot(st, seat){
+  bot(st, seat, o){
     const X = ctxOf(st.cfg);
+    if(st.mode === 'disputa'){ PACE.delete(st.gid + ':' + seat); return {t:'guess', g:disputeGuess(st, seat, NIVEIS[o && o.bots] ? o.bots : 'normal')}; }
     if(st.mode === 'cpu' && seat === 0) return {t:'secret', g:randomCode(st.cfg)};     // só em teste automático
     const r = SenhaAI.choose(X, st.hist, {mode: seat === 1 ? 'knuth' : 'hint', ms:700});
     return {t:'guess', g:r.g};
   },
-  botFallback(st, seat){ return st.mode === 'cpu' && seat === 0 ? {t:'secret', g:randomCode(st.cfg)} : {t:'guess', g:SenhaAI.toArr(ctxOf(st.cfg), SenhaAI.consistent(ctxOf(st.cfg), st.hist)[0])}; },
-  botDelay(st, seat){ return seat === 1 ? (st.hist.length ? 1300 : 900) : 600; },
+  botFallback(st, seat){ if(st.mode === 'disputa') return {t:'guess', g:SenhaAI.toArr(ctxOf(st.cfg), SenhaAI.consistent(ctxOf(st.cfg), st.p[seat].hist)[0])};
+    return st.mode === 'cpu' && seat === 0 ? {t:'secret', g:randomCode(st.cfg)} : {t:'guess', g:SenhaAI.toArr(ctxOf(st.cfg), SenhaAI.consistent(ctxOf(st.cfg), st.hist)[0])}; },
+  botDelay(st, seat, o){ if(st.mode === 'disputa') return paceDelay(st, seat, o);
+    return seat === 1 ? (st.hist.length ? 1300 : 900) : 600; },
   view(st, seat){
+    if(st.mode === 'disputa') return viewDispute(st, seat);
     const showSecret = !!st.result || (st.mode === 'cpu' && seat === 0);
     return {cfg:st.cfg, mode:st.mode, phase:st.phase, hist:st.hist, secret: showSecret ? st.secret : null, start:st.start, end:st.end,
       hints:st.hints, hint: seat === 0 ? st.hint : null, hintSeq:st.hintSeq, note: seat === 0 ? st.note || '' : '', over:!!st.result, won: !!(st.result && st.result.winners.includes(0))};
@@ -207,9 +223,96 @@ Mesa.run({
     const n = g.hist.length;
     return `<div class="info"><span>🎯 ${Math.min(n + (g.over || g.phase === 'secret' ? 0 : 1), g.cfg.max)}/${g.cfg.max}</span>${g.mode === 'voce' && g.hints ? `<span>💡 ${g.hints}</span>` : ''}<span id="clock"></span></div>`;
   },
-  onEvent(e){ if(e.k === 'start'){ resetDraft(); lastLen = -1; } },
+  onEvent(e, v){ if(e.k === 'start'){ resetDraft(); lastLen = -1; } else if(e.k === 'mysnd' && v && e.seat === v.me && Snd[e.s]) Snd[e.s](); },
   render, rules: rulesHtml
 });
+
+/* ------------------------------ disputa ------------------------------ */
+const NIVEIS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+function setupDispute(players, o){
+  const cfg = cfgOf(o), t = Date.now();
+  const st = {cfg:{P:cfg.P, C:cfg.C, rep:cfg.rep, max:cfg.max}, mode:'disputa', phase:'play', gid:Math.random().toString(36).slice(2, 9),
+    secret:null, start:t, hist:[], hints:0, hint:null, hintSeq:0, note:'', result:null, names:players.map(p => p.name), p:[]};
+  st.secret = randomCode(st.cfg);
+  for(let s=0;s<players.length;s++) st.p.push({hist:[], end:null, out:null, ver:0});
+  return st;
+}
+// classificação: quem acertou (menos tentativas, depois menos tempo); depois os outros
+function rankDispute(st){
+  const sc = ps => ps.out === 'won' ? ps.hist.length : 99;
+  return st.p.map((_, s) => s).sort((a, b) => { const A = st.p[a], B = st.p[b]; return sc(A) - sc(B) || (A.end || 9e15) - (B.end || 9e15); });
+}
+function applyDispute(st, seat, a){
+  const ps = st.p[seat], cfg = st.cfg, X = ctxOf(cfg);
+  if(!ps || ps.out) return {ok:false, err:'Você já terminou esta partida.'};
+  const ev = [];
+  if(a.t === 'giveup'){ ps.out = 'gaveup'; ps.end = Date.now(); ev.push({k:'log', text:`${esc(st.names[seat])} desistiu.`}, {k:'say', seat, text:'Desisto.'}); }
+  else if(a.t === 'guess'){
+    if(!validCode(cfg, a.g)) return {ok:false, err: cfg.rep ? `Preencha as ${cfg.P} casas.` : `Preencha as ${cfg.P} casas com cores diferentes (sem repetir).`};
+    const r = SenhaAI.score(X, a.g, st.secret), h = {g:a.g.slice(), b:r.b, w:r.w};
+    ps.hist.push(h);
+    h.left = SenhaAI.consistent(X, ps.hist).length;
+    const n = ps.hist.length;
+    ev.push({k:'mysnd', seat, s: h.b ? 'capture' : 'move'});
+    if(h.b === cfg.P){
+      ps.out = 'won'; ps.end = Date.now();
+      ev.push({k:'banner', text:`${st.names[seat]} acertou em ${n}!`}, {k:'say', seat, text:`Acertei em ${n}! 🎯`});
+    } else if(n >= cfg.max){ ps.out = 'lost'; ps.end = Date.now(); ev.push({k:'log', text:`${esc(st.names[seat])} gastou as ${n} tentativas.`}); }
+  } else return {ok:false, err: a.t === 'hint' ? 'Na disputa não tem dica.' : 'Jogada inválida.'};
+  ps.ver++;
+  // acaba quando todos terminam ou quando ninguém mais alcança quem está na frente
+  const best = Math.min(...st.p.filter(x => x.out === 'won').map(x => x.hist.length), 99);
+  if(st.p.every(x => x.out || x.hist.length + 1 >= best)){
+    st.end = Date.now();
+    const rk = rankDispute(st), won = st.p[rk[0]].out === 'won';
+    const t = s => fmtTime(st.p[s].end - st.start);
+    const lines = rk.map((s, i) => { const x = st.p[s];
+      return `${x.out === 'won' ? (i+1) + 'º' : '—'} <b>${esc(st.names[s])}</b> — ` + (x.out === 'won' ? `acertou em ${x.hist.length} ${plural(x.hist.length,'tentativa','tentativas')} (${t(s)})`
+        : x.out === 'gaveup' ? 'desistiu' : x.out === 'lost' ? 'não acertou' : `parou em ${x.hist.length} ${plural(x.hist.length,'tentativa','tentativas')}`); });
+    st.result = {winners: won ? [rk[0]] : [], draw:!won, text:`A senha era ${codeHtml(st.secret)}<br><br>${lines.join('<br>')}`};
+  }
+  return {events:ev};
+}
+function viewDispute(st, seat){
+  const ps = st.p[seat] || st.p[0], rk = rankDispute(st);
+  return {cfg:st.cfg, mode:'disputa', phase:'play', hist:ps.hist, secret: st.result ? st.secret : null, start:st.start, end:ps.end || st.end || null,
+    hints:0, hint:null, hintSeq:0, note:'', over:!!st.result || !!ps.out, won:ps.out === 'won', out:ps.out, done:!!st.result,
+    // dos outros: só a contagem de tentativas e se acertaram (nada de cores nem respostas)
+    others:st.p.map((x, s) => ({s, name:st.names[s], n:x.hist.length, out:x.out, pos:rk.indexOf(s) + 1}))};
+}
+// bot: Fácil às vezes esquece uma das respostas; Normal chuta uma combinação ainda possível;
+// Difícil escolhe, entre as possíveis, a que mais divide as opções (o motor da Dica)
+function disputeGuess(st, seat, lvl){
+  const X = ctxOf(st.cfg), hist = st.p[seat].hist;
+  if(!hist.length || lvl === 'dificil') return SenhaAI.choose(X, hist, {mode:'hint', ms:250}).g;
+  let h = hist;
+  if(lvl === 'facil' && hist.length > 1 && Math.random() < 0.4){ const k = Math.floor(Math.random() * (hist.length - 1)); h = hist.filter((_, i) => i !== k); }
+  const tried = new Set(hist.map(x => x.g.join()));
+  const S = SenhaAI.consistent(X, h).filter(c => !tried.has(SenhaAI.toArr(X, c).join()));
+  const pool = S.length ? S : SenhaAI.consistent(X, hist);
+  return SenhaAI.toArr(X, pool[Math.floor(Math.random() * pool.length)]);
+}
+const PACE = new Map(), BOT_MS = {facil:[6000, 13000], normal:[4000, 10000], dificil:[3000, 7500]};
+function paceDelay(st, seat, o){
+  const k = st.gid + ':' + seat, ps = st.p[seat];
+  let P = PACE.get(k);
+  if(!P || P.ver !== ps.ver){
+    const [a, b] = BOT_MS[NIVEIS[o.bots] ? o.bots : 'normal'];
+    if(PACE.size > 40) PACE.clear();
+    P = {ver:ps.ver, due:Date.now() + (a + Math.random() * (b - a)) * CFG.speed}; PACE.set(k, P);
+  }
+  return Math.max(15, P.due - Date.now()) / CFG.speed;
+}
+function isEditing(g, v){
+  if(v.phase !== 'game' || g.over) return false;
+  if(g.mode === 'cpu') return g.phase === 'secret' ? v.me === 0 : v.me === 1;
+  return true;
+}
+function oppHtml(g, v){
+  if(g.mode !== 'disputa') return '';
+  return `<div class="opp">${g.others.slice().sort((a, b) => a.pos - b.pos).map(o => `<div class="op ${o.s === v.me ? 'me' : ''}" data-seat="${o.s}">
+    <span class="nm">${esc(o.s === v.me ? 'Você' : o.name)}</span><span class="tc">🎯 ${o.n}</span>${o.out ? `<span class="tag ${o.out === 'won' ? 'win' : ''}">${o.out === 'won' ? 'acertou' : o.out === 'gaveup' ? 'desistiu' : 'errou'}</span>` : ''}</div>`).join('')}</div>`;
+}
 
 function randomCode(cfg){
   const cols = shuffle([...Array(cfg.C).keys()]);
@@ -222,14 +325,16 @@ function resetDraft(P){ draft = Array(P || 0).fill(null); cursor = 0; hintMark =
 
 function render(g, v, ui){
   const st = ui.stage, cfg = g.cfg, P = cfg.P;
-  const editing = v.phase === 'game' && ((g.mode === 'voce' && !g.over) || (g.mode === 'cpu' && g.phase === 'secret'));
+  const editing = isEditing(g, v);
+  document.body.classList.toggle('solo1', v.seats.length === 1);
+  if(v.seats.length === 1) $('#gmode').textContent = (cfg.P === 5 ? 'DIFÍCIL' : cfg.rep ? 'NORMAL' : 'FÁCIL') + ' · VOCÊ ADIVINHA';
   // rascunho: recomeça a cada tentativa nova
   const key = v.gameNo + ':' + g.hist.length + ':' + g.phase;
   if(key !== draftKey){ draftKey = key; resetDraft(P); }
   if(g.hint && g.hintSeq !== lastHintSeq){ lastHintSeq = g.hintSeq; draft = g.hint.slice(); cursor = P - 1; hintMark = true; }
   // tamanhos a partir do palco
   const W = Math.min(st.clientWidth - 16, 600), H = st.clientHeight - 12;
-  const rowsN = cfg.max + 1;
+  const rowsN = cfg.max + 1 + (g.mode === 'disputa' ? 1 : 0);
   const txw = W < 360 ? 58 : 70;
   const ps = Math.floor(clamp((W - (cfg.C - 1) * 6) / cfg.C, 30, 50));
   const sW = (W - 24 - 22 - txw - 3 * 8 - (P - 1) * 6) / (P + 1.15);
@@ -242,12 +347,12 @@ function render(g, v, ui){
 
   // linha da senha
   let secretRow;
-  if(g.mode === 'cpu' && g.phase === 'secret'){
+  if(g.phase === 'secret'){
     secretRow = `<div class="trow secret cur edit" data-r="s"><span class="num">🔒</span><span class="slots">${draft.map((x,i) => slotHtml(x, i, true)).join('')}</span>
       <span class="slabel" style="grid-column:3/5">Escolha sua senha secreta</span></div>`;
   } else {
     const sec = g.secret;
-    const lbl = g.mode === 'cpu' ? 'Sua senha' : (g.over ? (g.won ? 'Descoberta!' : 'Era esta') : 'Senha secreta');
+    const lbl = g.mode === 'cpu' ? (v.me === 1 ? (g.over ? 'Era esta' : 'Senha do adversário') : 'Sua senha') : (g.over ? (g.won ? 'Descoberta!' : 'Era esta') : 'Senha secreta');
     secretRow = `<div class="trow secret"><span class="num">🔒</span><span class="slots">${Array.from({length:P}, (_,i) => sec ? pegHtml(sec[i]) : '<span class="peg cv" aria-label="escondida">?</span>').join('')}</span>
       <span class="slabel" style="grid-column:3/5">${lbl}</span></div>`;
   }
@@ -259,11 +364,11 @@ function render(g, v, ui){
     if(h){
       const kp = Array(h.b).fill('b').concat(Array(h.w).fill('w'));
       while(kp.length < P) kp.push('');
-      const left = g.mode === 'cpu' || g.over ? `<span class="lf">${h.b === P ? 'acertou' : `${plural(h.left,'resta','restam')} ${h.left}`}</span>` : '';
+      const left = (g.mode === 'cpu' && v.me !== 1) || g.over ? `<span class="lf">${h.b === P ? 'acertou' : `${plural(h.left,'resta','restam')} ${h.left}`}</span>` : '';
       rows += `<div class="trow ${isNew && r === g.hist.length - 1 ? 'new' : ''}"><span class="num">${r+1}</span>${codeHtml(h.g)}
         <span class="fb" role="img" aria-label="${fbText(h.b, h.w)}">${kp.map(c => `<span class="kp ${c}"></span>`).join('')}</span>
         <span class="fbt" aria-hidden="true"><span><b>${h.b}</b> ${plural(h.b,'preto','pretos')}</span><span><b>${h.w}</b> ${plural(h.w,'branco','brancos')}</span>${left}</span></div>`;
-    } else if(r === g.hist.length && g.mode === 'voce' && editing){
+    } else if(r === g.hist.length && g.phase !== 'secret' && editing){
       rows += `<div class="trow cur" data-r="cur"><span class="num">${r+1}</span><span class="slots">${draft.map((x,i) => slotHtml(x, i, true)).join('')}</span>
         <span class="fb">${Array(P).fill('<span class="kp"></span>').join('')}</span><span class="fbt">sua vez</span></div>`;
     } else {
@@ -280,18 +385,19 @@ function render(g, v, ui){
   let ctrl;
   if(!editing){
     const thinking = g.mode === 'cpu' && g.phase === 'cpu' && !g.over && v.phase === 'game';
-    ctrl = `<div class="think">${thinking ? `🤖 O computador está pensando<span class="dots"></span>` : (g.over ? 'Fim de jogo' : '')}</div>`;
-  } else if(g.mode === 'cpu'){
+    const wait = g.mode === 'disputa' && g.out && !g.done ? `Você ${g.out === 'won' ? `acertou em ${g.hist.length} ${plural(g.hist.length,'tentativa','tentativas')}` : g.out === 'gaveup' ? 'desistiu' : 'gastou as tentativas'}. Aguardando os outros…` : '';
+    ctrl = `<div class="think">${thinking ? `🤖 ${v.seats[1] && v.seats[1].human ? esc(v.seats[1].name) + ' está pensando' : 'O computador está pensando'}<span class="dots"></span>` : wait || (g.over ? 'Fim de jogo' : '')}</div>`;
+  } else if(g.phase === 'secret'){
     ctrl = `<div class="ctrl"><button class="tbtn" id="bDel" title="Apagar">⌫<span class="lb"> Apagar</span></button><button class="tbtn" id="bRnd">🎲 Sortear</button>
       <button class="tbtn go" id="bOk" ${full ? '' : 'disabled'}>🔒 Confirmar senha</button></div>`;
   } else {
-    ctrl = `<div class="ctrl"><button class="tbtn" id="bDel" title="Apagar">⌫<span class="lb"> Apagar</span></button><button class="tbtn" id="bHint">💡 Dica</button>
+    ctrl = `<div class="ctrl"><button class="tbtn" id="bDel" title="Apagar">⌫<span class="lb"> Apagar</span></button>${g.mode === 'voce' ? '<button class="tbtn" id="bHint">💡 Dica</button>' : ''}
       <button class="tbtn go" id="bOk" ${full ? '' : 'disabled'}>✔ Conferir</button><button class="tbtn" id="bGive" title="Desistir e ver a senha">🏳️</button></div>`;
   }
-  const msg = !editing ? '' : `<div class="snMsg ${localNote ? 'warn' : ''}" aria-live="polite">${localNote || g.note || (g.mode === 'cpu'
+  const msg = !editing ? '' : `<div class="snMsg ${localNote ? 'warn' : ''}" aria-live="polite">${localNote || g.note || (g.phase === 'secret'
       ? `Monte sua senha secreta${cfg.rep ? '' : ' (sem repetir cores)'} e toque em <b>Confirmar</b>.`
       : `Monte a tentativa${cfg.rep ? '' : ' (sem repetir cores)'} e toque em <b>Conferir</b>.`)}</div>`;
-  st.innerHTML = `<div class="sn"><div class="tray">${secretRow}${rows}</div>${msg}${pal}${ctrl}</div>`;
+  st.innerHTML = `<div class="sn">${oppHtml(g, v)}<div class="tray">${secretRow}${rows}</div>${msg}${pal}${ctrl}</div>`;
 
   // eventos
   $$('[data-slot]', st).forEach(el => el.onclick = () => {
@@ -304,7 +410,7 @@ function render(g, v, ui){
   if($('#bRnd')) $('#bRnd').onclick = () => { draft = randomCode(cfg); cursor = P - 1; ui.rerender(); };
   if($('#bOk')) $('#bOk').onclick = () => submit(ui);
   if($('#bHint')) $('#bHint').onclick = () => ui.act({t:'hint'});
-  if($('#bGive')) $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A senha será revelada e a partida termina.</p>',
+  if($('#bGive')) $('#bGive').onclick = () => modal(`<h2>Desistir?</h2><p>${Mesa.ui.view.game.mode === 'disputa' ? 'Você para de tentar e fica sem pontuar nesta disputa.' : 'A senha será revelada e a partida termina.'}</p>`,
     [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
   startClock(ui);
 }
@@ -335,7 +441,7 @@ function submit(ui){
   const v = Mesa.ui.view; if(!v || !v.game) return;
   if(draft.some(x => x == null)){ localNote = 'Preencha todas as casas primeiro.'; Snd.error(); ui.rerender(); return; }
   localNote = '';
-  ui.act({t: v.game.mode === 'cpu' ? 'secret' : 'guess', g:draft.slice()});
+  ui.act({t: v.game.phase === 'secret' ? 'secret' : 'guess', g:draft.slice()});
 }
 function startClock(ui){
   clearInterval(window._clk);
@@ -346,8 +452,8 @@ function startClock(ui){
 // teclado no PC: 1..8 escolhem cores, Backspace apaga, Enter confere
 document.addEventListener('keydown', e => {
   const v = Mesa.ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show')) return;
-  const g = v.game, editing = (g.mode === 'voce' && !g.over) || (g.mode === 'cpu' && g.phase === 'secret');
-  if(!editing) return;
+  const g = v.game;
+  if(!isEditing(g, v)) return;
   const n = parseInt(e.key, 10);
   if(n >= 1 && n <= g.cfg.C){ pickColor(n - 1, Mesa.ui); e.preventDefault(); }
   else if(e.key === 'Backspace' || e.key === 'Delete'){ erase(Mesa.ui); e.preventDefault(); }
@@ -370,6 +476,11 @@ function rulesHtml(o){
   <h3>Cores</h3><p>Cada cor tem um símbolo, para ninguém confundir:</p><div class="legend">${leg}</div>
   <h3>Dica 💡</h3><p>Sugere uma tentativa que combina com todas as respostas até agora e que divide melhor as possibilidades que sobram.</p>
   <h3>Modo "O computador adivinha"</h3><p>Você escolhe a senha (ou sorteia) e o computador tenta descobrir. A resposta de cada tentativa é calculada automaticamente, sem chance de erro. No Normal ele sempre acerta em até 5 tentativas.</p>
+  <h3>Disputa (2 a 4 jogadores)</h3><ul><li>Todos tentam descobrir <b>a mesma senha sorteada</b>, ao mesmo tempo, cada um no seu tabuleiro.</li>
+  <li>Vence quem acertar com <b>menos tentativas</b>; empate: quem acertou primeiro (tempo).</li>
+  <li>Você só vê dos outros <b>quantas tentativas já usaram</b> e se acertaram — nunca as cores nem as respostas deles.</li>
+  <li>A disputa acaba quando todos terminam (ou quando ninguém mais consegue passar quem está na frente). Na disputa não há <b>Dica</b> nem o modo "O computador adivinha".</li>
+  <li>🏳️ desiste da sua parte. Os bots usam o mesmo motor da Dica, no ritmo de uma pessoa.</li></ul>
   <h3>Fim</h3><p>Você vence se acertar a senha (4 ou 5 pretos) antes de acabarem as tentativas. No fim aparecem a senha, o tempo e o número de tentativas.</p>`;
 }
 </script>

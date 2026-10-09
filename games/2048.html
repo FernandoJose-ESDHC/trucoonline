@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>2048</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:6px 8px 8px}
+.z{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;min-height:0;width:100%}
+/* placar */
+.scores{display:flex;gap:6px;align-items:stretch;justify-content:center;flex-wrap:wrap}
+.sc{background:rgba(0,0,0,.45);border-radius:10px;padding:4px 12px;text-align:center;min-width:76px;position:relative}
+.sc small{display:block;font-size:10px;font-weight:800;letter-spacing:1px;color:#cfe;text-transform:uppercase}
+.sc b{font-size:19px;color:#ffe6a6;font-variant-numeric:tabular-nums}
+.gain{position:absolute;left:0;right:0;top:4px;font-weight:900;color:#9ff0b8;font-size:15px;pointer-events:none;animation:gup .7s ease-out forwards}
+@keyframes gup{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-26px)}}
+.tl{display:flex;gap:6px;justify-content:center}
+.tl .tbtn{font-size:14px;padding:7px 12px;border-radius:10px}
+.msg{text-align:center;font-weight:700;font-size:13px;color:#ffe9c4;min-height:17px}
+/* tabuleiro */
+.bd{position:relative;width:var(--bs);height:var(--bs);flex:none;background:#8a7a62;border-radius:12px;box-shadow:0 10px 26px rgba(0,0,0,.45);touch-action:none;
+  --gp:calc(var(--bs)*.028);--ts:calc((var(--bs) - var(--gp)*5)/4);user-select:none;-webkit-user-select:none}
+.bd .slot{position:absolute;width:var(--ts);height:var(--ts);border-radius:8px;background:rgba(238,228,218,.32)}
+.t{position:absolute;left:0;top:0;width:var(--ts);height:var(--ts);transition:transform .11s ease-in-out;z-index:2;
+  transform:translate(calc(var(--gp) + var(--c)*(var(--ts) + var(--gp))), calc(var(--gp) + var(--r)*(var(--ts) + var(--gp))))}
+.t .in{width:100%;height:100%;border-radius:8px;display:grid;place-items:center;font-weight:900;font-size:calc(var(--ts)*.44);color:#776e65;background:#eee4da;
+  font-variant-numeric:tabular-nums;line-height:1}
+.t.new .in{animation:tnew .2s ease-out .1s backwards}
+.t.mrg{z-index:3} .t.mrg .in{animation:tmrg .2s ease-out .1s backwards}
+.t.gone{z-index:1}
+@keyframes tnew{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes tmrg{0%{transform:scale(0)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+.v2 .in{background:#eee4da}.v3 .in{background:#ede0c8}
+.v4 .in{background:#f2b179;color:#f9f6f2}.v5 .in{background:#f59563;color:#f9f6f2}.v6 .in{background:#f67c5f;color:#f9f6f2}.v7 .in{background:#f65e3b;color:#f9f6f2}
+.v8 .in{background:#edcf72;color:#f9f6f2;font-size:calc(var(--ts)*.38);box-shadow:0 0 12px 2px rgba(243,215,116,.3)}
+.v9 .in{background:#edcc61;color:#f9f6f2;font-size:calc(var(--ts)*.38);box-shadow:0 0 14px 3px rgba(243,215,116,.4)}
+.v10 .in{background:#edc850;color:#f9f6f2;font-size:calc(var(--ts)*.38);box-shadow:0 0 16px 4px rgba(243,215,116,.5)}
+.v11 .in{background:#edc53f;color:#f9f6f2;font-size:calc(var(--ts)*.32);box-shadow:0 0 20px 6px rgba(243,215,116,.6)}
+.v12 .in{background:#edc22e;color:#f9f6f2;font-size:calc(var(--ts)*.32);box-shadow:0 0 22px 7px rgba(243,215,116,.7)}
+.vx .in{background:#3c3a32;color:#f9f6f2;font-size:calc(var(--ts)*.28)}
+.cover{position:absolute;inset:0;border-radius:12px;background:rgba(20,16,10,.55);display:grid;place-items:center;z-index:5;text-align:center;color:#fff;font-weight:900;font-size:22px;padding:10px}
+.cover small{display:block;font-size:13px;font-weight:700;opacity:.85;margin-top:4px}
+.keys{font-size:12px;opacity:.75;text-align:center}
+@media (max-width:720px){ .sc{min-width:64px;padding:3px 9px} .sc b{font-size:17px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="2048-ai.js"></script>
+<script>
+"use strict";
+const A = AI2048;
+const maxTile = b => Math.max(0, ...b);
+
+function newPlayer(seed){
+  const p = {b:new Array(16).fill(0), ids:new Array(16).fill(0), nid:1, rng:seed, score:0, moves:0, done:false, res:null, won:false, undo:null, last:null, at:Date.now()};
+  for(let k=0;k<2;k++){ const i = A.spawn(p); p.ids[i] = p.nid++; }
+  p.last = {n:0, gone:[], merged:[], spawn:p.ids.filter(Boolean)};
+  return p;
+}
+function result(st){
+  const p = st.p[0]; if(!p.done) return null;
+  const big = 1 << maxTile(p.b);
+  return {winners:p.won ? [0] : [], text:`${p.won ? '🎉 Você chegou a 2048!' : 'Fim de jogo.'} Pontuação: <b>${p.score}</b> · maior peça: <b>${big}</b> · ${p.moves} jogadas.`};
+}
+
+/* ---------- bot (testes automáticos): expectimax ---------- */
+const PACE = {facil:1150, normal:780, dificil:540};
+const PLAN = {};
+function botPlan(st, s, o){
+  const p = st.p[s], key = st.gid + ':' + s + ':' + p.moves + ':' + (p.undo ? 1 : 0);
+  if(PLAN[s] && PLAN[s].key === key) return PLAN[s];
+  const lvl = o.diff || 'normal', d = A.choose(p.b, lvl);
+  // pensa mais quando o tabuleiro aperta
+  const tight = A.emptyCount(p.b) <= 3 ? 1.6 : A.emptyCount(p.b) <= 6 ? 1.2 : 1;
+  const ms = (PACE[lvl] || PACE.normal) * tight * (0.7 + Math.random()*0.6);
+  return PLAN[s] = {key, a:d == null ? {t:'stop'} : {t:'move', d}, ms};
+}
+
+Mesa.run({
+  id:'2048', name:'2048', icon:'🟨', tagline:'Junte as peças iguais até chegar ao 2048',
+  options:[
+    {key:'desfazer', label:'Desfazer', default:'sim', choices:[['sim','Pode desfazer a última jogada'],['nao','Sem desfazer']]}
+  ],
+  solo:true, players:1,
+  setup(players, o){
+    // as peças novas saem de um sorteio com semente guardada no estado (o desfazer não muda a peça que vem)
+    return {undo:o.desfazer !== 'nao', gid:Math.floor(Math.random()*1e9), p:[newPlayer(Math.floor(Math.random()*2**31))]};
+  },
+  waiting(st){ return st.p[0].done ? [] : [0]; },
+  over(st){ return result(st); },
+  apply(st, s, a){
+    const p = st.p[s];
+    if(!a || typeof a !== 'object' || !p) return {ok:false, err:'Jogada inválida.'};
+    if(p.done) return {ok:false, err:'Você já terminou.'};
+    const fx = sn => ({k:'snd', s:sn});
+    if(a.t === 'move'){
+      const d = a.d;
+      if(!Number.isInteger(d) || d < 0 || d > 3) return {ok:false, err:'Direção inválida.'};
+      const r = A.slide(p.b, p.ids, d, p.nid);
+      if(!r) return {events:[]};               // nada se mexe nessa direção
+      if(st.undo) p.undo = {b:p.b, ids:p.ids, nid:p.nid, rng:p.rng, score:p.score, moves:p.moves, won:p.won};
+      p.b = r.b; p.ids = r.ids; p.nid = r.nid; p.score += r.gain; p.moves++; p.at = Date.now();
+      const i = A.spawn(p); if(i >= 0) p.ids[i] = p.nid++;
+      p.last = {n:p.moves, gone:r.gone, merged:r.merged, spawn:i >= 0 ? [p.ids[i]] : [], gain:r.gain};
+      const ev = [fx(r.gain ? 'card' : 'move')];
+      if(!p.won && maxTile(p.b) >= 11){
+        p.won = true;
+        ev.push({k:'banner', text:'2048! Continue jogando'}, fx('win'));
+      }
+      if(!A.canMove(p.b)){
+        // sem desfazer disponível, travou de vez; com desfazer, ainda pode voltar (ou encerrar)
+        if(!(st.undo && p.undo)) stuck(st, s, ev);
+      }
+      return {events:ev};
+    }
+    if(a.t === 'undo'){
+      if(!st.undo || !p.undo) return {ok:false, err:'Não há jogada para desfazer.'};
+      Object.assign(p, p.undo); p.undo = null; p.at = Date.now();
+      p.last = {n:p.moves, gone:[], merged:[], spawn:[], undo:true};
+      return {events:[fx('move')]};
+    }
+    if(a.t === 'stop'){
+      stuck(st, s, [], true);
+      return {events:[]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, s, o){
+    const p = st.p[s];
+    // sem lance: desfaz (se puder e ainda não desfez) ou encerra
+    if(!A.canMove(p.b)) return {t:'stop'};
+    return botPlan(st, s, o).a;
+  },
+  botDelay(st, s, o){ const r = botPlan(st, s, o); return Math.max(40, (st.p[s].at + r.ms*CFG.speed - Date.now()) / CFG.speed); },
+  botFallback(){ return {t:'stop'}; },
+  view(st, s){
+    const me = st.p[s];
+    return {
+      gid:st.gid, undoOpt:st.undo,
+      b:me ? me.b : [], ids:me ? me.ids : [], score:me ? me.score : 0, moves:me ? me.moves : 0, done:me ? me.done : true, res:me ? me.res : null,
+      won:me ? me.won : false, last:me ? me.last : null, canUndo:!!(me && me.undo && !me.done), stuck:!!(me && !me.done && !A.canMove(me.b))
+    };
+  },
+  render, topInfo,
+  onEvent(e){ if(e.k === 'start') built = null; },
+  rules: `<h3>Objetivo</h3><p>Deslizar as peças para juntar números iguais e chegar à peça <b>2048</b> (e além!).</p>
+  <h3>Como jogar</h3><ul>
+  <li>Use as <b>setas</b> do teclado (ou W A S D) no PC, ou <b>arraste o dedo</b> no tabuleiro no celular. Todas as peças andam para aquele lado.</li>
+  <li>Duas peças iguais que se encontram viram uma só, com o dobro do valor — e esse valor entra na sua <b>pontuação</b>.</li>
+  <li>A cada jogada aparece uma peça nova (2, ou às vezes 4) numa casa vazia.</li>
+  <li>Chegou a 2048? Pode <b>continuar jogando</b> para fazer mais pontos.</li>
+  <li>O jogo acaba quando não há mais nenhum movimento possível. Seu <b>recorde</b> fica guardado neste aparelho.</li>
+  <li><b>↶ Desfazer</b> (opção): volta só a última jogada, uma vez — e a peça que aparece depois é a mesma, então não adianta tentar a sorte.</li></ul>`
+});
+function stuck(st, s, ev, quit){
+  const p = st.p[s]; if(p.done) return;
+  p.done = true; p.res = quit ? 'quit' : 'stuck';
+  ev.push({k:'banner', text:quit ? 'Fim de jogo' : 'Sem movimentos!', bad:!p.won});
+}
+
+/* ------------------------------ interface ------------------------------ */
+let built = null, tiles = new Map(), lastN = -1, curUi = null, rec = 0;
+const REC_KEY = 'central.2048.recorde';
+function topInfo(g){ return `<div class="status">${g.moves} jogadas</div>`; }
+const vcls = e => 'v' + (e <= 12 ? e : 'x');
+
+function build(g, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight;
+  const top = 56 + 44 + 30;
+  const bs = Math.max(220, Math.min(W - 16, H - top, 560));
+  st.innerHTML = `<div class="z">
+    <div class="scores"><div class="sc"><small>Pontos</small><b id="sScore">0</b></div>
+      <div class="sc"><small>Recorde</small><b id="sRec">0</b></div></div>
+    <div class="tl">${g.undoOpt ? '<button class="tbtn" id="bUndo">↶ Desfazer</button>' : ''}<button class="tbtn" id="bStop">🏁 Encerrar</button></div>
+    <div class="bd" id="bd" style="--bs:${bs}px">${[...Array(16)].map((_,i) => `<div class="slot" style="left:calc(var(--gp) + ${i%4}*(var(--ts) + var(--gp)));top:calc(var(--gp) + ${Math.floor(i/4)}*(var(--ts) + var(--gp)))"></div>`).join('')}</div>
+    <div class="msg" id="zMsg"></div></div>`;
+  tiles = new Map(); lastN = -1;
+  rec = +(lsGet(REC_KEY) || 0);
+  const bd = $('#bd');
+  // gestos: arrastar no tabuleiro
+  let s0 = null;
+  bd.addEventListener('pointerdown', e => { s0 = {x:e.clientX, y:e.clientY}; try{ bd.setPointerCapture(e.pointerId); }catch(_){} });
+  bd.addEventListener('pointerup', e => {
+    if(!s0) return; const dx = e.clientX - s0.x, dy = e.clientY - s0.y; s0 = null;
+    if(Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+  });
+  bd.addEventListener('pointercancel', () => s0 = null);
+  if($('#bUndo')) $('#bUndo').onclick = () => ui.act({t:'undo'});
+  $('#bStop').onclick = () => modal('<h2>Encerrar o jogo?</h2><p>A partida termina com a pontuação atual.</p>',
+    [{label:'Encerrar', cls:'b-up', fn:() => ui.act({t:'stop'})}, {label:'Continuar', cls:'b-no'}]);
+}
+function move(d){
+  const ui = curUi, v = ui && ui.view, g = v && v.game;
+  if(!g || g.done || v.phase !== 'game') return;
+  ui.act({t:'move', d});
+}
+function tileEl(id, e){
+  const el = document.createElement('div'); el.className = 't ' + vcls(e); el.dataset.id = id;
+  el.innerHTML = `<div class="in">${1 << e}</div>`; return el;
+}
+const place = (el, i) => { el.style.setProperty('--r', Math.floor(i/4)); el.style.setProperty('--c', i%4); };
+function render(g, v, ui){
+  curUi = ui;
+  const st = ui.stage, key = [g.gid, st.clientWidth, st.clientHeight].join(',');
+  if(built !== key || !$('#bd')){ built = key; build(g, ui); }
+  const bd = $('#bd'), L = g.last || {n:-1, gone:[], merged:[], spawn:[]};
+  const fresh = L.n === lastN + 1 && !L.undo;      // jogada nova: anima; senão, só posiciona
+  const now = new Map(); g.ids.forEach((id, i) => { if(id) now.set(id, i); });
+  // peças que somem: deslizam até a casa da fusão e saem
+  const goneTo = new Map(fresh ? L.gone : []);
+  tiles.forEach((el, id) => {
+    if(now.has(id)) return;
+    tiles.delete(id);
+    if(goneTo.has(id)){ el.classList.add('gone'); place(el, goneTo.get(id)); setTimeout(() => el.remove(), 130); }
+    else el.remove();
+  });
+  now.forEach((i, id) => {
+    let el = tiles.get(id);
+    if(!el){
+      el = tileEl(id, g.b[i]); place(el, i);
+      if(fresh || lastN < 0) el.classList.add(L.merged.includes(id) ? 'mrg' : 'new');
+      bd.appendChild(el); tiles.set(id, el);
+    } else place(el, i);
+  });
+  if(L.n !== lastN && fresh && L.gain){
+    const sc = $('#sScore').parentNode, gEl = document.createElement('div'); gEl.className = 'gain'; gEl.textContent = '+' + L.gain;
+    sc.appendChild(gEl); setTimeout(() => gEl.remove(), 700);
+  }
+  lastN = L.n;
+  $('#sScore').textContent = g.score;
+  if(g.score > rec){ rec = g.score; lsSet(REC_KEY, rec); }
+  $('#sRec').textContent = rec;
+  if($('#bUndo')) $('#bUndo').disabled = !g.canUndo || v.phase !== 'game';
+  $('#bStop').disabled = g.done || v.phase !== 'game';
+  // capa de fim / travado
+  const cov = $('.cover', bd);
+  const ctext = g.done ? (g.res === 'quit' ? 'Jogo encerrado' : 'Sem movimentos!') + `<small>${g.score} pontos</small>`
+    : g.stuck ? 'Sem movimentos!<small>Desfaça a última jogada ou encerre.</small>' : '';
+  if(ctext){ if(cov) cov.innerHTML = ctext; else bd.insertAdjacentHTML('beforeend', `<div class="cover">${ctext}</div>`); }
+  else if(cov) cov.remove();
+  $('#zMsg').innerHTML = g.done || g.moves ? '' : (matchMedia('(pointer:coarse)').matches ? 'Arraste o dedo no tabuleiro para mover as peças.' : 'Use as setas (ou W A S D) para mover as peças.');
+}
+document.addEventListener('keydown', e => {
+  if($('#modal.show') || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const d = {ArrowUp:0, ArrowRight:1, ArrowDown:2, ArrowLeft:3, w:0, d:1, s:2, a:3, W:0, D:1, S:2, A:3}[e.key];
+  if(d != null){ e.preventDefault(); move(d); }
+  else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && curUi){ e.preventDefault(); curUi.act({t:'undo'}); }
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

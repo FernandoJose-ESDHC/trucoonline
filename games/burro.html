@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Burro</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px 8px;gap:4px}
+.tbl{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);gap:6px}
+.otop{grid-column:1/-1;display:flex;justify-content:center;gap:6px}
+.oside{display:flex;flex-direction:column;justify-content:center;gap:8px}
+.opp{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:4px 8px 5px;text-align:center;font-weight:800;font-size:12px;width:var(--ow);position:relative;transition:border-color .2s}
+.opp .onm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .oc{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px;font-size:15px;color:#ffe6a6}
+.opp .vd{font-size:10px;color:#cfe;font-weight:700;min-height:13px}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite;background:rgba(0,0,0,.45)}
+.opp.out{opacity:.6}
+.opp.out .oc{color:var(--nos);font-size:12px}
+.opp.burro{border-color:var(--eles)}
+.mback{width:14px;height:20px;border-radius:3px;background:linear-gradient(135deg,#8e1b22,#5a0e14);border:2px solid #f4ead2;box-shadow:0 1px 3px rgba(0,0,0,.5);flex:none}
+.ctr{grid-column:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;position:relative}
+.midrow{display:flex;align-items:center;justify-content:center;gap:calc(var(--tw)*.4);max-width:100%}
+.pile{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#cfe;font-weight:700;flex:none}
+.pile .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.pile .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.trick{display:flex;align-items:flex-end;justify-content:center;min-height:calc(var(--tw)*1.43 + 16px);min-width:calc(var(--tw)*1.2);max-width:100%}
+.tc{display:flex;flex-direction:column;align-items:center;gap:2px;margin-left:var(--tov)}
+.tc:first-child{margin-left:0}
+.tc .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.tc .who{font-size:10px;font-weight:800;color:#cfe;max-width:max(14px,calc(var(--tw) + var(--tov) - 2px));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #000}
+.tc:last-child .who{max-width:calc(var(--tw)*1.2)}
+.tc.best .card{box-shadow:0 0 0 3px var(--gold),0 0 14px rgba(231,180,58,.7)}
+.trick.old .card{opacity:.5}
+.trick.tight .tc:not(:last-child) .who{visibility:hidden}
+.chip{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.35);border-radius:12px;padding:2px 9px;font-size:12px;font-weight:800;color:#e3f3ea}
+.chip b{font-size:16px} .chip b.red{color:#ff8a8a}
+.mine{display:flex;flex-direction:column;align-items:center;gap:4px}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:38px}
+.ctl button{padding:9px 14px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer}
+.myname{font-size:12px;font-weight:800;color:#bff5d4;padding:2px 10px;border-radius:12px;border:2px solid transparent}
+.myname.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.hand{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:14px}
+.hrow{display:flex;justify-content:center;max-width:100%}
+.hrow .card{margin-left:var(--ov)} .hrow .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer;box-shadow:0 0 0 2px rgba(231,180,58,.9),0 3px 8px rgba(0,0,0,.45);transform:translateY(-8px)}
+.hand .card.no{filter:brightness(.62) saturate(.7)}
+.hand .card.nova{box-shadow:0 0 0 3px #fff,0 0 12px #fff}
+@media (hover:hover){ .hand .card.ok:hover{transform:translateY(-14px)} }
+.score{font-size:13px;font-weight:800;color:#ffe6a6;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.donebox{background:rgba(0,0,0,.4);border:2px solid var(--nos);border-radius:14px;padding:10px 14px;text-align:center;font-weight:800;color:#bff5d4}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================ BURRO ================================
+   Siga o naipe da mesa; quem não tem compra do monte até achar (monte vazio:
+   recolhe a vaza). A maior carta do naipe começa a próxima. Quem ficar com
+   cartas por último é o burro. Cartas no estado = números: naipe*13 + valor
+   (0 = 2 … 12 = Ás).                                                     */
+const R13 = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SSYM = ['♣','♥','♠','♦'], SNM = ['Paus','Copas','Espadas','Ouros'];
+const suitOf = i => (i / 13) | 0;
+const toCard = i => ({r:R13[i % 13], s:SSYM[suitOf(i)], id:'c' + i});
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const MAXMOVES = 3000;
+
+const activeSeats = s => s.hands.map((h, i) => h.length ? i : -1).filter(i => i >= 0);
+function nextActive(s, from){ for(let k=0;k<s.n;k++){ const q = (from + k) % s.n; if(s.hands[q].length) return q; } return -1; }
+function startTrick(s, leader){
+  const L = nextActive(s, leader);
+  s.trick = []; s.leader = L; s.order = [];
+  for(let k=0;k<s.n;k++){ const q = (L + k) % s.n; if(s.hands[q].length) s.order.push(q); }
+  s.turn = L;
+}
+function trickBest(s){ const S = suitOf(s.trick[0][1]); let b = s.trick[0]; for(const t of s.trick) if(suitOf(t[1]) === S && t[1] > b[1]) b = t; return b; }
+function checkEnd(s){
+  const a = activeSeats(s);
+  if(a.length <= 1 || s.moves > MAXMOVES){
+    s.phase = 'end';
+    if(a.length === 1) s.burro = a[0];
+    else if(a.length > 1){ let m = a[0]; for(const q of a) if(s.hands[q].length > s.hands[m].length) m = q; s.burro = m; }
+    else s.burro = -1;
+    return true;
+  }
+  return false;
+}
+// ações: {t:'play', c} · {t:'buy'} · {t:'take'}  — devolve texto de erro ou null
+function canPlay(s, p, c){
+  const h = s.hands[p]; if(!h.includes(c)) return 'Essa carta não está na sua mão.';
+  if(s.trick.length){ const S = suitOf(s.trick[0][1]); if(suitOf(c) !== S && h.some(x => suitOf(x) === S)) return `Você tem ${SNM[S]}: é obrigatório seguir o naipe.`;
+    if(suitOf(c) !== S) return `Você não tem ${SNM[S]}: compre do monte${s.monte.length ? '' : ' (vazio: recolha a vaza)'}.`; }
+  return null;
+}
+function doPlay(s, p, c, ev){
+  const h = s.hands[p]; h.splice(h.indexOf(c), 1);
+  const kn = s.known[p].indexOf(c); if(kn >= 0) s.known[p].splice(kn, 1);
+  s.trick.push([p, c]); s.order.shift(); s.moves++;
+  if(!h.length){ s.out.push(p); ev && ev.push({k:'banner', text:`${s.names[p]} saiu! ${s.out.length}º lugar`}, {k:'log', text:`<b>${esc(s.names[p])}</b> ficou sem cartas (${s.out.length}º).`}); }
+  if(checkEnd(s)) return;
+  if(!s.order.length){
+    const b = trickBest(s);
+    s.shown = {cards:s.trick.slice(), best:b[0], took:-1};
+    for(const t of s.trick) s.disc.push(t[1]);
+    startTrick(s, b[0]);
+    ev && ev.push({k:'say', seat:b[0], text:'maior!'});
+  } else s.turn = s.order[0];
+}
+function doTake(s, p, ev){
+  const S = suitOf(s.trick[0][1]), b = trickBest(s);
+  s.shown = {cards:s.trick.slice(), best:b[0], took:p};
+  for(const t of s.trick){ s.hands[p].push(t[1]); s.known[p].push(t[1]); }
+  s.voids[p][S] = 0; s.moves++;
+  ev && ev.push({k:'snd', s:'capture'}, {k:'say', seat:p, text:`+${s.trick.length} cartas`}, {k:'log', text:`${esc(s.names[p])} não tinha ${SNM[S]} e recolheu a vaza (${s.trick.length}).`});
+  startTrick(s, b[0]);
+}
+function doBuy(s, p, ev){
+  const S = suitOf(s.trick[0][1]); let k = 0;
+  s.voids[p] = [0,0,0,0]; s.voids[p][S] = 1;       // cartas novas e escondidas: só sabemos que não tinha o naipe
+  while(s.monte.length){ const c = s.monte.pop(); s.hands[p].push(c); k++; if(suitOf(c) === S) break; }
+  s.bought = {p, k, seq:(s.bought ? s.bought.seq : 0) + 1};
+  ev && ev.push({k:'snd', s:'deal'}, {k:'log', text:`${esc(s.names[p])} comprou ${k} carta${k > 1 ? 's' : ''}.`});
+  if(!s.hands[p].some(x => suitOf(x) === S)) doTake(s, p, ev);   // monte acabou sem o naipe
+}
+function applyAct(s, p, a, ev){
+  if(s.phase !== 'play') return 'A partida terminou.';
+  if(p !== s.turn) return 'Não é a sua vez.';
+  const has = !s.trick.length || s.hands[p].some(x => suitOf(x) === suitOf(s.trick[0][1]));
+  if(a.t === 'play'){ const e = canPlay(s, p, a.c); if(e) return e; doPlay(s, p, a.c, ev); return null; }
+  if(a.t === 'buy'){ if(has) return 'Você tem carta do naipe: jogue uma delas.'; if(!s.monte.length) return 'O monte acabou: recolha a vaza.'; doBuy(s, p, ev); return null; }
+  if(a.t === 'take'){ if(has) return 'Você tem carta do naipe: jogue uma delas.'; if(s.monte.length) return 'Ainda há monte: compre até achar o naipe.'; doTake(s, p, ev); return null; }
+  return 'Jogada inválida.';
+}
+
+/* ---------------------------- MOTOR DO BOT ----------------------------
+   Probabilidades com contagem: cartas descartadas, cartas recolhidas (todos
+   viram) e naipes que cada um mostrou não ter. Saída: escolhe o naipe que
+   mais faz os outros comprarem/recolherem; seguindo: decide se vale ganhar
+   a vaza (para ter a saída) ou largar a carta mais baixa.                */
+function knowledge(s, p, smart){
+  const vis = new Uint8Array(52);
+  for(const c of s.hands[p]) vis[c] = 1;
+  for(const c of s.disc) vis[c] = 1;
+  for(const t of s.trick) vis[t[1]] = 1;
+  if(smart) s.known.forEach((k, q) => { if(q !== p) k.forEach(c => vis[c] = 1); });
+  const U = [0,0,0,0]; let N = 0;
+  for(let i=0;i<52;i++) if(!vis[i]){ U[suitOf(i)]++; N++; }
+  return {vis, U, N, smart};
+}
+function pHas(s, K, q, S){
+  if(K.smart){ if(s.known[q].some(c => suitOf(c) === S)) return 1; if(s.voids[q][S]) return 0; }
+  const u = s.hands[q].length - (K.smart ? s.known[q].length : 0);
+  if(u <= 0 || !K.N) return 0;
+  return 1 - Math.pow(Math.max(0, 1 - K.U[S] / K.N), u);
+}
+// dano esperado nos que vêm depois se a vaza for do naipe S (já com 'played' cartas na mesa)
+function harm(s, K, p, S, after, played){
+  let alive = 1, H = 0;
+  for(const q of after){
+    const ph = pHas(s, K, q, S);
+    if(s.monte.length){ const E = Math.min(s.monte.length, K.N / (K.U[S] + 1)); H += (1 - ph) * Math.max(0, E - 1); }
+    else { H += alive * (1 - ph) * (played + 1); alive *= ph; played++; }
+  }
+  return H;
+}
+function leadValue(s, K, p, hand){
+  const others = []; for(let k=1;k<s.n;k++){ const q = (p + k) % s.n; if(s.hands[q].length) others.push(q); }
+  let best = 0;
+  for(let S=0;S<4;S++) if(hand.some(c => suitOf(c) === S)) best = Math.max(best, harm(s, K, p, S, others, 1));
+  return best;
+}
+function burroBot(s, p, diff){
+  const h = s.hands[p];
+  if(s.trick.length){
+    const S = suitOf(s.trick[0][1]), mine = h.filter(c => suitOf(c) === S);
+    if(!mine.length) return s.monte.length ? {t:'buy'} : {t:'take'};
+    if(mine.length === 1) return {t:'play', c:mine[0]};
+    if(diff === 'facil') return {t:'play', c: Math.random() < .7 ? Math.min(...mine) : pick(mine)};
+    const K = knowledge(s, p, diff === 'dificil');
+    const best = trickBest(s)[1], win = mine.filter(c => c > best), low = Math.min(...mine);
+    if(!win.length) return {t:'play', c:low};
+    const after = s.order.slice(1);
+    // vale ficar com a saída? compara com o que sobra na mão
+    const lowW = Math.min(...win);
+    const vl = leadValue(s, K, p, h.filter(c => c !== lowW));
+    let pKeep = 1;
+    for(const q of after){ const hi = 13 - (lowW % 13) - 1; let unk = 0; for(let r=lowW%13+1;r<13;r++) if(!K.vis[S*13 + r]) unk++;
+      pKeep *= 1 - pHas(s, K, q, S) * Math.min(1, unk / Math.max(1, K.U[S])) * .7; void hi; }
+    // se alguém depois pode recolher, o maior da vaza também sai na próxima
+    if(vl * pKeep > .6) return {t:'play', c:lowW};
+    return {t:'play', c:low};
+  }
+  // ---- saída ----
+  if(diff === 'facil'){ const S = suitOf(pick(h)); return {t:'play', c:Math.min(...h.filter(c => suitOf(c) === S))}; }
+  const K = knowledge(s, p, diff === 'dificil');
+  const after = s.order.slice(1);
+  let bc = h[0], bv = -1e9;
+  for(const c of h){
+    const S = suitOf(c), r = c % 13;
+    let v = harm(s, K, p, S, after, 1);
+    // ganhar a própria saída mantém a vez de sair
+    const LW = K.smart ? -.3 : .5, RW = K.smart ? .2 : .02;   // (ajustados em milhares de partidas)
+    let hiUnk = 0; for(let x=r+1;x<13;x++) if(!K.vis[S*13 + x]) hiUnk++;
+    const pWin = K.U[S] ? Math.pow(1 - hiUnk / K.U[S], Math.min(3, after.length)) : 1;
+    const rest = h.filter(x => x !== c);
+    v += pWin * leadValue(s, K, p, rest) * LW;
+    const cntS = h.filter(x => suitOf(x) === S).length;
+    v += (cntS === 1 ? .3 : 0) - r * RW;                        // zerar um naipe e sair baixo
+    if(v > bv){ bv = v; bc = c; }
+  }
+  return {t:'play', c:bc};
+}
+
+/* ------------------------------- REGRAS -------------------------------- */
+const DIFFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+Mesa.run({
+  id:'burro', name:'Burro', icon:'🫏', tagline:'Siga o naipe e não fique por último',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'cartas', label:'Cartas na mão', default:'7', choices:[['5','5'],['7','7']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => clamp(+o.seats || 4, 2, 6),
+  seatLabel: s => 'Jogador ' + (s + 1),
+  modeLabel: o => (o.seats || 4) + ' JOG. · ' + (DIFFS[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length, k = +o.cartas === 5 ? 5 : 7;
+    const d = shuffle([...Array(52).keys()]);
+    const s = {n, names:players.map(p => p.name), hands:[], monte:null, disc:[], known:players.map(() => []), voids:players.map(() => [0,0,0,0]),
+      out:[], phase:'play', moves:0, burro:-1, shown:null, bought:null};
+    for(let i=0;i<n;i++) s.hands.push(d.splice(0, k));
+    s.monte = d;
+    startTrick(s, Math.floor(Math.random() * n));
+    return s;
+  },
+  startEvents(s){ return [{k:'snd', s:'deal'}, {k:'log', text:`Começa ${esc(s.names[s.turn])}.`}]; },
+  waiting(s){ return s.phase === 'play' ? [s.turn] : []; },
+  over(s){
+    if(s.phase !== 'end') return null;
+    const w = [...Array(s.n).keys()].filter(i => i !== s.burro);
+    const ord = s.out.map((q, i) => `${i + 1}º ${esc(s.names[q])}`).join(' · ');
+    return {winners:w, text:(s.burro >= 0 ? `🫏 <b>${esc(s.names[s.burro])}</b> ficou com cartas e é o burro!` : 'Todos saíram juntos.') + (ord ? `<br><small>${ord}</small>` : '')};
+  },
+  apply(s, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    let act = a;
+    if(a.t === 'play'){ const m = /^c(\d+)$/.exec(String(a.id || '')); if(!m) return {ok:false, err:'Carta inválida.'}; act = {t:'play', c:+m[1]}; }
+    const before = s.trick.length, ev = [];
+    const err = applyAct(s, seat, act, ev);
+    if(err) return {ok:false, err};
+    ev.unshift({k:'snd', s:'card'});
+    if(s.phase === 'end'){ ev.push({k:'banner', text: s.burro >= 0 ? `${s.names[s.burro]} é o burro! 🫏` : 'Fim!', bad:true}); return {events:ev, pause:900}; }
+    // vaza fechada ou recolhida: pausa para todos verem
+    const closed = before > 0 && !s.trick.length && act.t !== 'buy' || (act.t === 'buy' && !s.trick.length);
+    return {events:ev, pause: closed ? 1100 : 0};
+  },
+  bot(s, seat, o){ const a = burroBot(s, seat, o.diff); return a.t === 'play' ? {t:'play', id:'c' + a.c} : a; },
+  botDelay(s, seat, o){ return s.trick.length && !s.hands[seat].some(x => suitOf(x) === suitOf(s.trick[0][1])) ? 900 : 700; },
+  view(s, seat){
+    const me = seat >= 0 && seat < s.n;
+    const S = s.trick.length ? suitOf(s.trick[0][1]) : -1;
+    return {n:s.n, names:s.names, hand: me ? s.hands[seat].map(toCard) : [], counts:s.hands.map(h => h.length), monte:s.monte.length,
+      trick:s.trick.map(t => ({p:t[0], c:toCard(t[1])})), lead:S, turn:s.turn, out:s.out, phase:s.phase, burro:s.burro,
+      shown: s.shown ? {cards:s.shown.cards.map(t => ({p:t[0], c:toCard(t[1])})), best:s.shown.best, took:s.shown.took} : null,
+      bought:s.bought, voids:s.voids, known:s.known.map(k => k.length), disc:s.disc.length,
+      best: s.trick.length ? trickBest(s)[0] : -1,
+      need: me && s.turn === seat && S >= 0 && !s.hands[seat].some(x => suitOf(x) === S) ? (s.monte.length ? 'buy' : 'take') : null};
+  },
+  topInfo(g, v){ return `<div class="score"><span>Monte: ${g.monte}</span><span>Você: ${g.counts[v.me]} carta${g.counts[v.me] === 1 ? '' : 's'}</span>${g.out.length ? `<span>Saíram: ${g.out.length}</span>` : ''}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Livrar-se de todas as cartas. <b>Quem ficar com cartas por último é o burro</b> (perde); todos os outros vencem.</p>
+  <h3>Preparação</h3><p>Baralho de 52 cartas, de 2 a 6 jogadores. Cada um recebe 7 cartas (ou 5, se escolhido); o resto fica no centro, virado para baixo: é o <b>monte</b>. A ordem das cartas é Ás (maior), Rei, Dama, Valete, 10 … 2 (menor).</p>
+  <h3>Como jogar</h3><ol><li>Quem começa a vaza (a "saída") joga <b>qualquer carta</b>. O naipe dela é o naipe da vaza.</li>
+  <li>Em sentido horário, cada um joga <b>uma carta do mesmo naipe</b> (seguir o naipe é obrigatório).</li>
+  <li>Quem <b>não tem o naipe compra do monte</b>, uma carta de cada vez, até tirar uma do naipe — e joga essa carta.</li>
+  <li>Se o <b>monte acabou</b> e você não tem o naipe, você <b>recolhe a vaza</b>: todas as cartas jogadas nela vão para a sua mão e a vaza termina ali.</li>
+  <li>Quando todos jogaram, as cartas da vaza saem do jogo. <b>Quem jogou a maior carta do naipe</b> começa a próxima vaza (o mesmo vale quando alguém recolhe a vaza).</li>
+  <li>Quem fica sem cartas <b>sai</b> e está salvo — não compra mais. Se quem jogou a maior carta já saiu, a saída passa para o próximo jogador com cartas.</li></ol>
+  <h3>Dicas</h3><ul><li>Saia com naipes que os outros não têm: eles terão de comprar (ou recolher).</li>
+  <li>Cartas altas ganham vazas e dão a saída; guarde-as para quando a saída valer a pena.</li>
+  <li>Preste atenção em quem comprou: ele não tinha aquele naipe. As cartas recolhidas todo mundo viu.</li></ul>
+  <h3>Bots</h3><p>Contam as cartas que saíram, lembram quem ficou sem cada naipe e o que cada um recolheu, e calculam qual saída faz os outros comprarem mais. O Difícil usa toda essa memória; o Fácil joga de forma simples.</p>`,
+  render(g, v, ui){ renderBurro(g, v, ui); }
+});
+
+/* ------------------------------ INTERFACE ------------------------------ */
+let myRects = new Map(), prevCenter = new Set(), prevHand = new Set(), lastBuy = 0, novas = new Set();
+function layoutOpps(k){ if(k <= 3) return [0, k, 0]; if(k === 4) return [1, 2, 1]; return [1, 3, 1]; }
+function oppHTML(g, v, i){
+  const cls = ['opp'], out = g.out.indexOf(i);
+  if(i === g.turn && g.phase === 'play') cls.push('vez');
+  if(out >= 0) cls.push('out');
+  if(g.phase === 'end' && g.burro === i) cls.push('burro');
+  const vd = g.voids[i].map((x, s) => x ? SSYM[s] : '').join('');
+  return `<div class="${cls.join(' ')}" data-seat="${i}"><div class="onm">${esc(g.names[i])}</div>
+    <div class="oc">${out >= 0 ? `🏁 ${out + 1}º` : g.phase === 'end' && g.burro === i ? `🫏 ${g.counts[i]}` : `<span class="mback"></span>${g.counts[i]}`}</div>
+    <div class="vd">${vd && out < 0 ? 'sem ' + vd : ''}</div></div>`;
+}
+const sortKey = c => [0,2,3,1][SSYM.indexOf(c.s)] * 13 + R13.indexOf(c.r);
+function renderBurro(g, v, ui){
+  const st = ui.stage, me = v.me, W = st.clientWidth, H = st.clientHeight, n = g.n;
+  const myTurn = ui.isMyTurn() && g.phase === 'play' && g.turn === me;
+  myRects = new Map($$('.hand .card', st).map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  if(!st.querySelector('.tbl')){
+    st.innerHTML = `<div class="tbl"><div class="otop" id="oT"></div><div class="oside" id="oL"></div>
+      <div class="ctr" id="ctr"></div><div class="oside" id="oR"></div></div>
+      <div class="mine"><div class="status" id="stt"></div><div class="ctl" id="ctl"></div><div class="hand" id="hand" data-seat="${me}"></div></div>`;
+    prevCenter = new Set(); prevHand = new Set(); lastBuy = g.bought ? g.bought.seq : 0;
+  }
+  const hn = Math.max(1, g.hand.length);
+  let cw = Math.floor(clamp(Math.min(W / 5.4, H / 6.4), 46, 92));
+  const fits = (k, w) => k <= 1 || (W - 16 - w) / (k - 1) >= w * .4;
+  let rows = 1;
+  if(!fits(hn, cw)){ rows = 2; while(!fits(Math.ceil(hn / 2), cw) && cw > 44) cw -= 2; }
+  if(!fits(Math.ceil(hn / rows), cw)) rows = 3;
+  const ch = Math.round(cw * 1.43);
+  const [nl, nt, nr] = layoutOpps(n - 1);
+  let ow = Math.floor(clamp((W - 16 - (nt - 1) * 6) / Math.max(nt, 1), 64, 124));
+  if(nl) ow = Math.min(ow, Math.floor(clamp(W * .21, 64, 124)));
+  const tw = Math.floor(clamp(Math.min((W - 16 - (nl ? 2 * ow + 12 : 0)) / 4, (H - ch * rows - 190) / 2.4), 36, 80));
+  st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', ch + 'px');
+  st.style.setProperty('--tw', tw + 'px'); st.style.setProperty('--ow', ow + 'px');
+  const order = []; for(let j=1;j<n;j++) order.push((me + j) % n);
+  const L = order.slice(0, nl).reverse(), T = order.slice(nl, nl + nt), R = order.slice(nl + nt);
+  $('#oL').innerHTML = L.map(i => oppHTML(g, v, i)).join(''); $('#oL').style.display = nl ? '' : 'none';
+  $('#oT').innerHTML = T.map(i => oppHTML(g, v, i)).join('');
+  $('#oR').innerHTML = R.map(i => oppHTML(g, v, i)).join(''); $('#oR').style.display = nr ? '' : 'none';
+  // centro: monte + vaza
+  const old = !g.trick.length && g.shown;
+  const cards = g.trick.length ? g.trick : (g.shown ? g.shown.cards : []);
+  const bestSeat = g.trick.length ? g.best : (g.shown ? g.shown.best : -1);
+  const ctrW = ($('#ctr').clientWidth || W) - tw * 1.4 - 20;
+  const k = Math.max(1, cards.length);
+  const tov = k > 1 ? Math.min(4, (ctrW - tw * 1.1) / (k - 1) - tw * 1.1) : 0;
+  st.style.setProperty('--tov', Math.floor(tov) + 'px');
+  const center = new Set();
+  const th = cards.map(t => { center.add(t.c.id);
+    return `<div class="tc ${t.p === bestSeat ? 'best' : ''}" data-p="${t.p}">${cardEl(t.c).outerHTML.replace('<div ', `<div data-id="${t.c.id}" `)}<span class="who">${esc(t.p === me ? 'Você' : g.names[t.p])}</span></div>`; }).join('');
+  const canBuy = myTurn && g.need === 'buy';
+  const lead = g.trick.length ? `<span class="chip">Naipe: <b class="${g.lead % 2 ? 'red' : ''}">${SSYM[g.lead]}</b> ${SNM[g.lead]} · maior: ${esc(g.best === me ? 'você' : g.names[g.best])}</span>` : '';
+  let info = lead;
+  if(old) info = `<span class="chip">${g.shown.took >= 0 ? esc(g.shown.took === me ? 'Você' : g.names[g.shown.took]) + ' recolheu a vaza' : esc(g.shown.best === me ? 'Você' : g.names[g.shown.best]) + ' jogou a maior e sai'}</span>`;
+  $('#ctr').innerHTML = `<div class="midrow"><div class="pile" id="pMonte">${g.monte ? `<div class="card back ${canBuy ? 'go' : ''}" id="monteCard"></div>` : '<div class="card slot"></div>'}<span>Monte (${g.monte})</span></div>
+    <div class="trick ${old ? 'old' : ''} ${tov < -tw * .5 ? 'tight' : ''}" id="trick">${th}</div></div><div>${info}</div>`;
+  if(canBuy) $('#monteCard').onclick = () => ui.act({t:'buy'});
+  $$('#trick .tc', st).forEach(el => {
+    const cEl = el.querySelector('.card'), id = cEl.dataset.id; if(prevCenter.has(id)) return;
+    const p = +el.dataset.p;
+    const src = p === me ? myRects.get(id) : (st.querySelector(`.opp[data-seat="${p}"]`) || null);
+    const from = src && src.getBoundingClientRect ? src.getBoundingClientRect() : src;
+    if(from) flyFrom(cEl, from, {dur:320});
+  });
+  prevCenter = center;
+  // minha mão
+  const hand = $('#hand');
+  const newBuy = g.bought && g.bought.seq !== lastBuy && g.bought.p === me; lastBuy = g.bought ? g.bought.seq : 0;
+  const ids = new Set(g.hand.map(c => c.id));
+  if(g.hand.length < prevHand.size) novas.clear();
+  if(prevHand.size) g.hand.forEach(c => { if(!prevHand.has(c.id)) novas.add(c.id); });
+  [...novas].forEach(id => { if(!ids.has(id)) novas.delete(id); });
+  const hs = g.hand.slice().sort((a, b) => sortKey(a) - sortKey(b));
+  const per = Math.ceil(hs.length / rows) || 1;
+  const ov = per > 1 ? Math.min(cw * .12, (W - 16 - cw) / (per - 1) - cw) : 0;
+  hand.style.setProperty('--ov', Math.floor(ov) + 'px');
+  hand.innerHTML = '';
+  const S = g.lead, hasS = S >= 0 && g.hand.some(c => SSYM.indexOf(c.s) === S);
+  if(g.out.includes(me)) hand.innerHTML = `<div class="donebox">🏁 Você saiu em ${g.out.indexOf(me) + 1}º lugar! Agora é só assistir.</div>`;
+  for(let r0=0;r0<hs.length;r0+=per){
+    const row = document.createElement('div'); row.className = 'hrow';
+    hs.slice(r0, r0 + per).forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      const ok = myTurn && (!g.trick.length || (hasS && SSYM.indexOf(c.s) === S));
+      if(myTurn){ if(ok){ el.classList.add('ok'); el.onclick = () => ui.act({t:'play', id:c.id}); } else el.classList.add('no'); }
+      if(novas.has(c.id)) el.classList.add('nova');
+      row.appendChild(el);
+      if(newBuy && prevHand.size && !prevHand.has(c.id)) flyFrom(el, $('#pMonte').getBoundingClientRect(), {dur:420});
+    });
+    hand.appendChild(row);
+  }
+  prevHand = ids;
+  // controles
+  let ch2 = '';
+  if(myTurn && g.need === 'buy') ch2 = `<button class="b-y" id="bBuy">Comprar do monte</button>`;
+  if(myTurn && g.need === 'take') ch2 = `<button class="b-up" id="bTake">Recolher a vaza (${g.trick.length})</button>`;
+  $('#ctl').innerHTML = ch2;
+  if($('#bBuy')) $('#bBuy').onclick = () => ui.act({t:'buy'});
+  if($('#bTake')) $('#bTake').onclick = () => ui.act({t:'take'});
+  let s = '';
+  if(g.phase === 'end') s = g.burro === me ? 'Você é o burro! 🫏' : 'Fim de jogo';
+  else if(myTurn){
+    if(!g.trick.length) s = 'Sua saída — jogue qualquer carta';
+    else if(g.need === 'buy') s = `Sem ${SNM[S]}: compre do monte até achar`;
+    else if(g.need === 'take') s = `Sem ${SNM[S]} e sem monte: recolha a vaza`;
+    else s = `Sua vez — jogue ${SNM[S]}`;
+  } else if(!g.out.includes(me)) s = 'Vez de ' + (g.names[g.turn] || '');
+  $('#stt').textContent = s;
+}
+</script>
+</body>
+</html>

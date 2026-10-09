@@ -28,6 +28,21 @@
 .ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
 .info{display:flex;gap:14px;font-weight:800;font-size:14px;color:#ffe6a6}
 .shake{animation:shake .35s}
+/* disputa: painel dos adversários */
+.opp{width:100%;max-width:820px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+.opp .op{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.28);border-radius:10px;padding:4px 9px;font-size:12.5px;font-weight:700;color:#ffe9c4;
+  border:1px solid rgba(255,255,255,.08);max-width:100%}
+.opp .op.me{border-color:rgba(231,180,58,.6)}
+.opp .op .nm{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.opp .op .fc{color:var(--gold);font-variant-numeric:tabular-nums}
+.opp .op .bar{width:46px;height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.opp .op .bar i{display:block;height:100%;background:var(--gold)}
+.opp .op .tag{font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.12)}
+.opp .op .tag.win{background:var(--nos);color:#06301a}
+.opp .op.out{opacity:.65}
+.dMsg{max-width:820px;text-align:center;font-weight:700;font-size:13.5px;color:#ffe9c4;background:rgba(0,0,0,.28);border-radius:10px;padding:7px 10px;margin:0 auto 8px}
+.board.done{opacity:.6;pointer-events:none}
+.solo1 #bVel,.solo1 #bChat{display:none!important}
 @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 </style>
 </head>
@@ -38,6 +53,8 @@
 "use strict";
 const RV = r => RANKS13.indexOf(r) + 1;           // A=1 … K=13
 const FOUND_SUITS = ['♥','♠','♦','♣'];
+const NIVEIS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+// cada jogador tem o seu "jogo" (ps); na disputa todos começam com a mesma distribuição
 function dealKlondike(){
   const d = shuffle(makeDeck({ranks:RANKS13}));
   const tab = [];
@@ -57,6 +74,7 @@ const snapshot = st => JSON.stringify({stock:st.stock, waste:st.waste, found:st.
 function pushHist(st){ st.hist.push(snapshot(st)); if(st.hist.length > 200) st.hist.shift(); }
 function flipTops(st){ st.tab.forEach(col => { if(col.length && !lastOf(col).up){ lastOf(col).up = true; st.score += 5; } }); }
 function canAuto(st){ return !st.stock.length && !st.waste.length && st.tab.every(col => col.every(x => x.up)); }
+const nFound = ps => ps.found.reduce((a, f) => a + f.length, 0);
 function bestTarget(st, from){
   // retorna destino para a(s) carta(s) a partir de from = {p, i, k}
   let cards;
@@ -82,122 +100,371 @@ function doMove(st, from, to){
   st.moves++;
   flipTops(st);
 }
+const isInt = (x, a, b) => Number.isInteger(x) && x >= a && x <= b;
+
+/* --------------------------- disputa ---------------------------------- */
+// classificação: quem completou primeiro; depois mais cartas nas fundações
+// (desempate: quem chegou primeiro àquela contagem)
+function ranking(st){
+  return st.p.map((ps, s) => ({s, ps})).sort((a, b) => {
+    const wa = a.ps.out === 'won', wb = b.ps.out === 'won';
+    if(wa !== wb) return wa ? -1 : 1;
+    if(wa) return a.ps.end - b.ps.end;
+    const fa = nFound(a.ps), fb = nFound(b.ps);
+    if(fa !== fb) return fb - fa;
+    return (a.ps.reach[fa] || 0) - (b.ps.reach[fb] || 0);
+  }).map(x => x.s);
+}
+function markReach(ps){ const n = nFound(ps); if(ps.reach[n] == null) ps.reach[n] = Date.now(); }
+const STATUS = {won:'completou', stuck:'travou', gaveup:'desistiu'};
+function finishPlayer(st, seat, how, ev){
+  const ps = st.p[seat]; ps.out = how; ps.end = Date.now();
+  const nm = st.names[seat];
+  if(how === 'won'){
+    st.endAt = ps.end;
+    ev.push({k:'banner', text:`${nm} completou!`}, {k:'say', seat, text:'Completei! 🏆'});
+    st.done = true;
+  } else {
+    ev.push({k:'log', text:`${esc(nm)} ${STATUS[how]} com ${nFound(ps)} cartas nas fundações.`}, {k:'say', seat, text: how === 'stuck' ? 'Travei…' : 'Desisto.'});
+    if(st.p.every(x => x.out)){ st.done = true; st.endAt = ps.end; }
+  }
+}
+
+/* ------------------------------ bot ------------------------------------ */
+// Joga só com o que um jogador vê: cartas viradas para baixo são desconhecidas.
+// Testa sequências curtas de jogadas (1 a 3, conforme o nível) e escolhe a que mais
+// melhora a posição: abrir cartas viradas, subir para as fundações, tirar cartas do monte.
+function simOf(ps){
+  return {tab:ps.tab.map(col => col.map(x => x.up ? {c:x.c, up:true} : {c:null, up:false})),
+    waste:ps.waste.map(x => x.c), found:ps.found.map(f => f.length ? RV(lastOf(f).c.r) : 0), left:ps.stock.length + ps.waste.length};
+}
+const fitTab = (col, c) => !col.length ? c.r === 'K' : (lastOf(col).up && lastOf(col).c && isRed(lastOf(col).c) !== isRed(c) && RV(lastOf(col).c.r) === RV(c.r) + 1);
+const fitFound = (S, c) => S.found[FOUND_SUITS.indexOf(c.s)] === RV(c.r) - 1;
+function simMoves(S, lvl){
+  const out = [];
+  const w = lastOf(S.waste);
+  if(w){
+    if(fitFound(S, w)) out.push({from:{p:'w'}, to:{p:'f', i:FOUND_SUITS.indexOf(w.s)}});
+    for(let j=0;j<7;j++) if(fitTab(S.tab[j], w)) out.push({from:{p:'w'}, to:{p:'t', i:j}});
+  }
+  for(let i=0;i<7;i++){
+    const col = S.tab[i];
+    for(let k=0;k<col.length;k++){
+      const x = col[k]; if(!x.up || !x.c) continue;
+      if(k === col.length - 1 && fitFound(S, x.c)) out.push({from:{p:'t', i, k}, to:{p:'f', i:FOUND_SUITS.indexOf(x.c.s)}});
+      for(let j=0;j<7;j++){
+        if(j === i || !fitTab(S.tab[j], x.c)) continue;
+        if(!S.tab[j].length && k === 0) continue;          // rei de uma coluna vazia para outra: inútil
+        out.push({from:{p:'t', i, k}, to:{p:'t', i:j}});
+      }
+    }
+  }
+  if(BOTP.fdown[lvl]) for(let f=0;f<4;f++){            // descer carta da fundação (raro, só para destravar)
+    const r = S.found[f]; if(r < 3) continue;
+    const c = {r:RANKS13[r-1], s:FOUND_SUITS[f]};
+    for(let j=0;j<7;j++) if(S.tab[j].length && fitTab(S.tab[j], c)) out.push({from:{p:'f', i:f}, to:{p:'t', i:j}});
+  }
+  return out;
+}
+function simApply(S, m){
+  const T = {tab:S.tab.map(c => c.slice()), waste:S.waste.slice(), found:S.found.slice(), left:S.left};
+  let cards;
+  if(m.from.p === 'w'){ cards = [{c:T.waste.pop(), up:true}]; T.left--; }
+  else if(m.from.p === 'f'){ const r = T.found[m.from.i]; cards = [{c:{r:RANKS13[r-1], s:FOUND_SUITS[m.from.i]}, up:true}]; T.found[m.from.i] = r - 1; }
+  else cards = T.tab[m.from.i].splice(m.from.k);
+  if(m.to.p === 'f') T.found[m.to.i]++;
+  else T.tab[m.to.i] = T.tab[m.to.i].concat(cards);
+  // carta que vira: desconhecida (a simulação não "espia")
+  if(m.from.p === 't'){ const col = T.tab[m.from.i]; if(col.length && !lastOf(col).up) col[col.length-1] = {c:null, up:true}; }
+  return T;
+}
+function simEval(S){
+  let v = 0, empty = 0;
+  for(const col of S.tab){
+    let down = 0; for(const x of col) if(!x.up) down++;
+    v -= down * 15 + down * down * 0.4;
+    if(!col.length) empty++;
+  }
+  for(let f=0;f<4;f++) v += S.found[f] * 10;
+  // fundação "adiantada" demais (a carta ainda faria falta na mesa): pequeno desconto
+  const red = Math.min(S.found[0], S.found[2]), black = Math.min(S.found[1], S.found[3]);
+  for(let f=0;f<4;f++){ const opp = f % 2 ? red : black; if(S.found[f] > opp + 2) v -= (S.found[f] - opp - 2) * W_.adv; }
+  v += empty * W_.empty - S.left * W_.left;
+  return v;
+}
+const simKey = S => S.tab.map(c => c.map(x => x.up ? (x.c ? x.c.r + x.c.s : '?') : '#').join('')).join('|') + '/' + S.found.join(',') + '/' + S.waste.length + '/' + S.left;
+const W_ = {adv:3, empty:0, left:2};
+const BOTP = {depth:{facil:2, normal:2, dificil:3}, fdown:{dificil:true}, miss:{facil:0.4}};
+const BOTMEM = new Map();          // posições já vistas por cada bot (evita ir e voltar)
+function memOf(st, seat){ const k = st.gid + ':' + seat; let m = BOTMEM.get(k); if(!m){ if(BOTMEM.size > 40) BOTMEM.clear(); m = new Set(); BOTMEM.set(k, m); } return m; }
+function botChoose(st, seat, lvl){
+  const ps = st.p[seat];
+  if(canAuto(ps)) return {t:'auto'};
+  const S = simOf(ps), base = simEval(S), seen = memOf(st, seat);
+  seen.add(simKey(S));
+  const depth = BOTP.depth[lvl];
+  let best = null, bestV = base + 0.5;
+  const ms = simMoves(S, lvl);
+  for(const m of ms){
+    const T = simApply(S, m), key = simKey(T);
+    if(seen.has(key)) continue;
+    let v = simEval(T);
+    if(depth > 1){
+      for(const m2 of simMoves(T, lvl)){
+        const U = simApply(T, m2); let v2 = simEval(U) - 0.3;
+        if(depth > 2) for(const m3 of simMoves(U, lvl)){ const v3 = simEval(simApply(U, m3)) - 0.6; if(v3 > v2) v2 = v3; }
+        if(v2 > v) v = v2;
+      }
+    }
+    // desempate: prefere mexer na coluna com mais cartas viradas
+    if(m.from.p === 't') v += S.tab[m.from.i].filter(x => !x.up).length * 0.01;
+    if(v > bestV){ bestV = v; best = m; }
+  }
+  // o Fácil às vezes "não enxerga" uma jogada boa (menos subir carta para a fundação)
+  if(best && BOTP.miss[lvl] && best.to.p !== 'f' && Math.random() < BOTP.miss[lvl]) best = null;
+  if(best){ seen.add(simKey(simApply(S, best))); return {t:'tap', from:best.from, to:best.to}; }
+  if(ps.stock.length || ps.waste.length) return {t:'draw'};
+  return {t:'giveup'};
+}
+// ritmo humano: cada bot tem o seu "relógio" (os bots jogam ao mesmo tempo, revezando)
+const PACE = new Map();
+const BOT_MS = {facil:{draw:1300, move:2600}, normal:{draw:850, move:1700}, dificil:{draw:650, move:1250}};
+function paceOf(st, seat, o){
+  const k = st.gid + ':' + seat, ps = st.p[seat];
+  let P = PACE.get(k);
+  if(!P || P.ver !== ps.ver){
+    const lvl = NIVEIS[o.diff] ? o.diff : 'normal';
+    const a = botChoose(st, seat, lvl), T = BOT_MS[lvl];
+    const base = a.t === 'auto' ? 320 : a.t === 'draw' ? T.draw : a.t === 'giveup' ? 2500 : T.move;
+    if(PACE.size > 40) PACE.clear();
+    P = {ver:ps.ver, a, due:Date.now() + base * (0.7 + Math.random() * 0.6) * CFG.speed};
+    PACE.set(k, P);
+  }
+  return P;
+}
 
 Mesa.run({
-  id:'paciencia', name:'Paciência', icon:'🂮', solo:true, players:1, tagline:'Klondike — para jogar sozinho',
-  options:[{key:'draw', label:'Virar do monte', default:'1', choices:[['1','1 carta (mais fácil)'],['3','3 cartas (clássico)']]}],
-  modeLabel: o => o.draw === '3' ? 'VIRA 3' : 'VIRA 1',
-  setup(){ return dealKlondike(); },
-  waiting(st){ return [0]; },
+  id:'paciencia', name:'Paciência', icon:'🂮', tagline:'Klondike — sozinho ou em disputa',
+  seats: o => +o.jogadores || 1,
+  options:[
+    {key:'draw', label:'Virar do monte', default:'1', choices:[['1','1 carta (mais fácil)'],['3','3 cartas (clássico)']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => (+o.jogadores > 1 ? `DISPUTA · BOT ${(NIVEIS[o.diff] || 'Normal').toUpperCase()} · ` : 'SOZINHO · ') + (o.draw === '3' ? 'VIRA 3' : 'VIRA 1'),
+  setup(players, o){
+    const n = players.length, d = dealKlondike();
+    const st = {n, gid:Math.random().toString(36).slice(2, 9), names:players.map(p => p.name), done:false, p:[]};
+    const js = JSON.stringify(d);
+    for(let s=0;s<n;s++){ const ps = JSON.parse(js); Object.assign(ps, {ver:0, idle:0, out:null, end:null, reach:[Date.now()]}); st.p.push(ps); }
+    return st;
+  },
+  waiting(st){ if(st.done) return []; return st.p.map((ps, s) => ps.out ? -1 : s).filter(s => s >= 0); },
   over(st){
-    if(st.found.every(f => f.length === 13)){
-      const secs = Math.round((Date.now() - st.start)/1000);
-      return {winners:[0], text:`Você completou em <b>${st.moves}</b> jogadas e <b>${Math.floor(secs/60)}min ${secs%60}s</b>. Pontos: <b>${st.score}</b>.`};
+    if(st.n === 1){
+      const ps = st.p[0];
+      if(ps.found.every(f => f.length === 13)){
+        const secs = Math.round((Date.now() - ps.start)/1000);
+        return {winners:[0], text:`Você completou em <b>${ps.moves}</b> jogadas e <b>${Math.floor(secs/60)}min ${secs%60}s</b>. Pontos: <b>${ps.score}</b>.`};
+      }
+      return null;
     }
-    return null;
+    if(!st.done) return null;
+    const rk = ranking(st), top = st.p[rk[0]];
+    const secs = s => { const t = Math.round(((st.p[s].end || Date.now()) - st.p[s].start) / 1000); return `${Math.floor(t/60)}min ${String(t%60).padStart(2,'0')}s`; };
+    const lines = rk.map((s, i) => { const ps = st.p[s];
+      return `${i+1}º <b>${esc(st.names[s])}</b> — ${ps.out === 'won' ? `completou em ${secs(s)}` : `${nFound(ps)} cartas nas fundações` + (ps.out ? ` (${STATUS[ps.out]})` : ' (ainda jogando)')}`; });
+    const head = top.out === 'won' ? `<b>${esc(st.names[rk[0]])}</b> completou a paciência primeiro!` : 'Ninguém completou: vence quem pôs mais cartas nas fundações.';
+    return {winners:[rk[0]], text:head + '<br><br>' + lines.join('<br>')};
   },
   apply(st, seat, a, opts){
-    if(!a) return {ok:false};
-    const n = opts.draw === '3' ? 3 : 1;
-    if(a.t === 'draw'){
-      pushHist(st);
-      if(!st.stock.length){
-        if(!st.waste.length){ st.hist.pop(); return {ok:false, err:'O monte acabou.'}; }
-        st.stock = st.waste.reverse().map(x => ({c:x.c, up:false})); st.waste = []; st.passes++;
-        if(n === 1) st.score = Math.max(0, st.score - 100);
-        return {events:[{k:'snd', s:'deal'}]};
-      }
-      for(let i=0;i<n && st.stock.length;i++){ const x = st.stock.pop(); x.up = true; st.waste.push(x); }
-      st.moves++;
-      return {events:[{k:'snd', s:'card'}]};
+    if(!a || typeof a !== 'object' || st.done) return {ok:false};
+    const ps = st.p[seat];
+    if(!ps || ps.out) return {ok:false, err:'Você já terminou esta partida.'};
+    const dispute = st.n > 1;
+    if(a.t === 'giveup' && !dispute) return {ok:false};
+    const r = applyMove(ps, a, opts);
+    if(!r || r.ok === false) return r || {ok:false};
+    ps.ver++;
+    const ev = r.events || [];
+    if(dispute){
+      markReach(ps);
+      if(a.t === 'draw'){
+        if(r.recycled){ ps.idle++; if(ps.idle >= 3){ finishPlayer(st, seat, 'stuck', ev); ev.push({k:'toast', seat, text:'Você passou o monte duas vezes sem jogar: travou.'}); } }
+      } else ps.idle = 0;
+      if(a.t === 'giveup') finishPlayer(st, seat, 'gaveup', ev);
+      else if(!ps.out && ps.found.every(f => f.length === 13)) finishPlayer(st, seat, 'won', ev);
     }
-    if(a.t === 'tap'){
-      const from = a.from; if(!from || !['w','t','f'].includes(from.p)) return {ok:false};
-      if(from.p === 'w' && !st.waste.length) return {ok:false};
-      if(from.p === 't' && (!st.tab[from.i] || !st.tab[from.i][from.k] || !st.tab[from.i][from.k].up)) return {ok:false};
-      if(from.p === 'f' && !st.found[from.i].length) return {ok:false};
-      const to = a.to || bestTarget(st, from);
-      if(!to) return {ok:false, err:'Essa carta não tem para onde ir.'};
-      // valida destino explícito
-      const card = from.p === 'w' ? lastOf(st.waste).c : from.p === 'f' ? lastOf(st.found[from.i]).c : st.tab[from.i][from.k].c;
-      const many = from.p === 't' ? st.tab[from.i].length - from.k : 1;
-      if(to.p === 'f' && (many > 1 || !canFound(st, card))) return {ok:false, err:'Não pode ir para essa pilha.'};
-      if(to.p === 't' && !canTab(st.tab[to.i], card)) return {ok:false, err:'Não pode ir para essa coluna.'};
-      pushHist(st); doMove(st, from, to);
-      return {events:[{k:'snd', s: to.p === 'f' ? 'move' : 'card'}, {k:'moved', to}]};
-    }
-    if(a.t === 'undo'){
-      const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
-      Object.assign(st, JSON.parse(h)); st.score = Math.max(0, st.score - 2);
-      return {events:[]};
-    }
-    if(a.t === 'auto'){
-      if(!canAuto(st)) return {ok:false};
-      let best = null;
-      for(let i=0;i<7;i++){ const col = st.tab[i]; if(col.length && canFound(st, lastOf(col).c) && (!best || RV(lastOf(col).c.r) < best.v)) best = {i, v:RV(lastOf(col).c.r)}; }
-      if(!best) return {ok:false};
-      doMove(st, {p:'t', i:best.i, k:st.tab[best.i].length-1}, {p:'f', i:FOUND_SUITS.indexOf(lastOf(st.tab[best.i]).c.s)});
-      return {events:[{k:'snd', s:'move'}]};
-    }
-    return {ok:false};
+    return {events:ev};
   },
-  bot(){ return null; },
-  view(st){
-    return { stock:st.stock.length, waste:st.waste.map(x => x.c), found:st.found.map(f => f.map(x => x.c)),
-      tab:st.tab.map(col => col.map(x => x.up ? x.c : null)), moves:st.moves, score:st.score, start:st.start, undo:st.hist.length > 0, auto:canAuto(st) };
+  bot(st, seat, o){
+    const k = st.gid + ':' + seat, P = PACE.get(k);
+    PACE.delete(k);
+    if(P && P.ver === st.p[seat].ver) return P.a;
+    return botChoose(st, seat, NIVEIS[o && o.diff] ? o.diff : 'normal');
+  },
+  botDelay(st, seat, o){ const P = paceOf(st, seat, o); return Math.max(15, P.due - Date.now()) / CFG.speed; },
+  botFallback(st, seat){ const ps = st.p[seat]; return ps.stock.length || ps.waste.length ? {t:'draw'} : {t:'giveup'}; },
+  view(st, seat){
+    const ps = st.p[seat] || st.p[0];
+    const g = { stock:ps.stock.length, waste:ps.waste.map(x => x.c), found:ps.found.map(f => f.map(x => x.c)),
+      tab:ps.tab.map(col => col.map(x => x.up ? x.c : null)), moves:ps.moves, score:ps.score, start:ps.start, undo:ps.hist.length > 0, auto:canAuto(ps) };
+    if(st.n > 1){
+      // dos outros só vai o placar: nada de cartas
+      g.dispute = true; g.out = ps.out; g.end = ps.end || st.endAt || null;
+      const rk = ranking(st);
+      g.others = st.p.map((x, s) => ({s, name:st.names[s], f:nFound(x), out:x.out, pos:rk.indexOf(s) + 1}));
+    }
+    return g;
   },
   topInfo(g){ return `<div class="info"><span>🃏 ${g.moves} jogadas</span><span>⭐ ${g.score}</span><span id="clock"></span></div>`; },
-  onEvent(e){ if(e.k === 'start'){ lastKeys = {}; } },
-  render(g, v, ui){
-    const st = ui.stage;
-    const W = Math.min(st.clientWidth - 12, 820);
-    const cw = Math.floor(clamp((W - 6*8) / 7, 38, 96));
-    st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
-    if(!st.querySelector('.board')){
-      st.innerHTML = `<div class="board"><div class="toprow">
-          <div class="pile stock" id="pStock" data-l="↻"></div><div class="pile waste3" id="pWaste"></div><div></div>
-          ${[0,1,2,3].map(i => `<div class="pile found" id="pF${i}" data-l="${FOUND_SUITS[i]}"></div>`).join('')}
-        </div><div class="tabrow">${[0,1,2,3,4,5,6].map(i => `<div class="col" id="pT${i}"></div>`).join('')}</div>
-        <div class="ctrl"><button class="tbtn" id="bUndo">↶ Desfazer</button><button class="tbtn" id="bAuto">⚡ Completar</button><button class="tbtn" id="bNew">🔄 Novo jogo</button></div></div>`;
-      $('#pStock').onclick = () => ui.act({t:'draw'});
-      $('#bUndo').onclick = () => ui.act({t:'undo'});
-      $('#bAuto').onclick = () => autoRun(ui);
-      $('#bNew').onclick = () => modal('<h2>Novo jogo?</h2><p>O jogo atual será abandonado.</p>', [{label:'Novo jogo', fn:() => location.reload()}, {label:'Continuar', cls:'b-no'}]);
-      clearInterval(window._clk);
-      window._clk = setInterval(() => { const c = $('#clock'); if(c && ui.view && ui.view.game){ const s = Math.round((Date.now() - ui.view.game.start)/1000); c.textContent = `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; } }, 1000);
-    }
-    // monte
-    const ps = $('#pStock'); ps.innerHTML = ''; ps.classList.toggle('empty', !g.stock);
-    if(g.stock) ps.appendChild(cardEl(null, {back:true}));
-    // descarte (mostra até 3 em leque)
-    const pw = $('#pWaste'); const show = g.waste.slice(-3); pw.innerHTML = ''; pw.classList.toggle('empty', !g.waste.length); pw.dataset.l = '';
-    show.forEach((c,i) => { const el = cardEl(c, {cls:'face'}); el.style.left = (i * cw * 0.22) + 'px'; if(i === show.length-1) el.onclick = () => ui.act({t:'tap', from:{p:'w'}}); else el.style.pointerEvents = 'none'; pw.appendChild(el); });
-    // fundações
-    g.found.forEach((f,i) => { const p = $('#pF' + i); p.innerHTML = ''; p.classList.toggle('empty', !f.length);
-      if(f.length){ const el = cardEl(f[f.length-1], {cls:'face'}); el.onclick = () => ui.act({t:'tap', from:{p:'f', i}}); p.appendChild(el); } });
-    // colunas
-    const ch = Math.round(cw*1.43);
-    g.tab.forEach((col,i) => {
-      const p = $('#pT' + i); p.innerHTML = ''; p.classList.toggle('empty', !col.length);
-      let y = 0;
-      col.forEach((c,k) => {
-        const el = cardEl(c, {back:!c, cls: c ? 'face' : ''}); el.style.top = y + 'px';
-        if(c) el.onclick = e => { e.stopPropagation(); ui.act({t:'tap', from:{p:'t', i, k}}); };
-        p.appendChild(el);
-        y += c ? Math.round(ch*0.28) : Math.round(ch*0.12);
-      });
-      p.style.height = (y + ch) + 'px';
-    });
-    $('#bUndo').disabled = !g.undo;
-    $('#bAuto').classList.toggle('hidden', !g.auto);
-    if(g.auto && !window._autoOffered){ window._autoOffered = true; toast('Tudo aberto! Toque em ⚡ Completar.'); }
-  }
+  onEvent(e){ if(e.k === 'start'){ lastKeys = {}; window._autoOffered = false; } },
+  rules: rulesHtml,
+  render
 });
+
+// jogada de um jogador no próprio jogo (igual ao modo sozinho)
+function applyMove(st, a, opts){
+  const n = opts.draw === '3' ? 3 : 1;
+  if(a.t === 'draw'){
+    pushHist(st);
+    if(!st.stock.length){
+      if(!st.waste.length){ st.hist.pop(); return {ok:false, err:'O monte acabou.'}; }
+      st.stock = st.waste.reverse().map(x => ({c:x.c, up:false})); st.waste = []; st.passes++;
+      if(n === 1) st.score = Math.max(0, st.score - 100);
+      return {events:[{k:'snd', s:'deal'}], recycled:true};
+    }
+    for(let i=0;i<n && st.stock.length;i++){ const x = st.stock.pop(); x.up = true; st.waste.push(x); }
+    st.moves++;
+    return {events:[{k:'snd', s:'card'}]};
+  }
+  if(a.t === 'tap'){
+    const from = a.from; if(!from || typeof from !== 'object' || !['w','t','f'].includes(from.p)) return {ok:false};
+    if(from.p === 'w' && !st.waste.length) return {ok:false};
+    if(from.p === 't' && (!isInt(from.i, 0, 6) || !isInt(from.k, 0, 51) || !st.tab[from.i][from.k] || !st.tab[from.i][from.k].up)) return {ok:false};
+    if(from.p === 'f' && (!isInt(from.i, 0, 3) || !st.found[from.i].length)) return {ok:false};
+    let to = a.to;
+    if(to != null && (typeof to !== 'object' || !((to.p === 'f' && isInt(to.i, 0, 3)) || (to.p === 't' && isInt(to.i, 0, 6))))) return {ok:false};
+    if(to && to.p === 'f' && from.p === 'f') return {ok:false};
+    if(to && to.p === 't' && from.p === 't' && to.i === from.i) return {ok:false};
+    to = to || bestTarget(st, from);
+    if(!to) return {ok:false, err:'Essa carta não tem para onde ir.'};
+    // valida destino explícito
+    const card = from.p === 'w' ? lastOf(st.waste).c : from.p === 'f' ? lastOf(st.found[from.i]).c : st.tab[from.i][from.k].c;
+    const many = from.p === 't' ? st.tab[from.i].length - from.k : 1;
+    if(to.p === 'f' && (many > 1 || !canFound(st, card) || FOUND_SUITS.indexOf(card.s) !== to.i)) return {ok:false, err:'Não pode ir para essa pilha.'};
+    if(to.p === 't' && !canTab(st.tab[to.i], card)) return {ok:false, err:'Não pode ir para essa coluna.'};
+    pushHist(st); doMove(st, from, to);
+    return {events:[{k:'snd', s: to.p === 'f' ? 'move' : 'card'}, {k:'moved', to}]};
+  }
+  if(a.t === 'undo'){
+    const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
+    Object.assign(st, JSON.parse(h)); st.score = Math.max(0, st.score - 2);
+    return {events:[]};
+  }
+  if(a.t === 'auto'){
+    if(!canAuto(st)) return {ok:false};
+    let best = null;
+    for(let i=0;i<7;i++){ const col = st.tab[i]; if(col.length && canFound(st, lastOf(col).c) && (!best || RV(lastOf(col).c.r) < best.v)) best = {i, v:RV(lastOf(col).c.r)}; }
+    if(!best) return {ok:false};
+    doMove(st, {p:'t', i:best.i, k:st.tab[best.i].length-1}, {p:'f', i:FOUND_SUITS.indexOf(lastOf(st.tab[best.i]).c.s)});
+    return {events:[{k:'snd', s:'move'}]};
+  }
+  if(a.t === 'giveup') return {events:[{k:'snd', s:'lose'}]};
+  return {ok:false};
+}
+
+function render(g, v, ui){
+  const st = ui.stage;
+  document.body.classList.toggle('solo1', v.seats.length === 1);
+  if(v.seats.length === 1 && D_modeLabel) $('#gmode').textContent = D_modeLabel(v.opts);
+  const W = Math.min(st.clientWidth - 12, 820);
+  const cw = Math.floor(clamp((W - 6*8) / 7, 38, 96));
+  st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+  const key = 'b' + v.gameNo;
+  if(!st.querySelector('.board') || st.dataset.k !== key){
+    st.dataset.k = key;
+    st.innerHTML = `<div class="opp hidden" id="opp"></div><div class="dMsg hidden" id="dMsg"></div><div class="board"><div class="toprow">
+        <div class="pile stock" id="pStock" data-l="↻"></div><div class="pile waste3" id="pWaste"></div><div></div>
+        ${[0,1,2,3].map(i => `<div class="pile found" id="pF${i}" data-l="${FOUND_SUITS[i]}"></div>`).join('')}
+      </div><div class="tabrow">${[0,1,2,3,4,5,6].map(i => `<div class="col" id="pT${i}"></div>`).join('')}</div>
+      <div class="ctrl"><button class="tbtn" id="bUndo">↶ Desfazer</button><button class="tbtn" id="bAuto">⚡ Completar</button>
+        <button class="tbtn" id="bNew">🔄 Novo jogo</button><button class="tbtn hidden" id="bGive">🏳️ Desistir</button></div></div>`;
+    $('#pStock').onclick = () => ui.act({t:'draw'});
+    $('#bUndo').onclick = () => ui.act({t:'undo'});
+    $('#bAuto').onclick = () => autoRun(ui);
+    $('#bNew').onclick = () => modal('<h2>Novo jogo?</h2><p>O jogo atual será abandonado.</p>', [{label:'Novo jogo', fn:() => location.reload()}, {label:'Continuar', cls:'b-no'}]);
+    $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>Você fica com as cartas que já pôs nas fundações e para de jogar.</p>',
+      [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+    clearInterval(window._clk);
+    window._clk = setInterval(() => { const c = $('#clock'); const gg = ui.view && ui.view.game; if(c && gg){ const s = Math.round(((gg.end || Date.now()) - gg.start)/1000); c.textContent = `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; } }, 1000);
+  }
+  // monte
+  const ps = $('#pStock'); ps.innerHTML = ''; ps.classList.toggle('empty', !g.stock);
+  if(g.stock) ps.appendChild(cardEl(null, {back:true}));
+  // descarte (mostra até 3 em leque)
+  const pw = $('#pWaste'); const show = g.waste.slice(-3); pw.innerHTML = ''; pw.classList.toggle('empty', !g.waste.length); pw.dataset.l = '';
+  show.forEach((c,i) => { const el = cardEl(c, {cls:'face'}); el.style.left = (i * cw * 0.22) + 'px'; if(i === show.length-1) el.onclick = () => ui.act({t:'tap', from:{p:'w'}}); else el.style.pointerEvents = 'none'; pw.appendChild(el); });
+  // fundações
+  g.found.forEach((f,i) => { const p = $('#pF' + i); p.innerHTML = ''; p.classList.toggle('empty', !f.length);
+    if(f.length){ const el = cardEl(f[f.length-1], {cls:'face'}); el.onclick = () => ui.act({t:'tap', from:{p:'f', i}}); p.appendChild(el); } });
+  // colunas
+  const ch = Math.round(cw*1.43);
+  g.tab.forEach((col,i) => {
+    const p = $('#pT' + i); p.innerHTML = ''; p.classList.toggle('empty', !col.length);
+    let y = 0;
+    col.forEach((c,k) => {
+      const el = cardEl(c, {back:!c, cls: c ? 'face' : ''}); el.style.top = y + 'px';
+      if(c) el.onclick = e => { e.stopPropagation(); ui.act({t:'tap', from:{p:'t', i, k}}); };
+      p.appendChild(el);
+      y += c ? Math.round(ch*0.28) : Math.round(ch*0.12);
+    });
+    p.style.height = (y + ch) + 'px';
+  });
+  const playing = v.phase === 'game' && !g.out;
+  $('#bUndo').disabled = !g.undo || !playing;
+  $('#bAuto').classList.toggle('hidden', !g.auto || !playing);
+  $('#bNew').classList.toggle('hidden', !!g.dispute);
+  $('#bGive').classList.toggle('hidden', !g.dispute || !playing);
+  st.querySelector('.board').classList.toggle('done', !!(g.dispute && g.out));
+  if(g.auto && playing && !window._autoOffered){ window._autoOffered = true; toast('Tudo aberto! Toque em ⚡ Completar.'); }
+  renderOpp(g, v);
+}
+const D_modeLabel = o => (+o.jogadores > 1 ? '' : 'SOZINHO · ') + (o.draw === '3' ? 'VIRA 3' : 'VIRA 1');
+// painel da disputa: cartas nas fundações de cada um e quem está na frente
+function renderOpp(g, v){
+  const box = $('#opp'), msg = $('#dMsg');
+  if(!g.dispute){ box.classList.add('hidden'); msg.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = g.others.slice().sort((a, b) => a.pos - b.pos).map(o => `<div class="op ${o.s === v.me ? 'me' : ''} ${o.out && o.out !== 'won' ? 'out' : ''}" data-seat="${o.s}">
+      <span>${o.pos === 1 ? '👑' : o.pos + 'º'}</span><span class="nm">${esc(o.s === v.me ? 'Você' : o.name)}</span>
+      <span class="bar"><i style="width:${Math.round(o.f / 52 * 100)}%"></i></span><span class="fc">${o.f}/52</span>
+      ${o.out ? `<span class="tag ${o.out === 'won' ? 'win' : ''}">${STATUS[o.out]}</span>` : ''}</div>`).join('');
+  const txt = v.phase !== 'game' ? '' : g.out ? `Você ${STATUS[g.out]} com ${g.found.reduce((a, f) => a + f.length, 0)} cartas nas fundações. Aguardando os outros…`
+    : !g.moves ? 'Disputa: todos com as mesmas cartas. Vence quem completar as fundações primeiro!' : '';
+  msg.classList.toggle('hidden', !txt); msg.textContent = txt;
+}
 let lastKeys = {};
 function autoRun(ui){
-  const tick = () => { const g = ui.view && ui.view.game; if(!g || !g.auto || ui.view.phase !== 'game') return; ui.act({t:'auto'}); setTimeout(tick, 110); };
+  const tick = () => { const g = ui.view && ui.view.game; if(!g || !g.auto || g.out || ui.view.phase !== 'game') return; ui.act({t:'auto'}); setTimeout(tick, 110); };
   tick();
 }
+function rulesHtml(){
+  return `<h3>Objetivo</h3><p>Montar as quatro pilhas de fundação, uma por naipe, do <b>Ás ao Rei</b>.</p>
+  <h3>Como jogar</h3><ul><li>Toque no monte para virar cartas (1 ou 3 por vez, conforme a opção). Quando o monte acaba, toque de novo para recomeçá-lo.</li>
+  <li>Toque numa carta para movê-la para o melhor lugar: a fundação do naipe (em ordem crescente) ou uma coluna, sempre <b>alternando cores</b> e em ordem <b>decrescente</b>.</li>
+  <li>Dá para mover sequências inteiras entre colunas. Só um <b>Rei</b> (ou uma sequência começando por Rei) entra numa coluna vazia.</li>
+  <li>Quando uma coluna descobre uma carta virada para baixo, ela vira sozinha.</li>
+  <li><b>Desfazer</b> volta a última jogada. Quando todas as cartas estiverem abertas, <b>⚡ Completar</b> termina sozinho.</li></ul>
+  <h3>Pontos</h3><p>+10 por carta na fundação, +5 por carta do descarte para a mesa e por carta virada; −15 ao tirar carta da fundação; −100 a cada volta do monte (virando 1).</p>
+  <h3>Disputa (2 a 4 jogadores)</h3><ul><li>Todos recebem <b>exatamente as mesmas cartas</b>, na mesma ordem, e jogam ao mesmo tempo, cada um na sua mesa.</li>
+  <li>Vence quem <b>completar as fundações primeiro</b> — a partida acaba na hora.</li>
+  <li>Se ninguém completar (todos travaram ou desistiram), vence quem tiver <b>mais cartas nas fundações</b>; empate: quem chegou primeiro àquela quantidade.</li>
+  <li>O painel no alto mostra quantas cartas cada um já subiu. Ninguém vê as cartas dos outros.</li>
+  <li><b>Desistir</b> encerra a sua participação. Passar o monte inteiro <b>duas vezes seguidas sem fazer nenhuma jogada</b> conta como travado.</li>
+  <li>Desfazer é permitido. Os bots jogam só com o que estão vendo, no ritmo de uma pessoa.</li></ul>`;
+}
+
 </script>
 </body>
 </html>

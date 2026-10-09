@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Caça-Palavras</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:6px 8px}
+.cp{display:flex;gap:10px;align-items:center;justify-content:center;width:100%;height:100%}
+.cp.port{flex-direction:column;gap:6px;justify-content:flex-start}
+.side{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cp.land .side{width:var(--sw);max-height:100%;overflow:auto}
+.cp.port .side{width:100%;max-width:var(--gs);flex:1;min-height:0;overflow:auto;gap:6px}
+/* ---------- tabuleiro (papel) ---------- */
+.board{position:relative;width:var(--gs);height:var(--gs);flex:none;background:linear-gradient(180deg,#fffaf0,#f3e9cf);border-radius:12px;
+  box-shadow:0 12px 28px rgba(0,0,0,.5),inset 0 0 0 3px #c9a85a;padding:var(--pad);touch-action:none;cursor:crosshair}
+.lets{position:absolute;inset:var(--pad);display:grid;grid-template-columns:repeat(var(--n),1fr);grid-template-rows:repeat(var(--n),1fr);z-index:2;pointer-events:none}
+.lets span{display:grid;place-items:center;font-weight:900;color:#3a2a10;font-size:var(--fs);line-height:1;font-family:"Segoe UI",system-ui,Roboto,Arial,sans-serif}
+.lets span.tap{background:rgba(90,176,255,.45);border-radius:50%;box-shadow:0 0 0 2px #1e78e0}
+.marks{position:absolute;inset:var(--pad);width:calc(100% - 2*var(--pad));height:calc(100% - 2*var(--pad));z-index:1;overflow:visible;pointer-events:none}
+.marks line{stroke-linecap:round;stroke-width:.78}
+.marks .sel{stroke:#5ab0ff;opacity:.55}
+.marks .sel.bad{stroke:#ff5a5a;opacity:.6}
+.marks .rev{stroke:#888;opacity:.28;stroke-dasharray:.25 .2}
+.marks .hint{fill:none;stroke:#e7b43a;stroke-width:.12;animation:hintp 1s ease-in-out infinite}
+@keyframes hintp{50%{stroke-width:.25;opacity:.5}}
+.marks line.new{animation:drawIn .35s ease-out}
+@keyframes drawIn{from{opacity:0;stroke-width:1.1}}
+/* ---------- lista de palavras ---------- */
+.thm{font-weight:900;color:var(--gold);font-size:15px;letter-spacing:.5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thm small{display:block;font-size:11px;color:#cfe;font-weight:700;letter-spacing:1px}
+.wl{display:flex;flex-wrap:wrap;gap:4px 6px;justify-content:center}
+.wl span{background:rgba(0,0,0,.3);border-radius:10px;padding:3px 9px;font-size:var(--wf);font-weight:800;color:#fff;white-space:nowrap;border:2px solid transparent;transition:.2s}
+.wl span.ok{text-decoration:line-through;text-decoration-thickness:2px;color:rgba(255,255,255,.55);background:rgba(0,0,0,.18)}
+.wl span.ok i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.wl span.hint{border-color:var(--gold);animation:pulse 1.2s infinite}
+.wl span.miss{color:#ffc2b8}
+.ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.ctrl .tbtn{font-size:14px;padding:8px 12px;border-radius:10px}
+.cnt{text-align:center;font-weight:900;font-size:14px;color:#ffe6a6}
+/* ---------- painel da disputa ---------- */
+.race{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.rc{background:rgba(0,0,0,.35);border:2px solid transparent;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;min-width:0;position:relative}
+.rc.me{color:#bff5d4}
+.rc.lead{border-color:var(--gold)}
+.rc .bar{width:46px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden;flex:none}
+.rc .bar i{display:block;height:100%;background:var(--nos);border-radius:3px;transition:width .4s}
+.rc .nm{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc.done .bar i{background:var(--gold)}
+.rc.out{opacity:.55}
+.info{display:flex;gap:12px;font-weight:800;font-size:14px;color:#ffe6a6}
+.info .low{color:#ff9d9d}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="cacapalavras-palavras.js"></script>
+<script>
+"use strict";
+/* ========================== CAÇA-PALAVRAS =============================
+   Grade gerada na hora a partir de um tema. Ache as palavras arrastando
+   o dedo (ou tocando na primeira e na última letra).
+   Disputa: todos recebem a mesma grade; vence quem achar todas primeiro
+   (ou quem tiver mais quando o tempo acabar).
+   ===================================================================== */
+const D8 = [[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
+const NIVEIS = {
+  facil:  {N:10, n:8,  dirs:D8.slice(0,3), nome:'Fácil',   dtxt:'horizontal, vertical e diagonal (sempre de frente)'},
+  medio:  {N:12, n:11, dirs:D8.slice(0,4), nome:'Médio',   dtxt:'horizontal, vertical e nas duas diagonais (de frente)'},
+  dificil:{N:15, n:15, dirs:D8,            nome:'Difícil', dtxt:'em todas as direções, inclusive de trás para frente'}
+};
+const BOTS = {facil:{nome:'Fácil', ms:15000}, normal:{nome:'Normal', ms:9500}, dificil:{nome:'Difícil', ms:6000}};
+const CORES = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac','#a9e34b','#ff8787','#63e6be','#91a7ff','#ffc078','#e599f7'];
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+const show = s => { s = String(s).replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); };
+const plural = (n, a, b) => n === 1 ? a : b;
+const fmtClock = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const temaOf = o => o.tema === 'sorte' || !CP_TEMAS[+o.tema] ? Math.floor(Math.random() * CP_TEMAS.length) : +o.tema;
+
+/* ------------------------- gerador da grade ------------------------- */
+// letras de preenchimento: frequência do português misturada com as letras das palavras
+const FREQ = 'AAAAAAAAAAAAAAEEEEEEEEEEEEOOOOOOOOOOSSSSSSSSRRRRRRIIIIIINNNNNDDDDDMMMMMUUUUUTTTTCCCCLLLPPPVVGHQBFZJX';
+function gerar(lista, cfg){
+  const N = cfg.N;
+  for(let tent = 0; tent < 200; tent++){
+    // escolhe palavras sem que uma esteja dentro da outra (evita ambiguidade)
+    const cand = shuffle(lista.slice()), sel = [];
+    for(const d of cand){
+      const w = norm(d);
+      if(w.length < 3 || w.length > N) continue;
+      if(sel.some(e => e.w.includes(w) || w.includes(e.w) || e.w.includes(rev(w)) || w.includes(rev(e.w)))) continue;
+      sel.push({d:show(d), w});
+      if(sel.length >= cfg.n + 6) break;
+    }
+    sel.sort((a, b) => b.w.length - a.w.length);
+    const g = Array(N * N).fill(''), ok = [];
+    for(const e of sel){
+      if(ok.length >= cfg.n) break;
+      const p = posicionar(g, N, e.w, cfg.dirs);
+      if(!p) continue;
+      for(let k = 0; k < e.w.length; k++) g[(p.r + p.dr * k) * N + p.c + p.dc * k] = e.w[k];
+      ok.push({d:e.d, w:e.w, a:[p.r, p.c], b:[p.r + p.dr * (e.w.length - 1), p.c + p.dc * (e.w.length - 1)]});
+    }
+    if(ok.length < cfg.n) continue;
+    const pool = ok.map(e => e.w).join('');
+    for(let f = 0; f < 12; f++){
+      const full = g.map(x => x || (Math.random() < .35 ? pool[Math.floor(Math.random() * pool.length)] : FREQ[Math.floor(Math.random() * FREQ.length)]));
+      if(ok.every(e => contar(full, N, e.w) === (e.w === rev(e.w) ? 2 : 1))){
+        ok.sort((a, b) => a.d.localeCompare(b.d, 'pt'));
+        return {N, grid:full.join(''), words:ok};
+      }
+    }
+  }
+  return null;
+}
+const rev = w => w.split('').reverse().join('');
+function posicionar(g, N, w, dirs){
+  const L = w.length, opts = [];
+  for(const [dr, dc] of dirs) for(let r = 0; r < N; r++) for(let c = 0; c < N; c++){
+    const er = r + dr * (L - 1), ec = c + dc * (L - 1);
+    if(er < 0 || er >= N || ec < 0 || ec >= N) continue;
+    let cross = 0, bad = false;
+    for(let k = 0; k < L; k++){ const x = g[(r + dr * k) * N + c + dc * k]; if(x){ if(x !== w[k]){ bad = true; break; } cross++; } }
+    if(bad || cross === L) continue;
+    opts.push({r, c, dr, dc, cross});
+  }
+  if(!opts.length) return null;
+  const cr = opts.filter(o => o.cross > 0);
+  return cr.length && Math.random() < .45 ? pick(cr) : pick(opts);
+}
+// quantas vezes a palavra aparece (em qualquer direção)
+function contar(full, N, w){
+  let n = 0;
+  for(let r = 0; r < N; r++) for(let c = 0; c < N; c++){
+    if(full[r * N + c] !== w[0]) continue;
+    for(const [dr, dc] of D8){
+      let k = 0;
+      for(; k < w.length; k++){ const rr = r + dr * k, cc = c + dc * k; if(rr < 0 || rr >= N || cc < 0 || cc >= N || full[rr * N + cc] !== w[k]) break; }
+      if(k === w.length) n++;
+    }
+  }
+  return n;
+}
+// letras entre a e b (alinhadas); null se não estiver em linha
+function lerLinha(grid, N, a, b){
+  const dr = Math.sign(b[0] - a[0]), dc = Math.sign(b[1] - a[1]);
+  const L = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) + 1;
+  if(!(a[0] === b[0] || a[1] === b[1] || Math.abs(b[0] - a[0]) === Math.abs(b[1] - a[1])) || L < 2) return null;
+  let s = '';
+  for(let k = 0; k < L; k++) s += grid[(a[0] + dr * k) * N + a[1] + dc * k];
+  return s;
+}
+const okCell = (x, N) => Array.isArray(x) && x.length === 2 && x.every(v => Number.isInteger(v) && v >= 0 && v < N);
+
+/* ------------------------------ regras ------------------------------ */
+function ranking(st){
+  return st.p.map((p, s) => ({s, n:p.found.length, t:p.at.length ? p.at[p.at.length - 1] : Infinity, done:p.done, out:p.out}))
+    .sort((a, b) => b.n - a.n || a.t - b.t);
+}
+function encerrar(st, motivo){
+  st.end = st.end || Date.now();
+  const W = st.words.length;
+  if(st.n === 1){
+    const p = st.p[0], n = p.found.length, t = fmtClock(st.end - st.start);
+    if(n === W) st.result = {winners:[0], text:`Você achou as <b>${W}</b> palavras em <b>${t}</b>${p.hints ? ` (com ${p.hints} ${plural(p.hints, 'dica', 'dicas')})` : ' sem nenhuma dica'}!`};
+    else st.result = {winners:[], text:`${motivo} Você achou <b>${n}</b> de ${W} palavras.`};
+    return;
+  }
+  const rk = ranking(st), best = rk[0];
+  const lin = rk.map((x, i) => `${i + 1}º ${esc(st.names[x.s])} — ${x.n}/${W}${x.done ? ` em ${fmtClock(x.done - st.start)}` : ''}${x.out ? ' (desistiu)' : ''}`).join('<br>');
+  st.result = {winners: best.n > 0 ? [best.s] : [], draw: best.n === 0, text:`${motivo}<br>${lin}`};
+}
+function ativos(st){ return st.p.map((p, s) => s).filter(s => !st.p[s].done && !st.p[s].out); }
+
+Mesa.run({
+  id:'cacapalavras', name:'Caça-Palavras', icon:'🔎', tagline:'Ache as palavras escondidas na grade',
+  seats: o => +o.jogadores || 1,
+  options:[
+    {key:'tema', label:'Tema', default:'sorte', choices:[['sorte','🎲 Sortear']].concat(CP_TEMAS.map((t, i) => [String(i), t.i + ' ' + t.n]))},
+    {key:'nivel', label:'Grade', default:'facil', choices:[['facil','Fácil (10×10)'],['medio','Médio (12×12)'],['dificil','Difícil (15×15)']]},
+    {key:'tempo', label:'Tempo', default:'0', choices:[['0','Sem limite'],['3','3 minutos'],['5','5 minutos'],['10','10 minutos']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => {
+    const n = +o.jogadores || 1, nv = (NIVEIS[o.nivel] || NIVEIS.facil).nome;
+    return (n === 1 ? 'SOZINHO · ' + nv : `DISPUTA · ${nv} · BOT ${(BOTS[o.diff] || BOTS.normal).nome}`).toUpperCase();
+  },
+  setup(players, o){
+    const cfg = NIVEIS[o.nivel] || NIVEIS.facil, ti = temaOf(o), tema = CP_TEMAS[ti];
+    let gr = gerar(tema.w.split(' '), cfg);
+    if(!gr) gr = gerar(CP_TEMAS.flatMap(t => t.w.split(' ')), cfg);   // segurança (não deve acontecer)
+    const now = Date.now(), min = +o.tempo || 0;
+    return {N:gr.N, grid:gr.grid, words:gr.words, nivel:o.nivel in NIVEIS ? o.nivel : 'facil', tema:tema.n, icon:tema.i,
+      n:players.length, names:players.map(p => p.name), hum:players.map(p => !!p.human), bot:o.diff in BOTS ? o.diff : 'normal',
+      start:now, fim: min ? now + min * 60000 : 0, end:0, result:null,
+      p:players.map(() => ({found:[], at:[], hints:0, hint:-1, done:0, out:false, due:0}))};
+  },
+  waiting(st){ return st.result ? [] : ativos(st); },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
+    const p = st.p[seat];
+    if(!p || p.done || p.out) return {ok:false, err:'Você já terminou.'};
+    if(a.t === 'find'){
+      if(!okCell(a.a, st.N) || !okCell(a.b, st.N)) return {ok:false, err:'Seleção inválida.'};
+      const s = lerLinha(st.grid, st.N, a.a, a.b);
+      if(!s) return {ok:false, err:'Selecione em linha reta.'};
+      const i = st.words.findIndex((w, k) => !p.found.includes(k) && (w.w === s || w.w === rev(s)));
+      if(i < 0) return {ok:false, err: st.words.some(w => w.w === s || w.w === rev(s)) ? 'Essa você já achou.' : 'Essa não é uma das palavras.'};
+      p.found.push(i); p.at.push(Date.now()); p.due = 0;
+      if(p.hint === i) p.hint = -1;
+      const ev = [{k:'found', seat}];
+      if(p.found.length === st.words.length){
+        p.done = Date.now();
+        if(st.n === 1){ encerrar(st, ''); ev.push({k:'banner', text: pick(['Achou todas!','Muito bem!','Olho de águia!'])}); }
+        else { encerrar(st, `<b>${esc(st.names[seat])}</b> achou todas primeiro!`); ev.push({k:'banner', text:`${st.names[seat]} achou todas!`}); }
+      }
+      return {events:ev};
+    }
+    if(a.t === 'wait') return {events:[]};
+    if(a.t === 'hint'){
+      if(st.n !== 1) return {ok:false, err:'Na disputa não há dica.'};
+      if(p.hint >= 0 && !p.found.includes(p.hint)) return {events:[]};
+      const rest = st.words.map((w, k) => k).filter(k => !p.found.includes(k));
+      if(!rest.length) return {ok:false};
+      p.hint = pick(rest); p.hints++;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    if(a.t === 'giveup'){
+      p.out = true;
+      if(st.n === 1){ encerrar(st, 'Você desistiu.'); return {events:[{k:'snd', s:'lose'}]}; }
+      const ev = [{k:'log', text:`${esc(st.names[seat])} desistiu.`}];
+      const rest = ativos(st);
+      if(!rest.length || rest.every(s => !st.hum[s])) encerrar(st, rest.length ? 'Só sobraram bots na disputa.' : 'Todos desistiram.');
+      return {events:ev};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, now){
+    if(st.result || !st.fim || now < st.fim) return null;
+    st.end = st.fim;
+    encerrar(st, 'O tempo acabou!');
+    return {changed:true, events:[{k:'banner', text:'Tempo esgotado!', bad:true}]};
+  },
+  bot(st, seat){
+    const p = st.p[seat], rest = st.words.map((w, k) => k).filter(k => !p.found.includes(k));
+    if(!rest.length) return {t:'giveup'};
+    if(p.due && Date.now() < p.due - 250) return {t:'wait'};      // ainda procurando (outro bot chegou antes na vez)
+    p.due = 0;
+    const w = st.words[pick(rest)];
+    return Math.random() < .5 ? {t:'find', a:w.a, b:w.b} : {t:'find', a:w.b, b:w.a};
+  },
+  botFallback(st, seat){ return {t:'giveup'}; },
+  // ritmo humano: cada bot tem a sua hora marcada para achar a próxima palavra; a Mesa
+  // reveza os bots, então esperamos até a hora do PRIMEIRO bot (os outros respondem "wait")
+  botDelay(st, seat){ return botDue(st, seat, tempoBot); },
+  view(st, seat){
+    const me = st.p[seat] || null, over = !!st.result;
+    return {N:st.N, grid:st.grid, tema:st.tema, icon:st.icon, nivel:st.nivel, n:st.n,
+      list:st.words.map(w => w.d),
+      // posições: só das palavras que ESTE lugar já achou (no fim, todas)
+      mine: me ? me.found.map(i => ({i, a:st.words[i].a, b:st.words[i].b})) : [],
+      all: over ? st.words.map((w, i) => ({i, a:w.a, b:w.b})) : null,
+      hint: me && me.hint >= 0 && !over ? {i:me.hint, a:st.words[me.hint].a} : null, hints: me ? me.hints : 0,
+      done: me ? !!(me.done || me.out) : true, out: me ? me.out : false,
+      race: st.p.map((p, s) => ({name:st.names[s], cnt:p.found.length, done:!!p.done, out:p.out})),
+      start:st.start, fim:st.fim, end:st.end, over};
+  },
+  topInfo(g, v){
+    const me = g.race[v.me], tot = g.list.length;
+    return `<div class="info"><span>🔎 ${me ? me.cnt : 0}/${tot}</span>${g.n === 1 && g.hints ? `<span>💡 ${g.hints}</span>` : ''}<span id="clock"></span></div>`;
+  },
+  onEvent(e, v){
+    if(e.k === 'start'){ resetLocal(); return; }
+    if(e.k === 'found' && v && e.seat === v.me){ Snd.capture(); }
+    if(e.k === 'over'){ Snd.deal(6); }
+  },
+  render, rules: rulesHtml
+});
+
+function botDue(st, seat, tempo){
+  const now = Date.now(), bs = ativos(st).filter(x => x === seat || !st.hum[x]);
+  for(const x of bs) if(!st.p[x].due) st.p[x].due = now + tempo(st, x);
+  // a Mesa multiplica a espera pela velocidade do jogo; aqui o ritmo é do relógio de verdade
+  const sp = typeof CFG === 'object' && CFG.speed >= .25 ? CFG.speed : 1;
+  return Math.max(150, (Math.min(...bs.map(x => st.p[x].due)) - now) / sp);
+}
+function tempoBot(st, seat){
+  const p = st.p[seat], W = st.words.length, b = BOTS[(st.botLv && st.botLv[seat]) || st.bot] || BOTS.normal;
+  const left = st.words.filter((w, k) => !p.found.includes(k));
+  const avgL = left.reduce((s, w) => s + w.w.length, 0) / Math.max(1, left.length);
+  let ms = b.ms * Math.pow(st.N / 10, 1.4) * (st.nivel === 'dificil' ? 1.15 : 1);
+  ms *= clamp(1 + (6 - avgL) * .05, .85, 1.2);                 // palavras curtas são mais difíceis de ver
+  ms *= .7 + .8 * (p.found.length / W);                         // as últimas demoram mais
+  if(!p.found.length) ms += 2500;                               // tempo de ler a lista
+  let g = 0; for(let i = 0; i < 4; i++) g += Math.random(); g = (g - 2) / .58;   // ~normal(0,1)
+  return Math.round(ms * Math.exp(g * .4));
+}
+
+/* ----------------------------- interface ----------------------------- */
+let L = {tap:null, drag:null, pend:{}, lastMine:0, key:''};
+function resetLocal(){ L = {tap:null, drag:null, pend:{}, lastMine:0, key:''}; }
+const colorOf = i => CORES[i % CORES.length];
+
+function layout(stage, g){
+  const W = stage.clientWidth - 16, H = stage.clientHeight - 12;
+  const land = W > H * 1.15 && W >= 560;
+  const race = g.n > 1 ? 34 : 0;
+  let gs, sw = 0;
+  if(land){ sw = clamp(Math.round(W * .32), 200, 340); gs = Math.min(H, W - sw - 12); }
+  else {
+    const perRow = Math.max(2, Math.floor(Math.min(W, 560) / 96));
+    const listH = Math.ceil(g.list.length / perRow) * 27 + 30 + 42;
+    gs = Math.min(W, H - listH - race - 12, 640);
+  }
+  gs = Math.max(200, Math.floor(gs));
+  const pad = Math.round(gs * .02) + 4, cell = (gs - 2 * pad) / g.N;
+  return {land, gs, sw, pad, cell, key:[stage.clientWidth, stage.clientHeight, g.N, g.grid.slice(0, 12)].join(':')};
+}
+
+function render(g, v, ui){
+  const st = ui.stage, lay = layout(st, g);
+  const key = v.gameNo + ':' + v.me + ':' + lay.key;
+  if(L.key !== key){ L.key = key; build(st, g, lay, ui); }
+  update(st, g, v, ui);
+  startClock(ui);
+}
+function build(st, g, lay, ui){
+  st.style.setProperty('--gs', lay.gs + 'px'); st.style.setProperty('--pad', lay.pad + 'px'); st.style.setProperty('--n', g.N);
+  st.style.setProperty('--fs', Math.max(11, Math.floor(lay.cell * .58)) + 'px'); st.style.setProperty('--sw', lay.sw + 'px');
+  st.style.setProperty('--wf', (lay.land ? 14 : 13) + 'px');
+  let lets = '';
+  for(let i = 0; i < g.N * g.N; i++) lets += `<span data-i="${i}">${g.grid[i]}</span>`;
+  const board = `<div class="board" id="board" role="grid" aria-label="Grade de letras"><svg class="marks" id="marks" viewBox="0 0 ${g.N} ${g.N}" preserveAspectRatio="none"></svg><div class="lets">${lets}</div></div>`;
+  const side = `<div class="side"><div class="race" id="race"></div><div class="thm">${g.icon} ${esc(g.tema)}<small id="cnt"></small></div>
+    <div class="wl" id="wl">${g.list.map((w, i) => `<span data-w="${i}">${esc(w)}</span>`).join('')}</div><div class="ctrl" id="ctrl"></div></div>`;
+  st.innerHTML = `<div class="cp ${lay.land ? 'land' : 'port'}">${lay.land ? board + side : `<div class="race" id="raceTop"></div>${board}${side}`}</div>`;
+  if(!lay.land) $('#race', st).remove();
+  wireBoard($('#board', st), g, lay, ui);
+}
+function update(st, g, v, ui){
+  const mine = new Set(g.mine.map(m => m.i));
+  Object.keys(L.pend).forEach(i => { if(mine.has(+i) || g.over || Date.now() - L.pend[i].t > 4000) delete L.pend[i]; });
+  // riscos das palavras achadas
+  let svg = '';
+  if(g.all) g.all.filter(m => !mine.has(m.i)).forEach(m => svg += seg(m, 'rev', '#999'));
+  g.mine.forEach((m, k) => svg += seg(m, k >= L.lastMine && L.lastMine > 0 ? 'new' : '', colorOf(m.i)));
+  Object.values(L.pend).forEach(m => svg += seg(m, '', colorOf(m.i)));
+  if(g.hint) svg += `<circle class="hint" cx="${g.hint.a[1] + .5}" cy="${g.hint.a[0] + .5}" r=".45"/>`;
+  svg += '<line id="selLine" class="sel" x1="0" y1="0" x2="0" y2="0" style="display:none"/>';
+  L.lastMine = g.mine.length;
+  $('#marks', st).innerHTML = svg;
+  if(L.tap) markTap(L.tap);
+  // lista
+  $$('#wl span', st).forEach(el => {
+    const i = +el.dataset.w, ok = mine.has(i) || L.pend[i];
+    el.className = ok ? 'ok' : (g.hint && g.hint.i === i ? 'hint' : (g.over ? 'miss' : ''));
+    el.innerHTML = (ok ? `<i style="background:${colorOf(i)}"></i>` : '') + esc(g.list[i]);
+  });
+  const tot = g.list.length, cnt = g.mine.length;
+  $('#cnt', st).textContent = `${cnt} de ${tot} ${plural(tot, 'palavra', 'palavras')}` + (g.over ? '' : g.done ? ' · você terminou' : '');
+  // painel da disputa
+  const race = $('#race', st) || $('#raceTop', st);
+  if(g.n > 1 && race){
+    const best = Math.max(...g.race.map(r => r.cnt));
+    race.innerHTML = g.race.map((r, s) => `<div class="rc ${s === v.me ? 'me' : ''} ${r.cnt === best && best > 0 ? 'lead' : ''} ${r.done ? 'done' : ''} ${r.out ? 'out' : ''}" data-seat="${s}">
+      <span class="nm">${r.cnt === best && best > 0 ? '👑 ' : ''}${esc(s === v.me ? 'Você' : r.name)}</span><span class="bar"><i style="width:${Math.round(100 * r.cnt / tot)}%"></i></span>
+      <span>${r.out ? 'desistiu' : r.cnt + '/' + tot}</span></div>`).join('');
+  } else if(race) race.innerHTML = '';
+  // botões
+  const playing = !g.over && !g.done && v.phase === 'game';
+  $('#ctrl', st).innerHTML = playing ? `${g.n === 1 ? '<button class="tbtn" id="bHint">💡 Dica</button>' : ''}<button class="tbtn" id="bGive">🏳️ Desistir</button>`
+    : (g.done && !g.over ? '<span class="cnt">Aguardando os outros…</span>' : '');
+  if($('#bHint', st)) $('#bHint', st).onclick = () => ui.act({t:'hint'});
+  if($('#bGive', st)) $('#bGive', st).onclick = () => modal(`<h2>Desistir?</h2><p>${g.n === 1 ? 'As palavras que faltam serão mostradas e a partida termina.' : 'Você sai da disputa (os outros continuam).'}</p>`,
+    [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  $('#board', st).style.cursor = playing ? 'crosshair' : 'default';
+}
+const seg = (m, cls, col) => `<line class="${cls}" x1="${m.a[1] + .5}" y1="${m.a[0] + .5}" x2="${m.b[1] + .5}" y2="${m.b[0] + .5}" stroke="${col}" style="${cls === 'rev' ? '' : 'opacity:.5'}"/>`;
+function markTap(cell){
+  $$('.lets span.tap').forEach(e => e.classList.remove('tap'));
+  const v = Mesa.ui.view, g = v && v.game; if(!cell || !g) return;
+  const el = $(`.lets span[data-i="${cell[0] * g.N + cell[1]}"]`); if(el) el.classList.add('tap');
+}
+
+/* seleção: arrastar o dedo/mouse, ou tocar na primeira e na última letra */
+function wireBoard(board, g0, lay, ui){
+  const N = g0.N;
+  const cellAt = e => {
+    const r = board.getBoundingClientRect(), cs = (r.width - 2 * lay.pad) / N;
+    return [clamp(Math.floor((e.clientY - r.top - lay.pad) / cs), 0, N - 1), clamp(Math.floor((e.clientX - r.left - lay.pad) / cs), 0, N - 1)];
+  };
+  const snap = (a, c) => {
+    const dy = c[0] - a[0], dx = c[1] - a[1];
+    if(!dx && !dy) return a;
+    const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    const ddx = Math.round(Math.cos(ang * Math.PI / 4)), ddy = Math.round(Math.sin(ang * Math.PI / 4));
+    let len = Math.round((dx * ddx + dy * ddy) / (ddx * ddx + ddy * ddy));
+    while(len > 0 && (a[0] + ddy * len < 0 || a[0] + ddy * len >= N || a[1] + ddx * len < 0 || a[1] + ddx * len >= N)) len--;
+    return [a[0] + ddy * len, a[1] + ddx * len];
+  };
+  const can = () => { const v = ui.view, g = v && v.game; return !!(g && !g.over && !g.done && v.phase === 'game'); };
+  const showSel = (a, b, bad) => {
+    const ln = $('#selLine'); if(!ln) return;
+    if(!a){ ln.style.display = 'none'; return; }
+    ln.setAttribute('x1', a[1] + .5); ln.setAttribute('y1', a[0] + .5); ln.setAttribute('x2', b[1] + .5); ln.setAttribute('y2', b[0] + .5);
+    ln.setAttribute('class', 'sel' + (bad ? ' bad' : '')); ln.style.display = '';
+  };
+  board.onpointerdown = e => {
+    if(!can() || (e.button != null && e.button > 0)) return;
+    e.preventDefault();
+    const c = cellAt(e);
+    L.drag = {a:c, b:c, moved:false, id:e.pointerId};
+    try{ board.setPointerCapture(e.pointerId); }catch(_){}
+    showSel(c, c);
+  };
+  board.onpointermove = e => {
+    if(!L.drag || e.pointerId !== L.drag.id) return;
+    const c = snap(L.drag.a, cellAt(e));
+    if(c[0] !== L.drag.b[0] || c[1] !== L.drag.b[1]){ L.drag.b = c; if(c[0] !== L.drag.a[0] || c[1] !== L.drag.a[1]) L.drag.moved = true; showSel(L.drag.a, c); }
+  };
+  const end = e => {
+    const d = L.drag; if(!d || e.pointerId !== d.id) return;
+    L.drag = null;
+    if(!can()){ showSel(null); return; }
+    if(d.moved && (d.a[0] !== d.b[0] || d.a[1] !== d.b[1])){ L.tap = null; markTap(null); tentar(d.a, d.b, ui, showSel); return; }
+    // toque simples
+    const c = d.a;
+    if(L.tap && (L.tap[0] !== c[0] || L.tap[1] !== c[1])){
+      const a = L.tap, dy = c[0] - a[0], dx = c[1] - a[1];
+      if(!dx || !dy || Math.abs(dx) === Math.abs(dy)){ L.tap = null; markTap(null); tentar(a, c, ui, showSel); return; }
+    }
+    L.tap = L.tap && L.tap[0] === c[0] && L.tap[1] === c[1] ? null : c;
+    markTap(L.tap); showSel(null);
+  };
+  board.onpointerup = end; board.onpointercancel = e => { if(L.drag && e.pointerId === L.drag.id){ L.drag = null; showSel(null); } };
+}
+function tentar(a, b, ui, showSel){
+  const v = ui.view, g = v.game, s = lerLinha(g.grid, g.N, a, b);
+  const mine = new Set(g.mine.map(m => m.i).concat(Object.keys(L.pend).map(Number)));
+  const i = s ? g.list.findIndex((w, k) => !mine.has(k) && (norm(w) === s || norm(w) === rev(s))) : -1;
+  if(i < 0){
+    const ja = s && g.list.some(w => norm(w) === s || norm(w) === rev(s));
+    showSel(a, b, true); Snd.error();
+    if(ja) toast('Essa você já achou.', 1200);
+    setTimeout(() => showSel(null), 380);
+    return;
+  }
+  L.pend[i] = {i, a, b, t:Date.now()};
+  showSel(null);
+  ui.act({t:'find', a, b});
+  ui.rerender();
+}
+function startClock(ui){
+  clearInterval(window._clk);
+  const tick = () => {
+    const c = $('#clock'), v = ui.view, g = v && v.game; if(!c || !g) return;
+    if(g.fim){ const left = (g.over ? g.fim - (g.end || g.fim) : g.fim - Date.now()); c.textContent = '⏳ ' + fmtClock(Math.max(0, left)); c.className = left < 30000 && !g.over ? 'low' : ''; }
+    else c.textContent = '⏱ ' + fmtClock((g.over && g.end ? g.end : Date.now()) - g.start);
+  };
+  tick(); window._clk = setInterval(tick, 500);
+}
+window.addEventListener('resize', () => { const v = Mesa.ui.view; if(v && v.game && v.phase !== 'lobby') Mesa.ui.rerender(); });
+
+function rulesHtml(){
+  const tms = CP_TEMAS.map(t => t.i + ' ' + t.n).join(' · ');
+  return `<h3>Objetivo</h3><p>Achar na grade de letras todas as palavras da lista, que são do tema escolhido.</p>
+  <h3>Como jogar</h3><ul><li><b>Arraste</b> o dedo (ou o mouse) da primeira até a última letra da palavra.</li>
+  <li>Ou <b>toque</b> na primeira letra (ela fica marcada em azul) e depois na última.</li>
+  <li>Palavra certa fica marcada na grade e <b>riscada</b> na lista. Seleção errada pisca em vermelho.</li>
+  <li>Na grade as letras aparecem <b>sem acento</b> e sem espaço ou hífen: "Pão de queijo" está escrito PAODEQUEIJO.</li></ul>
+  <h3>Grades</h3><table><tr><th></th><th>Tamanho</th><th>Palavras</th><th>Direções</th></tr>
+  ${Object.values(NIVEIS).map(n => `<tr><td>${n.nome}</td><td>${n.N}×${n.N}</td><td>${n.n}</td><td>${n.dtxt}</td></tr>`).join('')}</table>
+  <p>Cada grade é gerada na hora, e cada palavra aparece uma vez só.</p>
+  <h3>Tempo e dica</h3><ul><li><b>Sem limite</b>: o relógio só mede quanto você demorou. Com 3, 5 ou 10 minutos, a partida acaba quando o tempo zera.</li>
+  <li><b>💡 Dica</b> (só jogando sozinho): mostra onde começa uma das palavras que faltam. O número de dicas aparece no fim.</li></ul>
+  <h3>Disputa (2 a 4 jogadores)</h3><ul><li>Todos recebem <b>a mesma grade com as mesmas palavras</b> e cada um procura no seu tabuleiro, ao mesmo tempo.</li>
+  <li><b>Vence quem achar todas primeiro.</b> Com limite de tempo, se ninguém achar todas, vence quem tiver achado <b>mais</b> (no empate, quem chegou primeiro a esse número).</li>
+  <li>O painel mostra <b>quantas</b> cada um já achou — nunca quais nem onde. Na disputa não há dica.</li>
+  <li>Os bots procuram no ritmo de uma pessoa: o Fácil é calmo, o Normal é atento e o Difícil é rápido (mas dá para vencer!).</li>
+  <li>Quem desistir sai da disputa; os outros continuam.</li></ul>
+  <h3>Temas</h3><p style="font-size:13px">${tms}</p>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Copas</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px 8px;gap:4px}
+.tbl{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);gap:6px}
+.otop{grid-column:1/-1;display:flex;justify-content:center}
+.oside{display:flex;flex-direction:column;justify-content:center}
+.opp{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:4px 8px 5px;text-align:center;font-weight:800;font-size:12px;width:var(--ow);position:relative;transition:border-color .2s}
+.opp .onm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .oc{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px;font-size:14px;color:#ffe6a6}
+.opp .pts{font-size:11px;color:#cfe;font-weight:700;margin-top:1px}
+.opp .pts b{color:#ff9d9d}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite;background:rgba(0,0,0,.45)}
+.opp.moon{box-shadow:0 0 0 2px #b9a8ff,0 0 14px rgba(185,168,255,.7)}
+.mback{width:14px;height:20px;border-radius:3px;background:linear-gradient(135deg,#8e1b22,#5a0e14);border:2px solid #f4ead2;box-shadow:0 1px 3px rgba(0,0,0,.5);flex:none}
+.ctr{grid-column:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;position:relative}
+.trick{position:relative;width:calc(var(--tw)*2.9);height:calc(var(--tw)*1.43*1.75)}
+.trick .tw{position:absolute;left:50%;top:50%}
+.trick .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.trick .q0{transform:translate(-50%,-22%)} .trick .q2{transform:translate(-50%,-78%)}
+.trick .q1{transform:translate(-118%,-50%) rotate(-4deg)} .trick .q3{transform:translate(18%,-50%) rotate(4deg)}
+.trick .win .card{box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(231,180,58,.8)}
+.trick.old .card{opacity:.55}
+.trick .lbl{position:absolute;left:-20px;right:-20px;bottom:-6px;text-align:center;font-size:11px;font-weight:800;color:#ffe6a6;text-shadow:0 1px 3px #000;z-index:5}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.chip{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.35);border-radius:12px;padding:2px 9px;font-size:12px;font-weight:800;color:#e3f3ea}
+.chip.br{color:#ff9d9d}
+.sumbox{background:rgba(0,0,0,.5);border:2px solid var(--gold);border-radius:14px;padding:10px 12px;text-align:center;font-weight:800;max-width:100%}
+.sumbox h3{color:var(--gold);font-size:16px;margin-bottom:6px}
+.sumbox table{border-collapse:collapse;margin:0 auto;font-size:13px}
+.sumbox td{padding:2px 8px;text-align:left}
+.sumbox td.r{text-align:right}
+.sumbox tr.me td{color:#bff5d4}
+.sumbox button{margin-top:8px;padding:10px 16px;border-radius:12px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.mine{display:flex;flex-direction:column;align-items:center;gap:4px}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:36px}
+.ctl button{padding:9px 14px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer}
+.ctl button:disabled{opacity:.45;cursor:default}
+.myname{font-size:12px;font-weight:800;color:#bff5d4;padding:2px 10px;border-radius:12px;border:2px solid transparent}
+.myname.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.hand{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:14px}
+.hrow{display:flex;justify-content:center;max-width:100%}
+.hrow .card{margin-left:var(--ov)} .hrow .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer;box-shadow:0 0 0 2px rgba(231,180,58,.9),0 3px 8px rgba(0,0,0,.45);transform:translateY(-8px)}
+.hand .card.no{filter:brightness(.62) saturate(.7)}
+.hand .card.pk{cursor:pointer}
+.hand .card.sel{transform:translateY(-16px);box-shadow:0 0 0 3px var(--blue),0 6px 14px rgba(0,0,0,.5)}
+.hand .card.nova::before{content:"recebida";position:absolute;top:-14px;left:0;font-size:9px;font-weight:800;color:#3a2600;background:#bff5d4;border-radius:6px;padding:0 4px;white-space:nowrap}
+@media (hover:hover){ .hand .card.ok:hover,.hand .card.pk:hover{transform:translateY(-14px)} }
+.score{font-size:13px;font-weight:800;color:#ffe6a6;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================ COPAS ================================
+   4 jogadores, 52 cartas. Cada copa = 1 ponto, Dama de Espadas = 13.
+   Quem chegar a 100 encerra a partida; vence quem tiver MENOS pontos.     */
+const R13 = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SI = {'♣':0,'♥':1,'♠':2,'♦':3}, SSYM = ['♣','♥','♠','♦'], SNM = ['Paus','Copas','Espadas','Ouros'];
+const RI = {}; R13.forEach((r,i) => RI[r] = i);
+const cIdx = c => SI[c.s]*13 + RI[c.r];
+const QS = 2*13 + 10, C2 = 0;                                     // Dama de Espadas e 2 de Paus
+const ptsI = i => i === QS ? 13 : ((i/13)|0) === 1 ? 1 : 0;
+const cPts = c => ptsI(cIdx(c));
+const PASS = [['esquerda', 1], ['direita', 3], ['frente', 2], ['sem passar', 0]];
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+function dealHand(st){
+  const d = shuffle(makeDeck({ranks:RANKS13}));
+  st.hands = [0,1,2,3].map(i => d.slice(i*13, i*13 + 13));
+  st.pd = (st.handNo - 1) % 4;                                   // direção do passe nesta mão
+  st.pass = [null,null,null,null]; st.passed = [[],[],[],[]]; st.recv = [[],[],[],[]];
+  st.trick = []; st.taken = [0,0,0,0]; st.tricks = [0,0,0,0]; st.trickNo = 0; st.broken = false;
+  st.played = []; st.voids = [0,1,2,3].map(() => [0,0,0,0]); st.shown = null; st.handRes = null;
+  st.phase = PASS[st.pd][1] ? 'pass' : 'play';
+  if(st.phase === 'play') startPlay(st);
+}
+function startPlay(st){
+  st.phase = 'play';
+  st.leader = st.turn = st.hands.findIndex(h => h.some(c => c.r === '2' && c.s === '♣'));
+}
+function legalCards(st, p){
+  const h = st.hands[p];
+  if(!st.trick.length){
+    if(st.trickNo === 0) return h.filter(c => c.r === '2' && c.s === '♣');
+    if(!st.broken){ const nh = h.filter(c => c.s !== '♥'); if(nh.length) return nh; }
+    return h;
+  }
+  const f = h.filter(c => c.s === st.trick[0].c.s); if(f.length) return f;
+  if(st.trickNo === 0){ const np = h.filter(c => !cPts(c)); if(np.length) return np; }
+  return h;
+}
+function trickWin(trick){
+  let b = trick[0];
+  for(const t of trick) if(t.c.s === b.c.s && RI[t.c.r] > RI[b.c.r]) b = t;
+  return b.p;
+}
+function endHand(st, ev){
+  const moon = st.taken.findIndex(t => t === 26);
+  const add = moon >= 0 ? st.taken.map((_, i) => i === moon ? 0 : 26) : st.taken.slice();
+  add.forEach((x, i) => st.scores[i] += x);
+  st.handRes = {add, moon, taken:st.taken.slice()};
+  if(moon >= 0){ ev.push({k:'banner', text:`${st.names[moon]} chutou a lua! 🌙`}); ev.push({k:'snd', s:'win'});
+    ev.push({k:'log', text:`<b>${esc(st.names[moon])}</b> chutou a lua: +26 para cada um dos outros.`}); }
+  else ev.push({k:'log', text:`Fim da mão ${st.handNo}: ` + st.names.map((n, i) => `${esc(n)} +${add[i]}`).join(' · ')});
+  st.phase = Math.max(...st.scores) >= st.target ? 'end' : 'handEnd';
+}
+
+/* ---------------------------- MOTOR DO BOT ----------------------------
+   Estado simulado com números: carta = naipe*13 + valor (0 = 2 … 12 = Ás). */
+const sTurn = s => (s.leader + s.trick.length) % 4;
+function sLegal(s, p){
+  const h = s.hands[p];
+  if(!s.trick.length){
+    if(s.trickNo === 0) return h.includes(C2) ? [C2] : h;
+    if(!s.broken){ const nh = h.filter(c => ((c/13)|0) !== 1); if(nh.length) return nh; }
+    return h;
+  }
+  const ls = (s.trick[0][1]/13)|0, f = h.filter(c => ((c/13)|0) === ls); if(f.length) return f;
+  if(s.trickNo === 0){ const np = h.filter(c => !ptsI(c)); if(np.length) return np; }
+  return h;
+}
+function sPlay(s, p, c){
+  const h = s.hands[p]; h.splice(h.indexOf(c), 1);
+  if(s.trick.length){ const ls = (s.trick[0][1]/13)|0; if(((c/13)|0) !== ls) s.voids[p][ls] = 1; }
+  s.trick.push([p, c]); s.seen[c] = 1; if(((c/13)|0) === 1) s.broken = 1;
+  if(s.trick.length < 4) return;
+  const ls = (s.trick[0][1]/13)|0; let w = s.trick[0], pts = 0;
+  for(const t of s.trick){ pts += ptsI(t[1]); if(((t[1]/13)|0) === ls && t[1] > w[1]) w = t; }
+  s.taken[w[0]] += pts; s.trick = []; s.leader = w[0]; s.trickNo++;
+}
+const sClone = s => ({hands:s.hands.map(h => h.slice()), trick:s.trick.slice(), leader:s.leader, taken:s.taken.slice(), seen:s.seen.slice(),
+  broken:s.broken, trickNo:s.trickNo, voids:s.voids.map(v => v.slice())});
+
+// Heurística (com contagem): duck alto, livra-se de cartas perigosas quando não tem o naipe,
+// protege a Dama de Espadas, "pesca" a Dama saindo de espadas baixas, e vigia o chute da lua.
+function heur(s, p, noise){
+  const L = sLegal(s, p); if(L.length === 1) return L[0];
+  const h = s.hands[p], inH = new Uint8Array(52); for(const c of h) inH[c] = 1;
+  const unseen = i => !s.seen[i] && !inH[i];
+  const suitOf = c => (c/13)|0;
+  const cnt = [0,0,0,0]; for(const c of h) cnt[suitOf(c)]++;
+  const qOut = unseen(QS);
+  let tot = 0; for(const t of s.taken) tot += t;
+  // alguém pode estar chutando a lua?
+  let X = -1;
+  for(let q=0;q<4;q++) if(q !== p && s.taken[q] === tot && tot >= 8 && tot < 26) X = q;
+  // eu posso chutar a lua? (levei todos os pontos e controlo o jogo)
+  let shoot = false;
+  if(s.taken[p] === tot && tot >= 16){
+    let losers = 0;
+    for(const c of h){ const su = suitOf(c); for(let r=c%13+1;r<13;r++) if(unseen(su*13 + r)){ losers++; break; } }
+    shoot = losers <= 1;
+  }
+  const higherUnseen = c => { const su = suitOf(c); let k = 0; for(let r=c%13+1;r<13;r++) if(unseen(su*13 + r)) k++; return k; };
+  const lowerUnseen = c => { const su = suitOf(c); let k = 0; for(let r=0;r<c%13;r++) if(unseen(su*13 + r)) k++; return k; };
+  const nz = () => noise ? Math.random() * noise : 0;
+  const pickMax = f => { let b = L[0], bv = -1e9; for(const c of L){ const v = f(c) + nz(); if(v > bv){ bv = v; b = c; } } return b; };
+  if(shoot) return pickMax(c => c % 13 * 2 - higherUnseen(c) * 10);
+  if(!s.trick.length){
+    // ---- saída ----
+    const others = [0,1,2,3].filter(q => q !== p);
+    return pickMax(c => {
+      const su = suitOf(c), r = c % 13, hi = higherUnseen(c), lo = lowerUnseen(c);
+      const voidN = others.filter(q => s.voids[q][su]).length;
+      let winP = hi === 0 ? 1 : Math.pow(lo / (lo + hi + 1), 2) * .6;
+      let exp = voidN * (qOut ? 5 : 2);
+      if(su === 1) exp += Math.min(3, hi + lo);
+      if(su === 2 && qOut && r > 10) exp += 13 * (hi + lo > 0 ? .8 : .3);
+      if(c === QS) exp += 13;
+      let v = -winP * exp;
+      if(su === 2 && qOut && r < 10 && !inH[QS]) v += 2.5;          // pesca a Dama
+      if(su !== 1 && cnt[su] <= 2 && r < 9) v += 1.2;                 // corta um naipe curto
+      if(su === 1) v -= .8;
+      v -= winP * .5 - (1 - winP) * r * .08;                          // larga cartas altas sem risco
+      if(X >= 0 && su === 1 && hi === 0) v += 30;                     // copa alta: tira a lua do adversário
+      return v;
+    });
+  }
+  const ls = suitOf(s.trick[0][1]);
+  let cur = s.trick[0], P = 0;
+  for(const t of s.trick){ P += ptsI(t[1]); if(suitOf(t[1]) === ls && t[1] > cur[1]) cur = t; }
+  const last = s.trick.length === 3;
+  if(suitOf(L[0]) === ls){
+    // ---- tem o naipe ----
+    const ducks = L.filter(c => c < cur[1]), overs = L.filter(c => c > cur[1]);
+    if(X >= 0 && cur[0] === X && (P > 0 || ls === 1) && overs.length) return Math.min(...overs);   // tira a lua
+    if(ls === 2 && inH[QS] && cur[1] > QS) return QS;                                             // larga a Dama em cima do Ás/Rei
+    const noQ = a => a.filter(c => c !== QS);
+    if(last){
+      if(P === 0 && overs.length && noQ(overs).length) return Math.max(...noQ(overs));
+      if(ducks.length) return Math.max(...ducks);
+      return noQ(overs).length ? Math.max(...noQ(overs)) : overs[0];
+    }
+    // naipe "seguro": ninguém que falta jogar está sem o naipe e ainda há muitas cartas dele
+    let unk = 0; for(let r=0;r<13;r++) if(unseen(ls*13 + r)) unk++;
+    const rest = []; for(let k=s.trick.length+1;k<4;k++) rest.push((s.leader + k) % 4);
+    const safe = ls !== 1 && P === 0 && !(ls === 2 && qOut) && rest.every(q => !s.voids[q][ls]) && unk >= 2 * rest.length + 2;
+    if(safe && noQ(L).length) return Math.max(...noQ(L));
+    if(ducks.length) return Math.max(...ducks);
+    const o2 = noQ(overs);
+    if(!o2.length) return overs[0];
+    return ls === 1 ? Math.min(...o2) : Math.max(...o2);
+  }
+  // ---- sem o naipe: descarta ----
+  const giveToX = X >= 0 && cur[0] === X;
+  return pickMax(c => {
+    const su = suitOf(c), r = c % 13;
+    let v = r * 1.5;
+    if(c === QS) v = giveToX ? -5 : 200;
+    else if(su === 2 && r > 10 && qOut) v = 90 + r;
+    else if(su === 1) v = giveToX ? -10 + r * .2 : 40 + r * 3;
+    if(su !== 1 && su !== 2 && cnt[su] <= 2) v += 8;
+    if(X >= 0 && !giveToX && ptsI(c)) v += 60;                       // ponto para outro = lua desfeita
+    return v;
+  });
+}
+function handVal(s, p){
+  const moon = s.taken.findIndex(t => t === 26);
+  const pts = s.taken.map((t, i) => moon >= 0 ? (i === moon ? 0 : 26) : t);
+  return -pts[p] + (pts.reduce((a, b) => a + b, 0) - pts[p]) / 12;
+}
+function rollout(s, p){
+  while(s.trickNo < 13){ const q = sTurn(s); sPlay(s, q, heur(s, q, 0)); }
+  return handVal(s, p);
+}
+// distribui as cartas que p não vê, respeitando naipes que faltam e as cartas que ele passou
+function sample(st, p){
+  const seen = new Uint8Array(52); st.played.forEach(i => seen[i] = 1);
+  const mine = st.hands[p].map(cIdx), inH = new Uint8Array(52); mine.forEach(i => inH[i] = 1);
+  const hands = [[],[],[],[]], cap = st.hands.map((x, q) => q === p ? 0 : x.length);
+  hands[p] = mine.slice();
+  const fixed = new Uint8Array(52);
+  if(st.phase === 'play' && PASS[st.pd][1]){
+    const to = (p + PASS[st.pd][1]) % 4;
+    for(const id of st.passed[p]){ const c = st.hands[to].find(x => x.id === id); if(c){ const i = cIdx(c); hands[to].push(i); cap[to]--; fixed[i] = 1; } }
+  }
+  const pool = []; for(let i=0;i<52;i++) if(!seen[i] && !inH[i] && !fixed[i]) pool.push(i);
+  for(let tries=0;tries<30;tries++){
+    shuffle(pool);
+    const hs = hands.map(x => x.slice()), cp = cap.slice(); let ok = true;
+    // primeiro as cartas de naipes mais restritos
+    const order = pool.slice().sort((a, b) => [0,1,2,3].filter(q => cp[q] && !st.voids[q][(a/13)|0]).length - [0,1,2,3].filter(q => cp[q] && !st.voids[q][(b/13)|0]).length);
+    for(const c of order){
+      const su = (c/13)|0; let t = 0; const cand = [];
+      for(let q=0;q<4;q++) if(cp[q] > 0 && !st.voids[q][su]){ cand.push(q); t += cp[q]; }
+      if(!cand.length){ ok = false; break; }
+      let x = Math.random() * t, d = cand[cand.length - 1];
+      for(const q of cand){ x -= cp[q]; if(x < 0){ d = q; break; } }
+      hs[d].push(c); cp[d]--;
+    }
+    if(ok) return mk(hs);
+  }
+  // sem solução com os vazios (raro): distribui sem restrição
+  shuffle(pool); const hs = hands.map(x => x.slice()), cp = cap.slice();
+  for(const c of pool){ let q = 0; while(cp[q] <= 0) q++; hs[q].push(c); cp[q]--; }
+  return mk(hs);
+  function mk(hs){ return {hands:hs, trick:st.trick.map(t => [t.p, cIdx(t.c)]), leader:st.leader, taken:st.taken.slice(), seen,
+    broken:st.broken ? 1 : 0, trickNo:st.trickNo, voids:st.voids.map(v => v.slice())}; }
+}
+function knownSim(st, p){
+  const s = sample(st, p);                       // só a mão de p e o que é público importam para a heurística
+  return s;
+}
+// cartas equivalentes (vizinhas, sem carta escondida entre elas) dão o mesmo resultado
+function distinct(L, s, p){
+  const out = [];
+  const inH = new Uint8Array(52); for(const c of s.hands[p]) inH[c] = 1;
+  const sorted = L.slice().sort((a, b) => a - b);
+  for(const c of sorted){
+    const prev = out[out.length - 1];
+    if(prev != null && ((prev/13)|0) === ((c/13)|0) && ptsI(prev) === ptsI(c) && c !== QS && prev !== QS){
+      let gap = false; for(let i=prev+1;i<c;i++) if(!s.seen[i] && !inH[i]){ gap = true; break; }
+      if(!gap) continue;
+    }
+    out.push(c);
+  }
+  return out;
+}
+function mcPick(st, p, ms){
+  const base = sample(st, p);
+  const L = distinct(sLegal(base, p), base, p);
+  if(L.length === 1) return L[0];
+  const tot = new Float64Array(L.length); const t0 = now(); let k = 0;
+  do{
+    const s = k ? sample(st, p) : base;
+    for(let i=0;i<L.length;i++){ const t = sClone(s); sPlay(t, p, L[i]); tot[i] += rollout(t, p); }
+    k++;
+  } while(k < 3000 && now() - t0 < ms);
+  let bi = 0; for(let i=1;i<L.length;i++) if(tot[i] > tot[bi]) bi = i;
+  return L[bi];
+}
+function passPick(hand, diff){
+  const ix = hand.map(cIdx), cnt = [0,0,0,0]; ix.forEach(i => cnt[(i/13)|0]++);
+  const hasQ = ix.includes(QS), sp = cnt[2];
+  const score = i => {
+    const su = (i/13)|0, r = i % 13;
+    if(i === QS) return sp >= 5 ? 6 : 100;
+    if(su === 2 && r > 10) return hasQ && sp >= 5 ? 5 : !hasQ && sp >= 5 ? 18 + r : 60 + r;
+    if(su === 2) return r * .4 - 4;
+    if(su === 1) return r >= 8 ? 30 + r * 2 : r * .5;
+    let v = r * 1.5 + (cnt[su] <= 2 ? 18 : cnt[su] === 3 ? 7 : 0);
+    if(r <= 3) v -= 10;
+    if(i === C2) v -= 20;
+    return v;
+  };
+  const noise = diff === 'facil' ? 14 : 0;
+  return hand.map((c, k) => ({c, v: score(ix[k]) + Math.random() * noise})).sort((a, b) => b.v - a.v).slice(0, 3).map(x => x.c.id);
+}
+function botCard(st, p, diff){
+  const L = legalCards(st, p); if(L.length === 1) return L[0];
+  let ci;
+  if(diff === 'dificil') ci = mcPick(st, p, (typeof window !== 'undefined' && window.__mcms) || 600);
+  else ci = heur(knownSim(st, p), p, diff === 'facil' ? 9 : 0);
+  return L.find(c => cIdx(c) === ci) || L[0];
+}
+
+/* ------------------------------- REGRAS -------------------------------- */
+const DIFFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const passTo = (st, p) => (p + PASS[st.pd][1]) % 4;
+Mesa.run({
+  id:'copas', name:'Copas', icon:'♥️', tagline:'Fuja das copas e da Dama de Espadas',
+  options:[
+    {key:'alvo', label:'Partida até', default:'100', choices:[['50','50 pontos'],['100','100 pontos']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  players:4,
+  seatLabel: s => 'Jogador ' + (s + 1),
+  modeLabel: o => 'ATÉ ' + (o.alvo || 100) + ' · ' + (DIFFS[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const st = {names:players.map(p => p.name), scores:[0,0,0,0], target:+o.alvo || 100, handNo:1};
+    dealHand(st); return st;
+  },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Mão 1 — passe 3 cartas para a ${PASS[st.pd][0]}.`}]; },
+  waiting(st){
+    if(st.phase === 'pass') return [0,1,2,3].filter(p => !st.pass[p]);
+    if(st.phase === 'play') return [st.turn];
+    if(st.phase === 'handEnd') return [0];
+    return [];
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const mn = Math.min(...st.scores), w = [0,1,2,3].filter(i => st.scores[i] === mn);
+    return {winners:w, text:`Placar final (menos é melhor): ` + st.names.map((n, i) => `${esc(n)} <b>${st.scores[i]}</b>`).join(' · ')};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.phase === 'handEnd'){
+      if(a.t !== 'next') return {ok:false, err:'Aguarde a próxima mão.'};
+      st.handNo++; dealHand(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Mão ${st.handNo} — ${PASS[st.pd][1] ? 'passe 3 cartas para a ' + PASS[st.pd][0] : 'sem passar cartas'}.`}]};
+    }
+    if(st.phase === 'pass'){
+      if(a.t !== 'pass' || !Array.isArray(a.ids) || a.ids.length !== 3 || new Set(a.ids).size !== 3) return {ok:false, err:'Escolha exatamente 3 cartas.'};
+      if(st.pass[seat]) return {ok:false, err:'Você já passou suas cartas.'};
+      if(!a.ids.every(id => st.hands[seat].some(c => c.id === id))) return {ok:false, err:'Essas cartas não estão na sua mão.'};
+      st.pass[seat] = a.ids.slice();
+      if(st.pass.some(x => !x)) return {events:[{k:'snd', s:'card'}]};
+      // todos escolheram: troca
+      const give = st.pass.map((ids, p) => st.hands[p].filter(c => ids.includes(c.id)));
+      for(let p=0;p<4;p++) st.hands[p] = st.hands[p].filter(c => !st.pass[p].includes(c.id));
+      for(let p=0;p<4;p++){ const to = passTo(st, p); st.hands[to].push(...give[p]); st.recv[to] = give[p].map(c => c.id); st.passed[p] = st.pass[p]; }
+      startPlay(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Cartas trocadas. ${esc(st.names[st.turn])} tem o 2♣ e começa.`}], pause:600};
+    }
+    if(st.phase !== 'play') return {ok:false, err:'A mão terminou.'};
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t !== 'play') return {ok:false, err:'Jogada inválida.'};
+    const h = st.hands[seat], i = h.findIndex(c => c.id === a.id);
+    if(i < 0) return {ok:false, err:'Essa carta não está na sua mão.'};
+    const c = h[i];
+    if(!legalCards(st, seat).includes(c)){
+      let why = 'Jogada não permitida.';
+      if(!st.trick.length && st.trickNo === 0) why = 'A primeira vaza começa com o 2 de Paus.';
+      else if(!st.trick.length) why = 'As copas ainda não foram quebradas: saia de outro naipe.';
+      else if(h.some(x => x.s === st.trick[0].c.s)) why = `Você tem ${SNM[SI[st.trick[0].c.s]]}: é obrigatório assistir.`;
+      else if(st.trickNo === 0) why = 'Na primeira vaza não vale jogar copas nem a Dama de Espadas.';
+      return {ok:false, err:why};
+    }
+    const ev = [{k:'snd', s:'card'}];
+    if(!st.trick.length) st.shown = null;
+    else if(c.s !== st.trick[0].c.s) st.voids[seat][SI[st.trick[0].c.s]] = 1;
+    if(c.s === '♥' && !st.broken){ st.broken = true; ev.push({k:'log', text:`${esc(st.names[seat])} quebrou as copas.`}); ev.push({k:'banner', text:'Copas quebradas! ♥'}); }
+    if(cIdx(c) === QS && st.trick.length) ev.push({k:'snd', s:'alert'});
+    h.splice(i, 1); st.trick.push({p:seat, c}); st.played.push(cIdx(c));
+    if(st.trick.length < 4){ st.turn = (seat + 1) % 4; return {events:ev}; }
+    const w = trickWin(st.trick); let pts = 0; st.trick.forEach(t => pts += cPts(t.c));
+    st.taken[w] += pts; st.tricks[w]++; st.trickNo++;
+    st.shown = {cards:st.trick, w, pts}; st.trick = []; st.leader = st.turn = w;
+    if(pts) ev.push({k:'say', seat:w, text:`+${pts}`});
+    if(st.shown.cards.some(t => cIdx(t.c) === QS)) ev.push({k:'log', text:`<b>${esc(st.names[w])}</b> levou a Dama de Espadas (+13)!`});
+    if(st.trickNo === 13){ endHand(st, ev); return {events:ev, pause:1500}; }
+    return {events:ev, pause:1000};
+  },
+  bot(st, seat, o){
+    if(st.phase === 'handEnd') return {t:'next'};
+    if(st.phase === 'pass') return {t:'pass', ids:passPick(st.hands[seat], o.diff)};
+    return {t:'play', id:botCard(st, seat, o.diff).id};
+  },
+  botDelay(st, s, o){
+    if(st.phase === 'handEnd') return 3200;
+    if(st.phase === 'pass'){ const k = st.pass.filter((x, i) => !x && i !== 0).length || 1; return Math.max(250, 1400 / k); }
+    return o.diff === 'dificil' ? 300 : 750;
+  },
+  view(st, seat){
+    const me = seat >= 0 && seat < 4;
+    return {names:st.names, scores:st.scores, target:st.target, handNo:st.handNo, pd:st.pd, phase:st.phase,
+      hand: me ? st.hands[seat] : [], counts:st.hands.map(h => h.length), passedDone:st.pass.map(Boolean),
+      myPass: me && st.phase === 'pass' ? st.pass[seat] : null, recv: me && st.phase === 'play' && st.trickNo === 0 ? st.recv[seat] : [],
+      trick:st.trick, shown:st.shown, turn:st.turn, taken:st.taken, broken:st.broken, trickNo:st.trickNo, handRes:st.handRes,
+      legal: me && st.phase === 'play' && st.turn === seat ? legalCards(st, seat).map(c => c.id) : []};
+  },
+  topInfo(g, v){
+    const pd = PASS[g.pd];
+    return `<div class="score"><span>Mão ${g.handNo} · ${pd[1] ? 'passe: ' + pd[0] : 'sem passar'}</span><span>Você: ${g.scores[v.me]} pts</span><span>até ${g.target}</span></div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Fazer <b>o mínimo de pontos</b>. Cada carta de <b>copas ♥</b> que você levar vale <b>1 ponto</b> e a <b>Dama de Espadas (Q♠)</b> vale <b>13</b>. A partida acaba quando alguém chega a 100 pontos (ou 50, se escolhido); vence quem tiver <b>menos</b> pontos.</p>
+  <h3>Passe</h3><p>Depois de receber as 13 cartas, cada um escolhe <b>3 cartas para passar</b>, ao mesmo tempo: na 1ª mão para a <b>esquerda</b>, na 2ª para a <b>direita</b>, na 3ª para <b>quem está à frente</b> e na 4ª <b>não se passa</b>. Depois o ciclo recomeça.</p>
+  <h3>Como jogar</h3><ol><li>Quem tem o <b>2 de Paus</b> começa a primeira vaza com ele.</li>
+  <li>É <b>obrigatório assistir</b> (jogar o naipe de saída). Sem o naipe, jogue qualquer carta — é a hora de se livrar de copas e da Dama!</li>
+  <li>Leva a vaza a maior carta do naipe de saída (Ás é a maior). Não existe trunfo. Quem levou começa a próxima.</li>
+  <li>Na <b>primeira vaza</b> não vale jogar copas nem a Q♠ (a não ser que você só tenha cartas que valem pontos).</li>
+  <li>Não se pode <b>sair de copas</b> até elas serem <b>quebradas</b> — ou seja, até alguém descartar uma copa numa vaza de outro naipe (a não ser que você só tenha copas).</li></ol>
+  <h3>Chutar a lua 🌙</h3><p>Quem levar <b>todas as 13 copas e a Dama de Espadas</b> (os 26 pontos) numa mão não marca nada: os outros três ganham <b>26 pontos cada</b>.</p>
+  <h3>Bots</h3><p>Escolhem o passe para proteger ou se livrar da Q♠, cortar naipes curtos e largar copas altas; contam as cartas que saíram, guardam quem ficou sem cada naipe e tentam impedir quem estiver chutando a lua. O <b>Difícil</b> simula centenas de distribuições possíveis das cartas escondidas (Monte Carlo).</p>`,
+  render(g, v, ui){ renderCopas(g, v, ui); }
+});
+
+/* ------------------------------ INTERFACE ------------------------------ */
+let myRects = new Map(), prevCenter = new Set(), passSel = [], passHand = '';
+const relPos = (me, s) => ((s - me) % 4 + 4) % 4;                // 0 baixo · 1 esq · 2 topo · 3 dir
+function oppHTML(g, v, i){
+  const cls = ['opp'];
+  if(i === g.turn && g.phase === 'play') cls.push('vez');
+  if(g.phase === 'pass' && g.passedDone[i]) cls.push('ok');
+  let tot = 0; g.taken.forEach(t => tot += t);
+  if(g.phase === 'play' && g.taken[i] === tot && tot >= 8 && tot < 26) cls.push('moon');
+  return `<div class="${cls.join(' ')}" data-seat="${i}"><div class="onm">${esc(g.names[i])}</div>
+    <div class="oc"><span class="mback"></span>${g.counts[i]}</div><div class="pts">${g.phase === 'pass' && g.passedDone[i] ? '<span style="color:#bff5d4">✓ passou</span>' : `${g.scores[i]} pts${g.taken[i] ? ` <b>+${g.taken[i]}</b>` : ''}`}</div></div>`;
+}
+const sortKey = c => [0,2,3,1][SI[c.s]] * 13 + RI[c.r];   // ♣ ♠ ♦ ♥ (cores alternadas)
+function renderCopas(g, v, ui){
+  const st = ui.stage, me = v.me, W = st.clientWidth, H = st.clientHeight;
+  const myTurn = ui.isMyTurn() && g.phase === 'play' && g.turn === me;
+  myRects = new Map($$('.hand .card', st).map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  if(!st.querySelector('.tbl')){
+    st.innerHTML = `<div class="tbl"><div class="otop" id="oT"></div><div class="oside" id="oL"></div>
+      <div class="ctr" id="ctr"></div><div class="oside" id="oR"></div></div>
+      <div class="mine"><div class="status" id="stt"></div><div class="ctl" id="ctl"></div><div class="hand" id="hand" data-seat="${me}"></div></div>`;
+    prevCenter = new Set();
+  }
+  const hn = g.hand.length;
+  let cw = Math.floor(clamp(Math.min(W / 5.6, H / 6.6), 46, 92));
+  const fits = (k, w) => k <= 1 || (W - 16 - w) / (k - 1) >= w * .4;
+  let rows = 1;
+  if(!fits(hn, cw)){ rows = 2; while(!fits(Math.ceil(hn / 2), cw) && cw > 44) cw -= 2; }
+  const ch = Math.round(cw * 1.43);
+  const ow = Math.floor(clamp(W * .2, 66, 124));
+  const tw = Math.floor(clamp(Math.min((W - 28 - 2 * ow) / 3, (H - ch * rows - 170) / 2.7), 38, 84));
+  st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', ch + 'px');
+  st.style.setProperty('--tw', tw + 'px'); st.style.setProperty('--ow', ow + 'px');
+  const P = {1:[], 2:[], 3:[]};
+  for(let i=0;i<4;i++) if(i !== me) P[relPos(me, i)].push(i);
+  $('#oL').innerHTML = P[1].map(i => oppHTML(g, v, i)).join('');
+  $('#oT').innerHTML = P[2].map(i => oppHTML(g, v, i)).join('');
+  $('#oR').innerHTML = P[3].map(i => oppHTML(g, v, i)).join('');
+  // centro
+  const ctr = $('#ctr'), center = new Set();
+  let html = '';
+  if(g.phase === 'handEnd' && g.handRes){
+    const r = g.handRes;
+    const rows2 = [0,1,2,3].map(i => `<tr class="${i === me ? 'me' : ''}"><td>${esc(i === me ? 'Você' : g.names[i])}</td><td class="r">+${r.add[i]}</td><td class="r">${g.scores[i]}</td></tr>`).join('');
+    html = `<div class="sumbox"><h3>${r.moon >= 0 ? '🌙 ' + esc(r.moon === me ? 'Você' : g.names[r.moon]) + ' chutou a lua!' : 'Fim da mão ' + g.handNo}</h3>
+      <table><tr><td></td><td class="r">mão</td><td class="r">total</td></tr>${rows2}</table>
+      ${v.waiting.includes(me) ? '<button class="b-ok" id="bNext">Próxima mão ▶</button>' : '<div class="small">Aguardando a próxima mão...</div>'}</div>`;
+  } else {
+    const cards = g.trick.length ? g.trick : (g.shown ? g.shown.cards : []);
+    const old = !g.trick.length && g.shown;
+    let h = '';
+    for(const t of cards){
+      center.add(t.c.id);
+      const win = old && t.p === g.shown.w ? ' win' : '';
+      h += `<div class="tw q${relPos(me, t.p)}${win}">` + cardEl(t.c).outerHTML.replace('<div ', `<div data-id="${t.c.id}" data-p="${t.p}" `) + '</div>';
+    }
+    if(old) h += `<div class="lbl">${esc(g.shown.w === me ? 'Você levou' : g.names[g.shown.w] + ' levou')}${g.shown.pts ? ' +' + g.shown.pts : ''}</div>`;
+    const pd = PASS[g.pd];
+    const chips = g.phase === 'pass' ? `<span class="chip">Passe para a ${pd[0]} → ${esc(g.names[(me + pd[1]) % 4])}</span>`
+      : `<span class="chip ${g.broken ? 'br' : ''}">${g.broken ? '♥ Copas quebradas' : '♥ Copas fechadas'}</span><span class="chip">Vaza ${Math.min(g.trickNo + 1, 13)}/13</span>`;
+    html = `<div class="trick ${old ? 'old' : ''}" id="trick">${h}</div><div class="chips">${chips}</div>`;
+  }
+  ctr.innerHTML = html;
+  if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+  $$('#trick .card', st).forEach(el => {
+    const id = el.dataset.id; if(prevCenter.has(id)) return;
+    const p = +el.dataset.p;
+    const src = p === me ? myRects.get(id) : (st.querySelector(`.opp[data-seat="${p}"]`) || null);
+    const from = src && src.getBoundingClientRect ? src.getBoundingClientRect() : src;
+    if(from) flyFrom(el, from, {dur:320});
+  });
+  prevCenter = center;
+  // seleção do passe (local)
+  const hk = g.hand.map(c => c.id).join(',');
+  if(g.phase !== 'pass' || g.myPass || hk !== passHand){ if(hk !== passHand || g.phase !== 'pass') passSel = []; passHand = hk; }
+  const picking = g.phase === 'pass' && !g.myPass && v.waiting.includes(me);
+  // minha mão
+  const hand = $('#hand'), legal = new Set(g.legal), recv = new Set(g.recv || []);
+  const hs = g.hand.slice().sort((a, b) => sortKey(a) - sortKey(b));
+  const per = rows === 1 ? hs.length : Math.ceil(hs.length / 2);
+  const ov = per > 1 ? Math.min(cw * .12, (W - 16 - cw) / (per - 1) - cw) : 0;
+  hand.style.setProperty('--ov', Math.floor(ov) + 'px');
+  hand.innerHTML = '';
+  for(let r0=0;r0<hs.length;r0+=per){
+    const row = document.createElement('div'); row.className = 'hrow';
+    hs.slice(r0, r0 + per).forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      if(recv.has(c.id)) el.classList.add('nova');
+      if(picking){ el.classList.add('pk'); if(passSel.includes(c.id)) el.classList.add('sel');
+        el.onclick = () => { const k = passSel.indexOf(c.id); if(k >= 0) passSel.splice(k, 1); else if(passSel.length < 3) passSel.push(c.id); else { passSel.shift(); passSel.push(c.id); } ui.rerender(); }; }
+      else if(g.myPass && g.myPass.includes(c.id) && g.phase === 'pass') el.classList.add('sel');
+      else if(myTurn){ if(legal.has(c.id)){ el.classList.add('ok'); el.onclick = () => ui.act({t:'play', id:c.id}); } else el.classList.add('no'); }
+      row.appendChild(el);
+    });
+    hand.appendChild(row);
+  }
+  // controles e texto
+  const ctl = $('#ctl'); let ch2 = '';
+  if(picking) ch2 = `<button class="b-y" id="bPass" ${passSel.length === 3 ? '' : 'disabled'}>Passar ${passSel.length}/3 →</button>`;
+  ctl.innerHTML = ch2;
+  if($('#bPass')) $('#bPass').onclick = () => { if(passSel.length === 3){ ui.act({t:'pass', ids:passSel.slice()}); } };
+  let s = '';
+  const pd = PASS[g.pd];
+  if(g.phase === 'pass') s = picking ? `Escolha 3 cartas para passar à ${pd[0]} (${esc(g.names[(me + pd[1]) % 4])})` : 'Aguardando os outros escolherem...';
+  else if(g.phase === 'handEnd') s = 'Fim da mão';
+  else if(myTurn){
+    if(!g.trick.length && g.trickNo === 0) s = 'Sua vez — saia com o 2♣';
+    else if(g.trick.length && legal.size && g.hand.find(c => legal.has(c.id)).s === g.trick[0].c.s) s = `Sua vez — assista: ${SNM[SI[g.trick[0].c.s]]}`;
+    else if(g.trick.length) s = 'Sua vez — sem o naipe: descarte o que quiser';
+    else s = 'Sua vez — saia com uma carta' + (g.broken ? '' : ' (copas fechadas)');
+  } else s = 'Vez de ' + (g.names[g.turn] || '');
+  $('#stt').textContent = s;
+}
+</script>
+</body>
+</html>

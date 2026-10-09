@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Palavras Cruzadas</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;padding:6px 8px;justify-content:center}
+.cz{display:flex;gap:12px;width:100%;height:100%;justify-content:center;align-items:stretch}
+.cz.port{flex-direction:column;gap:6px;align-items:center}
+.col{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.cz.land .col.cr2{width:var(--sw);flex:none}
+.cz.land .col.cl2{justify-content:center;align-items:center}
+.cz.port .col{width:100%;max-width:640px}
+.cz.port .col.cr2{flex:1}
+/* ---------- grade ---------- */
+.board{display:grid;grid-template-columns:repeat(var(--C),var(--cs));grid-template-rows:repeat(var(--R),var(--cs));gap:0;flex:none;position:relative;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.45));touch-action:manipulation;margin:0 auto}
+.cl{position:relative;background:#fffdf5;box-shadow:inset 0 0 0 1px #9b8a5c;cursor:pointer;display:grid;place-items:center;
+  font-weight:900;color:#1d2a44;font-size:calc(var(--cs)*.56);line-height:1;text-transform:uppercase}
+.cl.x{background:transparent;box-shadow:none;cursor:default}
+.cl .nn{position:absolute;top:1px;left:2px;font-size:max(8px,calc(var(--cs)*.27));font-weight:800;color:#5b4a1e;line-height:1}
+.cl.word{background:#d9ecff}
+.cl.cur{background:#ffd75e;box-shadow:inset 0 0 0 2px #b8860b}
+.cl.bad{color:#d0202e}
+.cl.bad::after{content:"";position:absolute;inset:0;background:linear-gradient(to top right,transparent 46%,rgba(208,32,46,.6) 48% 52%,transparent 54%)}
+.cl.rev{color:#1e78e0}
+.cl.rev::before{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 calc(var(--cs)*.28) calc(var(--cs)*.28) 0;border-color:transparent #1e78e0 transparent transparent}
+.cl.okc{color:#1c7c3a}
+.cl.pop{animation:popL .18s ease-out}
+@keyframes popL{from{transform:scale(1.25)}}
+.board.over .cl:not(.x){cursor:default}
+.board.win .cl:not(.x){background:#e6f9ea}
+/* ---------- dica atual ---------- */
+.cbar{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border:2px solid rgba(231,180,58,.5);border-radius:12px;padding:5px 6px;min-height:46px}
+.cbar button{flex:none;width:34px;height:34px;border-radius:9px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:17px;cursor:pointer;font-weight:900}
+.cbar .ct{flex:1;min-width:0;font-size:14px;font-weight:700;line-height:1.25;color:#fff;cursor:pointer}
+.cbar .ct b{color:var(--gold);margin-right:4px;white-space:nowrap}
+.cbar .ct i{font-style:normal;color:#9cb;font-size:12px;white-space:nowrap}
+/* ---------- listas de dicas ---------- */
+.lists{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;align-content:start;background:rgba(0,0,0,.2);border-radius:12px;padding:6px 8px;-webkit-user-select:none}
+.cz.port .lists{min-height:60px}
+.lists h4{color:var(--gold);font-size:12px;letter-spacing:1px;margin:2px 0 3px;position:sticky;top:-6px;background:#0f3a26;padding:2px 0;z-index:1}
+.lists ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.lists li{font-size:13px;line-height:1.3;padding:3px 5px;border-radius:6px;cursor:pointer;color:#e3f3ea}
+.lists li b{color:#ffe6a6;margin-right:3px}
+.lists li.on{background:rgba(231,180,58,.28);color:#fff}
+.lists li.cr{background:rgba(90,176,255,.13)}
+.lists li.full{opacity:.5}
+/* ---------- teclado na tela ---------- */
+.kb{display:flex;flex-direction:column;gap:5px;user-select:none;-webkit-user-select:none;width:100%}
+.kb .kr{display:flex;gap:4px;justify-content:center}
+.kb button{flex:1;max-width:44px;height:var(--kh);border:none;border-radius:7px;background:linear-gradient(180deg,#f7f1df,#ddd2b3);color:#2a2410;font-weight:900;font-size:17px;
+  box-shadow:0 2px 0 rgba(0,0,0,.35);cursor:pointer;padding:0;touch-action:manipulation}
+.kb button:active{transform:translateY(1px);filter:brightness(.92)}
+.kb button.wide{max-width:64px;flex:1.5;font-size:15px;background:linear-gradient(180deg,#cfe3d6,#9fbfac)}
+.tools{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.tools .tbtn{font-size:13px;padding:7px 10px;border-radius:9px}
+#devIn{position:fixed;left:-200px;top:0;width:40px;height:30px;opacity:0;font-size:16px}
+/* ---------- disputa ---------- */
+.race{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.rc{background:rgba(0,0,0,.35);border:2px solid transparent;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;position:relative}
+.rc.me{color:#bff5d4}
+.rc.lead{border-color:var(--gold)}
+.rc .bar{width:50px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden;flex:none}
+.rc .bar i{display:block;height:100%;background:var(--nos);border-radius:3px;transition:width .4s}
+.rc.me .bar i{background:var(--blue)}
+.rc .nm{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc.out{opacity:.55}
+.info{display:flex;gap:12px;font-weight:800;font-size:14px;color:#ffe6a6}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="cruzadas-palavras.js"></script>
+<script>
+"use strict";
+/* ========================= PALAVRAS CRUZADAS ==========================
+   A cruzada é montada na hora com palavras e dicas do banco próprio
+   (cruzadas-palavras.js), em grade livre e bem entrelaçada.
+   Disputa: todos recebem a mesma cruzada; vence quem completar certo primeiro.
+   ===================================================================== */
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+const plural = (n, a, b) => n === 1 ? a : b;
+const fmtClock = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const NIVEIS = {
+  facil:  {S:9,  n:10, pool:{1:1},      nome:'Fácil'},
+  medio:  {S:11, n:14, pool:{1:1, 2:2.2}, nome:'Médio'},
+  dificil:{S:13, n:18, pool:{2:1, 3:2.2}, nome:'Difícil'}
+};
+const BOTS = {facil:{nome:'Fácil', ms:26000, err:.14}, normal:{nome:'Normal', ms:15000, err:.04}, dificil:{nome:'Difícil', ms:9500, err:0}};
+const PEN = 10000;   // penalidade por letra revelada (só jogando sozinho)
+
+/* ------------------------- banco de palavras ------------------------- */
+const BANCO = (() => {
+  const out = [], seen = new Set(); let lv = 1;
+  for(const ln of CZ_BANCO.split('\n')){
+    const t = ln.trim(); if(!t) continue;
+    if(t[0] === '#'){ lv = +t.slice(1) || 1; continue; }
+    const k = t.indexOf('|'); if(k < 0) continue;
+    const p = t.slice(0, k).trim(), d = t.slice(k + 1).trim(), w = norm(p);
+    if(w.length < 3 || seen.has(w)) continue;
+    seen.add(w); out.push({p, d, w, lv});
+  }
+  return out;
+})();
+
+/* ------------------------- gerador da grade -------------------------- */
+// grade livre: cada palavra nova cruza as que já estão; nenhuma letra encosta de lado em outra palavra
+function montar(cfg){
+  const pool = BANCO.filter(e => cfg.pool[e.lv] && e.w.length <= cfg.S);
+  let best = null; const t0 = Date.now();
+  for(let at = 0; at < 300; at++){
+    const r = tentativa(pool, cfg);
+    if(r && (!best || r.score > best.score)) best = r;
+    if(best && best.words.length >= cfg.n && (at >= 14 || Date.now() - t0 > 250)) break;
+    if(Date.now() - t0 > 900 && best) break;
+  }
+  return finalizar(best);
+}
+function tentativa(pool, cfg){
+  const S = cfg.S, M = new Map(), key = (r, c) => (r + 500) * 1000 + c + 500;   // chave sem negativos
+  const get = (r, c) => M.get(key(r, c));
+  // embaralha dando mais peso ao nível principal
+  const order = pool.map(e => ({e, k:Math.pow(Math.random(), 1 / cfg.pool[e.lv])})).sort((a, b) => b.k - a.k).map(x => x.e);
+  const first = order.find(e => e.w.length >= Math.min(S - 2, 7));
+  if(!first) return null;
+  const B = {r0:0, r1:0, c0:0, c1:first.w.length - 1};
+  const placed = [], used = new Set();
+  const put = (e, r, c, d, cross) => {
+    const dr = d === 'v' ? 1 : 0, dc = d === 'h' ? 1 : 0;
+    for(let k = 0; k < e.w.length; k++){
+      const rr = r + dr * k, cc = c + dc * k, kk = key(rr, cc);
+      const cell = M.get(kk) || {ch:e.w[k]}; cell[d] = true; M.set(kk, cell);
+      B.r0 = Math.min(B.r0, rr); B.r1 = Math.max(B.r1, rr); B.c0 = Math.min(B.c0, cc); B.c1 = Math.max(B.c1, cc);
+    }
+    placed.push({e, r, c, d, cross}); used.add(e.w);
+  };
+  const can = (w, r, c, d) => {
+    const dr = d === 'v' ? 1 : 0, dc = d === 'h' ? 1 : 0, L = w.length;
+    const r0 = Math.min(B.r0, r), r1 = Math.max(B.r1, r + dr * (L - 1)), c0 = Math.min(B.c0, c), c1 = Math.max(B.c1, c + dc * (L - 1));
+    if(r1 - r0 + 1 > S || c1 - c0 + 1 > S) return -1;
+    if(get(r - dr, c - dc) || get(r + dr * L, c + dc * L)) return -1;
+    let cross = 0;
+    for(let k = 0; k < L; k++){
+      const rr = r + dr * k, cc = c + dc * k, cell = get(rr, cc);
+      if(cell){ if(cell.ch !== w[k] || cell[d]) return -1; cross++; }
+      else if(get(rr + dc, cc + dr) || get(rr - dc, cc - dr)) return -1;
+    }
+    if(!cross || cross === L) return -1;
+    return cross;
+  };
+  put(first, 0, 0, 'h', 0);
+  while(placed.length < cfg.n){
+    let bp = null, tried = 0;
+    const area = (B.r1 - B.r0 + 1) * (B.c1 - B.c0 + 1);
+    for(const e of order){
+      if(used.has(e.w)) continue;
+      if(++tried > 140) break;
+      const w = e.w;
+      for(const [kk, cell] of M){
+        if(cell.h && cell.v) continue;
+        const d = cell.h ? 'v' : 'h', r = Math.floor(kk / 1000) - 500, c = kk % 1000 - 500;
+        for(let k = 0; k < w.length; k++){
+          if(w[k] !== cell.ch) continue;
+          const sr = d === 'v' ? r - k : r, sc = d === 'h' ? c - k : c;
+          const x = can(w, sr, sc, d); if(x < 0) continue;
+          const nr0 = Math.min(B.r0, sr), nr1 = Math.max(B.r1, d === 'v' ? sr + w.length - 1 : sr), nc0 = Math.min(B.c0, sc), nc1 = Math.max(B.c1, d === 'h' ? sc + w.length - 1 : sc);
+          const grow = (nr1 - nr0 + 1) * (nc1 - nc0 + 1) - area;
+          const sc2 = x * x * 5 + x * 2 + Math.min(w.length, 8) * .6 - grow * .08 + Math.random() * 3;
+          if(!bp || sc2 > bp.s) bp = {e, r:sr, c:sc, d, x, s:sc2};
+        }
+      }
+    }
+    if(!bp) break;
+    put(bp.e, bp.r, bp.c, bp.d, bp.x);
+  }
+  const cross = [...M.values()].filter(c => c.h && c.v).length;
+  const dens = M.size / ((B.r1 - B.r0 + 1) * (B.c1 - B.c0 + 1));
+  const lonely = placed.filter(p => {   // palavras que cruzam uma vez só
+    const dr = p.d === 'v' ? 1 : 0, dc = p.d === 'h' ? 1 : 0; let n = 0;
+    for(let k = 0; k < p.e.w.length; k++){ const cl = get(p.r + dr * k, p.c + dc * k); if(cl.h && cl.v) n++; }
+    return n < 2;
+  }).length;
+  return {M, B, placed, words:placed, score: Math.min(placed.length, cfg.n) * 40 + cross * 6 + dens * 40 - lonely * 4};
+}
+function finalizar(t){
+  const R = t.B.r1 - t.B.r0 + 1, C = t.B.c1 - t.B.c0 + 1, sol = Array(R * C).fill('.');
+  for(const [kk, cell] of t.M){ const r = Math.floor(kk / 1000) - 500 - t.B.r0, c = kk % 1000 - 500 - t.B.c0; sol[r * C + c] = cell.ch; }
+  // numeração em ordem de leitura
+  const nums = Array(R * C).fill(0); let n = 0;
+  const W = i => i >= 0 && sol[i] !== '.';
+  for(let r = 0; r < R; r++) for(let c = 0; c < C; c++){
+    const i = r * C + c; if(!W(i)) continue;
+    const h = (c === 0 || !W(i - 1)) && c + 1 < C && W(i + 1), v = (r === 0 || !W(i - C)) && r + 1 < R && W(i + C);
+    if(h || v) nums[i] = ++n;
+  }
+  const words = t.placed.map(p => {
+    const r = p.r - t.B.r0, c = p.c - t.B.c0;
+    return {n:nums[r * C + c], d:p.d, r, c, len:p.e.w.length, clue:p.e.d, p:p.e.p, w:p.e.w, lv:p.e.lv};
+  }).sort((a, b) => (a.d === b.d ? 0 : a.d === 'h' ? -1 : 1) || a.n - b.n);
+  return {R, C, sol:sol.join(''), nums, words};
+}
+const cellsOf = (w, C) => Array.from({length:w.len}, (_, k) => (w.r + (w.d === 'v' ? k : 0)) * C + w.c + (w.d === 'h' ? k : 0));
+
+/* ------------------------------ regras ------------------------------- */
+const whites = st => { const a = []; for(let i = 0; i < st.sol.length; i++) if(st.sol[i] !== '.') a.push(i); return a; };
+function pctOk(st, p){ const w = whites(st); return Math.round(100 * w.filter(i => p.g[i] === st.sol[i]).length / w.length); }
+function pctFull(st, p){ const w = whites(st); return Math.round(100 * w.filter(i => p.g[i]).length / w.length); }
+const completo = (st, p) => whites(st).every(i => p.g[i] === st.sol[i]);
+const ativos = st => st.p.map((p, s) => s).filter(s => !st.p[s].done && !st.p[s].out);
+function encerrar(st, motivo){
+  st.end = st.end || Date.now();
+  if(st.n === 1){
+    const p = st.p[0];
+    if(p.done){
+      const t = st.end - st.start + p.pen;
+      st.result = {winners:[0], text:`Cruzada completa em <b>${fmtClock(t)}</b>` + (p.pen ? ` (com ${fmtClock(p.pen)} de penalidade por ${p.revs} ${plural(p.revs, 'letra revelada', 'letras reveladas')})` : '') +
+        (p.checks ? `. Conferências: ${p.checks}.` : '. Sem conferir nem revelar nada!')};
+    } else st.result = {winners:[], text:`${motivo} Você tinha <b>${pctOk(st, p)}%</b> da cruzada certa.`};
+    return;
+  }
+  const rk = st.p.map((p, s) => ({s, ok:pctOk(st, p), done:p.done, out:p.out})).sort((a, b) => (b.done ? 1 : 0) - (a.done ? 1 : 0) || b.ok - a.ok);
+  const best = rk[0];
+  const lin = rk.map((x, i) => `${i + 1}º ${esc(st.names[x.s])} — ${x.done ? 'completou em ' + fmtClock(x.done - st.start) : x.ok + '% certo'}${x.out ? ' (desistiu)' : ''}`).join('<br>');
+  st.result = {winners: best.done || best.ok > 0 ? [best.s] : [], draw: !best.done && !best.ok, text:`${motivo}<br>${lin}`};
+}
+
+Mesa.run({
+  id:'cruzadas', name:'Palavras Cruzadas', icon:'✏️', tagline:'Cruzadas novas a cada partida',
+  seats: o => +o.jogadores || 1,
+  options:[
+    {key:'nivel', label:'Nível', default:'facil', choices:[['facil','Fácil'],['medio','Médio'],['dificil','Difícil']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => {
+    const n = +o.jogadores || 1, nv = (NIVEIS[o.nivel] || NIVEIS.facil).nome;
+    return (n === 1 ? 'SOZINHO · ' + nv : `DISPUTA · ${nv} · BOT ${(BOTS[o.diff] || BOTS.normal).nome}`).toUpperCase();
+  },
+  setup(players, o){
+    const nivel = o.nivel in NIVEIS ? o.nivel : 'facil', cz = montar(NIVEIS[nivel]);
+    return {nivel, R:cz.R, C:cz.C, sol:cz.sol, nums:cz.nums, words:cz.words,
+      n:players.length, names:players.map(p => p.name), hum:players.map(p => !!p.human), bot:o.diff in BOTS ? o.diff : 'normal',
+      start:Date.now(), end:0, result:null,
+      p:players.map(() => ({g:Array(cz.R * cz.C).fill(''), rev:[], bad:[], ok:[], checks:0, revs:0, pen:0, done:0, out:false, due:0, errs:0}))};
+  },
+  waiting(st){ return st.result ? [] : ativos(st); },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || st.result) return {ok:false, err:'Jogada inválida.'};
+    const p = st.p[seat];
+    if(!p || p.done || p.out) return {ok:false, err:'Você já terminou.'};
+    const isW = i => Number.isInteger(i) && i >= 0 && i < st.sol.length && st.sol[i] !== '.';
+    const cellList = x => Array.isArray(x) && x.length && x.length <= st.sol.length && x.every(isW);
+    if(a.t === 'fill'){
+      if(!Array.isArray(a.c) || !a.c.length || a.c.length > 20) return {ok:false, err:'Jogada inválida.'};
+      for(const it of a.c) if(!Array.isArray(it) || !isW(it[0]) || typeof it[1] !== 'string' || !/^[A-Z]?$/.test(it[1])) return {ok:false, err:'Letra inválida.'};
+      const wasFull = whites(st).every(i => p.g[i]);
+      let ch = 0;
+      for(const [i, l] of a.c){
+        if(p.rev.includes(i) || p.g[i] === l) continue;
+        p.g[i] = l; ch++;
+        p.bad = p.bad.filter(x => x !== i); p.ok = p.ok.filter(x => x !== i);
+      }
+      const ev = [];
+      if(completo(st, p)){
+        p.done = Date.now();
+        if(st.n === 1){ encerrar(st, ''); ev.push({k:'banner', text: pick(['Completou!','Muito bem!','Craque das cruzadas!'])}); }
+        else { encerrar(st, `<b>${esc(st.names[seat])}</b> completou a cruzada primeiro!`); ev.push({k:'banner', text:`${st.names[seat]} completou!`}); }
+      } else if(ch && !wasFull && whites(st).every(i => p.g[i])) ev.push({k:'toast', seat, text:'Tudo preenchido, mas há letra errada.'});
+      return {events:ev};
+    }
+    if(a.t === 'wait') return {events:[]};
+    if(a.t === 'check' || a.t === 'reveal'){
+      if(st.n !== 1) return {ok:false, err:'Na disputa não dá para conferir nem revelar.'};
+      if(!cellList(a.cells)) return {ok:false, err:'Escolha uma casa.'};
+      if(a.t === 'check'){
+        p.checks++;
+        let nb = 0;
+        for(const i of a.cells){ if(!p.g[i] || p.rev.includes(i)) continue;
+          if(p.g[i] !== st.sol[i]){ if(!p.bad.includes(i)) p.bad.push(i); nb++; } else if(!p.ok.includes(i)) p.ok.push(i); }
+        const filled = a.cells.filter(i => p.g[i]).length;
+        return {events:[{k:'toast', seat, text: !filled ? 'Nada preenchido para conferir.' : nb ? `${nb} ${plural(nb, 'letra errada', 'letras erradas')}.` : 'Tudo certo até aqui!'}]};
+      }
+      let nr = 0;
+      for(const i of a.cells){ if(p.g[i] === st.sol[i] && !p.bad.includes(i)) continue; if(p.rev.includes(i)) continue;
+        p.g[i] = st.sol[i]; p.rev.push(i); p.bad = p.bad.filter(x => x !== i); nr++; }
+      p.revs += nr; p.pen += nr * PEN;
+      const ev = [{k:'snd', s:'card'}];
+      if(completo(st, p)){ p.done = Date.now(); encerrar(st, ''); }
+      return {events:ev};
+    }
+    if(a.t === 'giveup'){
+      p.out = true;
+      if(st.n === 1){ encerrar(st, 'Você desistiu.'); return {events:[{k:'snd', s:'lose'}]}; }
+      const rest = ativos(st);
+      if(!rest.length || rest.every(s => !st.hum[s])) encerrar(st, rest.length ? 'Só sobraram bots na disputa.' : 'Todos desistiram.');
+      return {events:[{k:'log', text:`${esc(st.names[seat])} desistiu.`}]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot: botJoga,
+  botFallback(st, seat){ return {t:'giveup'}; },
+  // ritmo humano: cada bot tem a sua hora marcada; a Mesa reveza os bots, então esperamos
+  // até a hora do PRIMEIRO bot (os outros respondem "wait")
+  botDelay(st, seat){ return botDue(st, seat, tempoBot); },
+  view(st, seat){
+    const me = st.p[seat] || null, over = !!st.result;
+    return {R:st.R, C:st.C, nivel:st.nivel, n:st.n,
+      mask: st.sol.replace(/[A-Z]/g, '_'),                       // só o formato da grade, sem as letras
+      nums:st.nums, words:st.words.map(w => ({n:w.n, d:w.d, r:w.r, c:w.c, len:w.len, clue:w.clue, p: over ? w.p : undefined})),
+      g: me ? me.g : [], rev: me ? me.rev : [], bad: me ? me.bad : [], ok: me ? me.ok : [],
+      checks: me ? me.checks : 0, revs: me ? me.revs : 0, pen: me ? me.pen : 0,
+      done: me ? !!(me.done || me.out) : true, out: me ? me.out : false,
+      // painel: dos outros, % certo; o próprio, % preenchido (não revela se está certo)
+      race: st.p.map((p, s) => ({name:st.names[s], pct: s === seat ? pctFull(st, p) : pctOk(st, p), done:!!p.done, out:p.out})),
+      sol: over ? st.sol : null, start:st.start, end:st.end, over};
+  },
+  topInfo(g, v){
+    return `<div class="info"><span>✏️ ${g.race[v.me] ? g.race[v.me].pct : 0}% preenchido</span>${g.n === 1 && g.revs ? `<span>👁 +${fmtClock(g.pen)}</span>` : ''}<span id="clock"></span></div>`;
+  },
+  onEvent(e, v){
+    if(e.k === 'start'){ resetLocal(); return; }
+    if(e.k === 'over') Snd.deal(6);
+  },
+  render, rules: rulesHtml
+});
+
+/* ------------------------------ bots ------------------------------ */
+function botDue(st, seat, tempo){
+  const now = Date.now(), bs = ativos(st).filter(x => x === seat || !st.hum[x]);
+  for(const x of bs) if(!st.p[x].due) st.p[x].due = now + tempo(st, x);
+  // a Mesa multiplica a espera pela velocidade do jogo; aqui o ritmo é do relógio de verdade
+  const sp = typeof CFG === 'object' && CFG.speed >= .25 ? CFG.speed : 1;
+  return Math.max(150, (Math.min(...bs.map(x => st.p[x].due)) - now) / sp);
+}
+const botLv = (st, seat) => BOTS[(st.botLv && st.botLv[seat]) || st.bot] || BOTS.normal;
+function tempoBot(st, seat){
+  const p = st.p[seat], b = botLv(st, seat);
+  const ws = st.words.filter(w => cellsOf(w, st.C).some(i => p.g[i] !== st.sol[i]));
+  if(!ws.length) return 3000;
+  const w = ws.reduce((m, x) => known(st, p, x) > known(st, p, m) ? x : m, ws[0]);
+  const fr = known(st, p, w);
+  let ms = b.ms * (.55 + w.len / 9) * (1 - .45 * fr) * ({1:.8, 2:1, 3:1.3}[w.lv] || 1);
+  if(!p.g.some(Boolean)) ms += 4000;                       // lê as dicas antes de começar
+  if(ws.every(x => cellsOf(x, st.C).every(i => p.g[i]))) ms *= .6;   // só falta corrigir
+  let g = 0; for(let i = 0; i < 4; i++) g += Math.random(); g = (g - 2) / .58;
+  return Math.round(ms * Math.exp(g * .4));
+}
+const known = (st, p, w) => { const cs = cellsOf(w, st.C); return cs.filter(i => p.g[i] === st.sol[i]).length / cs.length; };
+function botJoga(st, seat){
+  const p = st.p[seat], b = botLv(st, seat);
+  const ws = st.words.filter(w => cellsOf(w, st.C).some(i => p.g[i] !== st.sol[i]));
+  if(!ws.length) return {t:'giveup'};
+  if(p.due && Date.now() < p.due - 250) return {t:'wait'};     // ainda pensando (outro bot chegou antes na vez)
+  p.due = 0;
+  // prefere palavras com letras já cruzadas e dicas mais fáceis
+  let best = null, bs = -1;
+  for(const w of ws){ const s = (1 + 3 * known(st, p, w)) * ({1:1.5, 2:1, 3:.75}[w.lv] || 1) * (.6 + Math.random()); if(s > bs){ bs = s; best = w; } }
+  const cs = cellsOf(best, st.C).filter(i => !p.rev.includes(i));
+  const c = cs.map(i => [i, st.sol[i]]);
+  // o bot fácil às vezes erra uma letra (corrige depois, quando cruzar ou revisar)
+  if(b.err && p.errs < 3 && Math.random() < b.err){
+    const free = c.filter(x => !p.g[x[0]]);
+    if(free.length){ const x = pick(free); x[1] = pick('AEIOURSTLMNCDP'.split('').filter(l => l !== x[1])); p.errs++; }
+  }
+  return {t:'fill', c};
+}
+
+/* ---------------------------- interface ---------------------------- */
+let L = {cur:-1, dir:'h', pend:{}, key:'', kb:null, dev:false, flash:-1};
+function resetLocal(){ L = {cur:-1, dir:'h', pend:{}, key:'', kb:L.kb, dev:false, flash:-1}; }
+const coarse = () => window.matchMedia && matchMedia('(pointer:coarse)').matches;
+const G = () => { const v = Mesa.ui.view; return v && v.game; };
+const letterAt = (g, i) => L.pend[i] ? L.pend[i].ch : (g.g[i] || '');
+function wordIdx(g, i, d){ return g.words.findIndex(w => w.d === d && cellsOf(w, g.C).includes(i)); }
+function curWord(g){ if(L.cur < 0) return null; const k = wordIdx(g, L.cur, L.dir); return k >= 0 ? g.words[k] : null; }
+const playing = () => { const v = Mesa.ui.view, g = G(); return !!(g && !g.over && !g.done && v.phase === 'game'); };
+
+function layout(st, g){
+  const W = st.clientWidth - 16, H = st.clientHeight - 12;
+  const land = W > H * 1.1 && W >= 640;
+  const showKb = L.kb != null ? L.kb : (coarse() || W < 720);
+  const race = g.n > 1 ? 32 : 0;
+  let bw, bh, sw = 0, kh = 40;
+  if(land){ sw = clamp(Math.round(W * .4), 260, 460); bw = W - sw - 12; bh = H - race; }
+  else {
+    kh = H < 640 ? 34 : 40;
+    const fixed = 50 + (showKb ? kh * 3 + 14 : 0) + 34 + race + 24;
+    bw = Math.min(W, 640); bh = H - fixed - Math.min(150, H * .17);
+  }
+  const cs = Math.floor(clamp(Math.min(bw / g.C, bh / g.R), 16, land ? 56 : 46));
+  return {land, sw, cs, kh, showKb, key:[st.clientWidth, st.clientHeight, g.R, g.C, showKb, g.mask.length, g.nums.join('').slice(0, 30)].join(':')};
+}
+
+function render(g, v, ui){
+  const st = ui.stage, lay = layout(st, g);
+  const key = v.gameNo + ':' + v.me + ':' + lay.key;
+  if(L.key !== key){ L.key = key; build(st, g, lay, ui); }
+  update(st, g, v, ui);
+  startClock(ui);
+}
+function build(st, g, lay, ui){
+  st.style.setProperty('--R', g.R); st.style.setProperty('--C', g.C); st.style.setProperty('--cs', lay.cs + 'px');
+  st.style.setProperty('--sw', lay.sw + 'px'); st.style.setProperty('--kh', lay.kh + 'px');
+  if(L.cur < 0){ const w0 = g.words.find(w => w.d === 'h') || g.words[0]; L.cur = w0.r * g.C + w0.c; L.dir = w0.d; }
+  let cells = '';
+  for(let i = 0; i < g.R * g.C; i++)
+    cells += g.mask[i] === '.' ? '<div class="cl x"></div>' : `<div class="cl" data-i="${i}">${g.nums[i] ? `<span class="nn">${g.nums[i]}</span>` : ''}<span class="lt"></span></div>`;
+  const li = d => g.words.map((w, k) => w.d === d ? `<li data-w="${k}"><b>${w.n}</b>${esc(w.clue)} <span style="opacity:.6">(${w.len})</span></li>` : '').join('');
+  const board = `<div class="board" id="board">${cells}</div>`;
+  const cbar = `<div class="cbar"><button id="bPrev" aria-label="Dica anterior">‹</button><div class="ct" id="ct"></div><button id="bNext" aria-label="Próxima dica">›</button></div>`;
+  const lists = `<div class="lists" id="lists"><div><h4>HORIZONTAIS</h4><ol>${li('h')}</ol></div><div><h4>VERTICAIS</h4><ol>${li('v')}</ol></div></div>`;
+  const kb = lay.showKb ? `<div class="kb" id="kb">${['QWERTYUIOP', 'ASDFGHJKL', '⇄ZXCVBNM⌫'].map(r => `<div class="kr">${[...r].map(k =>
+    `<button data-k="${k}" class="${k === '⇄' || k === '⌫' ? 'wide' : ''}" aria-label="${k === '⇄' ? 'Trocar direção' : k === '⌫' ? 'Apagar' : k}">${k}</button>`).join('')}</div>`).join('')}</div>` : '';
+  const tools = `<div class="tools" id="tools"></div>`;
+  const race = g.n > 1 ? '<div class="race" id="race"></div>' : '';
+  st.innerHTML = lay.land
+    ? `<div class="cz land"><div class="col cl2">${race}${board}</div><div class="col cr2">${cbar}${lists}${tools}${kb}</div></div>`
+    : `<div class="cz port"><div class="col">${race}${board}${cbar}</div><div class="col cr2">${lists}${tools}${kb}</div></div>`;
+  if(!$('#devIn')) document.body.insertAdjacentHTML('beforeend', '<input id="devIn" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Digitar letra">');
+  // eventos
+  $('#board', st).onclick = e => { const c = e.target.closest('.cl[data-i]'); if(c) tocar(+c.dataset.i); };
+  $('#lists', st).onclick = e => { const l = e.target.closest('li[data-w]'); if(l){ const w = G().words[+l.dataset.w]; irPara(w); } };
+  $('#bPrev', st).onclick = () => pularPalavra(-1);
+  $('#bNext', st).onclick = () => pularPalavra(1);
+  $('#ct', st).onclick = () => { trocarDir(); };
+  if($('#kb', st)) $('#kb', st).addEventListener('pointerdown', e => {
+    const b = e.target.closest('button[data-k]'); if(!b) return; e.preventDefault();
+    const k = b.dataset.k; if(k === '⌫') apagar(); else if(k === '⇄') trocarDir(); else digitar(k);
+  });
+}
+function update(st, g, v, ui){
+  Object.keys(L.pend).forEach(i => { if(g.g[i] === L.pend[i].ch || Date.now() - L.pend[i].t > 3500 || g.over) delete L.pend[i]; });
+  const w = curWord(g), wc = new Set(w ? cellsOf(w, g.C) : []);
+  const bad = new Set(g.bad), rev = new Set(g.rev), okc = new Set(g.ok);
+  const board = $('#board', st);
+  board.classList.toggle('over', !!g.over); board.classList.toggle('win', !!(g.over && g.sol && g.g.every((x, i) => g.mask[i] === '.' || x === g.sol[i])));
+  $$('.cl[data-i]', board).forEach(el => {
+    const i = +el.dataset.i;
+    let ch = letterAt(g, i), miss = false;
+    if(g.over && g.sol && ch !== g.sol[i]){ miss = true; ch = g.sol[i]; }
+    const lt = el.lastChild; if(lt.textContent !== ch){ lt.textContent = ch; if(i === L.flash) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } }
+    el.className = 'cl' + (!g.over && i === L.cur ? ' cur' : !g.over && wc.has(i) ? ' word' : '') + (bad.has(i) && !L.pend[i] ? ' bad' : '') + (rev.has(i) || (g.over && miss) ? ' rev' : '') + (okc.has(i) && !L.pend[i] ? ' okc' : '');
+  });
+  L.flash = -1;
+  // dica atual
+  const ct = $('#ct', st);
+  if(g.over) ct.innerHTML = '<b>Fim!</b> As letras em azul foram reveladas ou faltavam.';
+  else if(w) ct.innerHTML = `<b>${w.n} ${w.d === 'h' ? 'Horizontal' : 'Vertical'}</b>${esc(w.clue)} <i>(${w.len} letras)</i>`;
+  else ct.innerHTML = 'Toque numa casa da grade.';
+  // listas
+  const cw = w ? g.words.indexOf(w) : -1, crossW = new Set();
+  if(L.cur >= 0){ const o = wordIdx(g, L.cur, L.dir === 'h' ? 'v' : 'h'); if(o >= 0) crossW.add(o); }
+  $$('#lists li', st).forEach(li => {
+    const k = +li.dataset.w, ww = g.words[k], full = cellsOf(ww, g.C).every(i => letterAt(g, i));
+    li.className = (k === cw ? 'on' : crossW.has(k) ? 'cr' : '') + (full ? ' full' : '');
+    if(g.over && ww.p && !li.dataset.done){ li.dataset.done = 1; li.insertAdjacentHTML('beforeend', ` — <b>${esc(ww.p)}</b>`); }
+  });
+  const on = $('#lists li.on', st); if(on && on.dataset.sc !== String(L.cur)){ on.dataset.sc = L.cur; const box = $('#lists', st), r = on.getBoundingClientRect(), br = box.getBoundingClientRect(); if(r.top < br.top + 20 || r.bottom > br.bottom) box.scrollTop += r.top - br.top - 30; }
+  // painel da disputa
+  if($('#race', st)){
+    const others = g.race.map((r, s) => s === v.me ? -1 : r.pct), best = Math.max(...others);
+    $('#race', st).innerHTML = g.race.map((r, s) => `<div class="rc ${s === v.me ? 'me' : ''} ${s !== v.me && r.pct === best && best > 0 ? 'lead' : ''} ${r.out ? 'out' : ''}" data-seat="${s}">
+      <span class="nm">${esc(s === v.me ? 'Você' : r.name)}</span><span class="bar"><i style="width:${r.pct}%"></i></span>
+      <span>${r.out ? 'desistiu' : r.done ? '✔' : r.pct + '%' + (s === v.me ? ' preenchido' : ' certo')}</span></div>`).join('');
+  }
+  // ferramentas
+  const tl = $('#tools', st), pl = playing();
+  if($('#kb', st)) $('#kb', st).style.display = pl ? '' : 'none';   // teclado some quando não dá mais para jogar
+  const kbBtn = `<button class="tbtn" id="bKb" title="Teclado">${L.dev ? '⌨️ Teclado da tela' : '📱 Teclado do aparelho'}</button>`;
+  tl.innerHTML = !pl ? (g.done && !g.over ? '<span style="font-weight:800;color:#ffe6a6">Aguardando os outros…</span>' : '') :
+    (g.n === 1 ? '<button class="tbtn" id="bChk">✔ Conferir</button><button class="tbtn" id="bRev">👁 Revelar</button>' : '') + kbBtn + '<button class="tbtn" id="bGive">🏳️ Desistir</button>';
+  if($('#bChk')) $('#bChk').onclick = () => menu('check', ui);
+  if($('#bRev')) $('#bRev').onclick = () => menu('reveal', ui);
+  if($('#bKb')) $('#bKb').onclick = () => alternarTeclado();
+  if($('#bGive')) $('#bGive').onclick = () => modal(`<h2>Desistir?</h2><p>${g.n === 1 ? 'A resposta será mostrada e a partida termina.' : 'Você sai da disputa (os outros continuam).'}</p>`,
+    [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+}
+function menu(t, ui){
+  const g = G(); if(!g) return;
+  const w = curWord(g), all = []; for(let i = 0; i < g.mask.length; i++) if(g.mask[i] !== '.') all.push(i);
+  const go = cells => ui.act({t, cells});
+  const txt = t === 'check' ? '<h2>Conferir</h2><p>As letras erradas ficam marcadas em vermelho (e as certas, em verde).</p>'
+    : `<h2>Revelar</h2><p>Cada letra revelada soma <b>${PEN / 1000} s</b> ao seu tempo.</p>`;
+  modal(txt, [{label:'Letra', fn:() => L.cur >= 0 && go([L.cur])}, {label:'Palavra', fn:() => w && go(cellsOf(w, g.C))},
+    {label:'Tudo', cls:'b-y', fn:() => go(all)}, {label:'Cancelar', cls:'b-no'}]);
+}
+
+/* navegação e digitação */
+function tocar(i){
+  const g = G(); if(!g || g.over) return;
+  if(i === L.cur){ trocarDir(); return; }
+  L.cur = i;
+  if(wordIdx(g, i, L.dir) < 0) L.dir = L.dir === 'h' ? 'v' : 'h';
+  if(L.dev) $('#devIn').focus();
+  Mesa.ui.rerender();
+}
+function trocarDir(){
+  const g = G(); if(!g || L.cur < 0) return;
+  const o = L.dir === 'h' ? 'v' : 'h';
+  if(wordIdx(g, L.cur, o) >= 0){ L.dir = o; Mesa.ui.rerender(); }
+}
+function irPara(w){
+  const g = G(); if(!g) return;
+  const cs = cellsOf(w, g.C);
+  L.dir = w.d; L.cur = cs.find(i => !letterAt(g, i)) ?? cs[0];
+  if(L.dev) $('#devIn').focus();
+  Mesa.ui.rerender();
+}
+function ordem(g){ return g.words.slice().sort((a, b) => (a.d === b.d ? 0 : a.d === 'h' ? -1 : 1) || a.n - b.n); }
+function pularPalavra(dlt){
+  const g = G(); if(!g) return;
+  const os = ordem(g), w = curWord(g), k = Math.max(0, os.indexOf(w));
+  irPara(os[(k + dlt + os.length) % os.length]);
+}
+function digitar(ch){
+  const g = G(); if(!g || !playing() || L.cur < 0) return;
+  ch = norm(ch).slice(0, 1); if(!ch) return;
+  const w = curWord(g); if(!w) return;
+  const i = L.cur;
+  if(!g.rev.includes(i)){ L.pend[i] = {ch, t:Date.now()}; L.flash = i; Mesa.ui.act({t:'fill', c:[[i, ch]]}); Snd.card(); }
+  // avança: próxima casa da palavra; no fim, primeira vazia da próxima palavra incompleta
+  const cs = cellsOf(w, g.C), k = cs.indexOf(i);
+  if(k < cs.length - 1) L.cur = cs[k + 1];
+  else {
+    const os = ordem(g), at = os.indexOf(w);
+    for(let s = 1; s <= os.length; s++){ const nw = os[(at + s) % os.length], ncs = cellsOf(nw, g.C), e = ncs.find(j => !letterAt(g, j)); if(e != null){ L.dir = nw.d; L.cur = e; break; } }
+  }
+  Mesa.ui.rerender();
+}
+function apagar(){
+  const g = G(); if(!g || !playing() || L.cur < 0) return;
+  const w = curWord(g); if(!w) return;
+  let i = L.cur;
+  if(!letterAt(g, i) || g.rev.includes(i)){
+    const cs = cellsOf(w, g.C), k = cs.indexOf(i);
+    if(k > 0) i = L.cur = cs[k - 1];
+  }
+  if(letterAt(g, i) && !g.rev.includes(i)){ L.pend[i] = {ch:'', t:Date.now()}; Mesa.ui.act({t:'fill', c:[[i, '']]}); }
+  Mesa.ui.rerender();
+}
+function mover(dr, dc){
+  const g = G(); if(!g || L.cur < 0) return;
+  const d = dr ? 'v' : 'h';
+  if(L.dir !== d && wordIdx(g, L.cur, d) >= 0){ L.dir = d; Mesa.ui.rerender(); return; }
+  let r = Math.floor(L.cur / g.C) + dr, c = L.cur % g.C + dc;
+  while(r >= 0 && r < g.R && c >= 0 && c < g.C){ const i = r * g.C + c; if(g.mask[i] !== '.'){ L.cur = i; if(wordIdx(g, i, L.dir) < 0) L.dir = L.dir === 'h' ? 'v' : 'h'; break; } r += dr; c += dc; }
+  Mesa.ui.rerender();
+}
+function alternarTeclado(){
+  L.dev = !L.dev;
+  L.kb = !L.dev;
+  L.key = '';
+  Mesa.ui.rerender();
+  if(L.dev) setTimeout(() => { const d = $('#devIn'); d.value = '_'; d.focus(); }, 30);
+}
+// teclado físico (PC)
+document.addEventListener('keydown', e => {
+  const v = Mesa.ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.target && e.target.id && /chatIn|roomChatIn/.test(e.target.id)) return;
+  const k = e.key;
+  // no campo do teclado do aparelho, letras e Backspace chegam pelo evento "input"
+  if(e.target && e.target.id === 'devIn' && (k.length === 1 || k === 'Backspace' || k === 'Unidentified' || e.keyCode === 229)) return;
+  if(/^[a-zA-ZçÇ]$/.test(k)){ digitar(k); e.preventDefault(); }
+  else if(k === 'Backspace' || k === 'Delete'){ apagar(); e.preventDefault(); }
+  else if(k === 'ArrowLeft'){ mover(0, -1); e.preventDefault(); }
+  else if(k === 'ArrowRight'){ mover(0, 1); e.preventDefault(); }
+  else if(k === 'ArrowUp'){ mover(-1, 0); e.preventDefault(); }
+  else if(k === 'ArrowDown'){ mover(1, 0); e.preventDefault(); }
+  else if(k === 'Tab' || k === 'Enter'){ pularPalavra(e.shiftKey ? -1 : 1); e.preventDefault(); }
+  else if(k === ' '){ trocarDir(); e.preventDefault(); }
+});
+// teclado do aparelho (Android/iPhone): campo escondido que recebe as letras
+document.addEventListener('input', e => {
+  if(!e.target || e.target.id !== 'devIn') return;
+  const el = e.target, val = el.value;
+  if(val.length < 1) apagar();
+  else for(const ch of val.replace(/_/g, '')) if(/[a-zA-ZçÇáàâãéêíóôõúÁÀÂÃÉÊÍÓÔÕÚ]/.test(ch)) digitar(ch);
+  el.value = '_';
+});
+function startClock(ui){
+  clearInterval(window._clk);
+  const tick = () => { const c = $('#clock'), v = ui.view, g = v && v.game; if(!c || !g) return;
+    c.textContent = '⏱ ' + fmtClock((g.over && g.end ? g.end : Date.now()) - g.start); };
+  tick(); window._clk = setInterval(tick, 500);
+}
+window.addEventListener('resize', () => { const v = Mesa.ui.view; if(v && v.game && v.phase !== 'lobby') Mesa.ui.rerender(); });
+
+function rulesHtml(){
+  const n = l => BANCO.filter(e => e.lv === l).length;
+  return `<h3>Objetivo</h3><p>Preencher a grade com as palavras certas, usando as dicas <b>Horizontais</b> e <b>Verticais</b>. Cada cruzada é montada na hora a partir de um banco com ${BANCO.length} palavras e dicas.</p>
+  <h3>Como jogar</h3><ul><li><b>Toque numa casa</b> para escolhê-la; toque de novo (ou no ⇄) para trocar entre horizontal e vertical.</li>
+  <li>Digite com o <b>teclado da tela</b>, com o <b>teclado do aparelho</b> (botão 📱) ou com o teclado do computador.</li>
+  <li>A dica da palavra atual aparece na barra; ‹ e › vão para a dica anterior/próxima. Tocar numa dica da lista leva até a palavra.</li>
+  <li>No computador: setas movem, <b>Espaço</b> troca a direção, <b>Tab/Enter</b> vai para a próxima palavra, <b>Backspace</b> apaga.</li>
+  <li>As letras vão <b>sem acento</b> e sem hífen; Ç vira C (ex.: MAÇÃ → MACA). O número entre parênteses é o tamanho da palavra.</li></ul>
+  <h3>Conferir e revelar (jogando sozinho)</h3><ul><li><b>✔ Conferir</b> letra, palavra ou tudo: as erradas ficam em vermelho.</li>
+  <li><b>👁 Revelar</b> letra, palavra ou tudo: cada letra revelada soma <b>${PEN / 1000} segundos</b> ao seu tempo.</li></ul>
+  <h3>Níveis</h3><table><tr><th></th><th>Grade até</th><th>Palavras</th><th>Dicas</th></tr>
+  <tr><td>Fácil</td><td>9×9</td><td>~10</td><td>do dia a dia</td></tr><tr><td>Médio</td><td>11×11</td><td>~14</td><td>cultura geral</td></tr><tr><td>Difícil</td><td>13×13</td><td>~18</td><td>vocabulário, geografia, história e arte</td></tr></table>
+  <p style="font-size:13px">Banco: ${n(1)} palavras fáceis, ${n(2)} médias e ${n(3)} difíceis.</p>
+  <h3>Disputa (2 a 4 jogadores)</h3><ul><li>Todos recebem <b>a mesma cruzada</b> e cada um preenche a sua, ao mesmo tempo.</li>
+  <li><b>Vence quem completar tudo certo primeiro.</b> Se todos desistirem, vence quem tiver mais casas certas.</li>
+  <li>O painel mostra a <b>% certa</b> de cada adversário (a sua aparece como % preenchida) — nunca as letras.</li>
+  <li>Na disputa não dá para conferir nem revelar; quando a grade fica cheia com algum erro, aparece um aviso.</li>
+  <li>Os bots resolvem no ritmo de uma pessoa: o Fácil é calmo e às vezes erra uma letra; o Normal é constante; o Difícil é rápido.</li></ul>`;
+}
+</script>
+</body>
+</html>

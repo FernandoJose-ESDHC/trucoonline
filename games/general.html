@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>General</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;gap:14px;padding:12px;align-items:stretch;justify-content:center}
+#stage.port{flex-direction:column;gap:8px;padding:8px}
+.tray{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;max-width:560px}
+#stage.port .tray{flex:none;gap:8px}
+.who{font-weight:900;font-size:17px;color:var(--gold);text-align:center;min-height:22px;text-shadow:0 1px 3px #000}
+.felt{background:radial-gradient(ellipse at center,#1b7a4b,#0d5131);border:6px solid #5a3a1c;border-radius:18px;padding:16px 12px 10px;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.45),0 8px 20px rgba(0,0,0,.45);width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+#stage.port .felt{padding:10px 8px 6px;border-width:4px}
+.dice{display:flex;gap:var(--dg);justify-content:center;align-items:flex-end;min-height:calc(var(--ds) + 22px)}
+.dwrap{display:flex;flex-direction:column;align-items:center;gap:3px}
+.die{width:var(--ds);height:var(--ds);border-radius:calc(var(--ds)*.2);background:linear-gradient(145deg,#fff,#e9e3d6);box-shadow:0 5px 0 #b9ae98,0 8px 14px rgba(0,0,0,.45);
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:calc(var(--ds)*.14);gap:2px;border:3px solid transparent;transition:transform .15s,border-color .15s}
+.die i{border-radius:50%;margin:calc(var(--ds)*.03)}
+.die i.on{background:#222;box-shadow:inset 0 1px 2px rgba(255,255,255,.3)}
+.die.red i.on{background:var(--red)}
+.die.empty{background:rgba(0,0,0,.25);box-shadow:none;border:2px dashed rgba(255,255,255,.25)}
+.die.held{border-color:var(--gold);transform:translateY(-8px);box-shadow:0 5px 0 #8a6510,0 10px 18px rgba(0,0,0,.5)}
+.die.tap{cursor:pointer}
+.htag{font-size:10px;font-weight:900;letter-spacing:1px;color:var(--gold);min-height:13px}
+.rollrow{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.rollbtn{padding:13px 22px;border-radius:12px;border:none;font-weight:900;font-size:17px;cursor:pointer;background:var(--gold);color:#3a2600;box-shadow:0 4px 0 #8a6510}
+.rollbtn:disabled{opacity:.4;cursor:default;box-shadow:none}
+.rollbtn:active:not(:disabled){transform:translateY(2px)}
+.pips{display:flex;gap:5px}.pips span{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)}
+.pips span.on{background:var(--gold)}
+.hint{font-size:13px;color:#e3f3ea;text-align:center;min-height:18px}
+.sheetw{flex:none;display:flex;flex-direction:column;min-height:0}
+#stage.port .sheetw{flex:1;min-height:0;overflow:auto}
+table.sheet{table-layout:fixed;border-collapse:separate;border-spacing:0;background:rgba(0,0,0,.35);border-radius:12px;overflow:hidden;font-size:14px;width:100%}
+.sheet th,.sheet td{padding:0 4px;overflow:hidden;text-overflow:ellipsis;height:var(--rh);text-align:center;border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap}
+.sheet th{font-size:12px;color:#ffe6a6;max-width:var(--cwid);overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.3)}
+.sheet td.cat{text-align:left;font-weight:800;color:#e3f3ea;font-size:13px}
+.sheet td.cat small{color:#9cb;font-weight:600;margin-left:4px}
+.sheet .cur{background:rgba(231,180,58,.14)}
+.sheet th.cur{color:var(--gold);box-shadow:inset 0 -3px 0 var(--gold)}
+.sheet td.v{font-weight:800}
+.sheet td.zero{color:#ff9d9d}
+.sheet td.prev{color:#bff5d4;font-weight:900;cursor:pointer;background:rgba(62,207,122,.16);outline:1px dashed rgba(62,207,122,.6);outline-offset:-3px}
+.sheet td.prev.z{color:#ffb3b3;background:rgba(255,90,90,.1);outline-color:rgba(255,90,90,.4)}
+.sheet td.prev:hover{background:rgba(62,207,122,.32)}
+.sheet td.last{animation:flash 1.2s 2}
+.sheet tr.tot td{font-weight:900;color:var(--gold);font-size:15px;border-bottom:none;background:rgba(0,0,0,.3)}
+.sheet tr.gsep td{border-top:2px solid rgba(231,180,58,.35)}
+@keyframes flash{50%{background:rgba(231,180,58,.5)}}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="general-ai.js"></script>
+<script>
+"use strict";
+/* ============================ GENERAL (Bozó) ============================ */
+const NC = GN.NC;
+const totalOf = cats => cats.reduce((a, v) => a + (v || 0), 0);
+const openCount = cats => cats.filter(v => v == null).length;
+const rnd6 = () => 1 + Math.floor(Math.random() * 6);
+const MAXP = [5,10,15,20,25,30,25,35,45,50];
+function nextTurn(st){
+  st.turn = (st.turn + 1) % st.n; st.rolls = 0; st.dice = [0,0,0,0,0]; st.held = [false,false,false,false,false];
+  if(st.cats.every(c => openCount(c) === 0)) st.phase = 'end';
+}
+// pontos que o Difícil precisa na última casa para passar o líder (estimando o que falta dos outros)
+function needFor(st, seat){
+  if(openCount(st.cats[seat]) !== 1) return null;
+  const E = GN.solve();
+  let best = 0;
+  st.cats.forEach((c, i) => { if(i === seat) return; const m = c.reduce((mm, v, k) => v != null ? mm | (1 << k) : mm, 0); best = Math.max(best, totalOf(c) + E[m]); });
+  const need = Math.floor(best - totalOf(st.cats[seat])) + 1, cat = st.cats[seat].findIndex(v => v == null);
+  return need > 0 && need <= MAXP[cat] ? {need} : null;
+}
+
+Mesa.run({
+  id:'general', name:'General', icon:'🎲', tagline:'O jogo de dados (Bozó) · online ou contra bots',
+  options:[
+    {key:'seats', label:'Jogadores', default:'3', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => +o.seats || 3,
+  seatLabel: s => 'Jogador ' + (s + 1),
+  modeLabel: o => ({facil:'BOT FÁCIL', normal:'BOT NORMAL', dificil:'BOT DIFÍCIL'})[o.diff] || '',
+  setup(players){
+    const n = players.length;
+    return {n, names:players.map(p => p.name), cats:players.map(() => Array(NC).fill(null)), turn:Math.floor(Math.random() * n),
+      rolls:0, dice:[0,0,0,0,0], held:[false,false,false,false,false], seq:0, phase:'play', boca:-1, last:null};
+  },
+  startEvents(st){ return [{k:'log', text:`${esc(st.names[st.turn])} começa. São 10 rodadas — cada jogador preenche as 10 casas.`}]; },
+  waiting(st){ return st.phase === 'play' ? [st.turn] : []; },
+  apply(st, seat, a){
+    if(st.phase !== 'play' || seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    const nm = esc(st.names[seat]);
+    if(a.t === 'roll'){
+      if(st.rolls >= 3) return {ok:false, err:'Já foram os 3 lançamentos: marque uma casa.'};
+      const keep = st.rolls === 0 ? [false,false,false,false,false] : (Array.isArray(a.keep) && a.keep.length === 5 ? a.keep.map(Boolean) : null);
+      if(!keep) return {ok:false, err:'Escolha inválida de dados.'};
+      if(keep.every(Boolean)) return {ok:false, err:'Solte pelo menos um dado para jogar de novo.'};
+      st.dice = st.dice.map((d, i) => keep[i] ? d : rnd6());
+      st.held = keep; st.rolls++; st.seq++;
+      const ev = [{k:'snd', s:'deal'}];
+      if(st.rolls === 1 && GN.isGeneral(st.dice)){
+        st.boca = seat; st.phase = 'end';
+        ev.push({k:'banner', text:'GENERAL DE BOCA!'}, {k:'say', seat, text:'General de boca!'}, {k:'log', text:`<b>${nm} tirou General de boca (${st.dice[0]}) e ganhou a partida!</b>`});
+        return {events:ev, pause:1600};
+      }
+      return {events:ev, pause:450};
+    }
+    if(a.t === 'score'){
+      const c = a.cat;
+      if(st.rolls < 1) return {ok:false, err:'Jogue os dados primeiro.'};
+      if(!Number.isInteger(c) || c < 0 || c >= NC || st.cats[seat][c] != null) return {ok:false, err:'Essa casa já foi usada.'};
+      const first = st.rolls === 1, pts = GN.score(c, st.dice, first);
+      st.cats[seat][c] = pts; st.last = {seat, cat:c, pts};
+      const ev = [{k:'snd', s: pts ? 'card' : 'error'}];
+      ev.push({k:'log', text: pts ? `${nm} marcou <b>${pts}</b> em ${GN.NAMES[c]}${first && c >= 6 ? ' (de primeira)' : ''}` : `${nm} riscou ${GN.NAMES[c]} (zero)`});
+      if(c === 9 && pts) ev.push({k:'banner', text:'GENERAL!'}, {k:'snd', s:'win'});
+      else if(c >= 6 && pts) ev.push({k:'say', seat, text:`${GN.SHORT[c]}${first ? ' de primeira' : ''}! +${pts}`});
+      else ev.push({k:'say', seat, text: pts ? `+${pts}` : 'Risquei'});
+      nextTurn(st);
+      return {events:ev, pause:500};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const tots = st.cats.map(totalOf);
+    if(st.boca >= 0) return {winners:[st.boca], text:`${esc(st.names[st.boca])} tirou <b>General de boca</b> e venceu na hora!<br>Pontos até ali: ${st.names.map((n, i) => `${esc(n)} ${tots[i]}`).join(' · ')}`, scores:tots};
+    const best = Math.max(...tots), w = tots.map((t, i) => t === best ? i : -1).filter(i => i >= 0);
+    const rank = [...Array(st.n).keys()].sort((a, b) => tots[b] - tots[a]);
+    return {winners:w, draw:w.length === st.n && st.n > 1, scores:tots,
+      text:`${w.map(i => esc(st.names[i])).join(' e ')} ${w.length > 1 ? 'empataram' : 'venceu'} com <b>${best}</b> pontos.<br>` + rank.map((i, k) => `${k+1}º ${esc(st.names[i])} — ${tots[i]}`).join(' · ')};
+  },
+  bot(st, seat, o){
+    if(st.rolls === 0) return {t:'roll', keep:[false,false,false,false,false]};
+    const d = GN.decide(st.dice, st.rolls, st.cats[seat], o.diff || 'normal', o.diff === 'dificil' ? needFor(st, seat) : null);
+    return d;
+  },
+  botFallback(st, seat){ return st.rolls === 0 ? {t:'roll', keep:[false,false,false,false,false]} : {t:'score', cat:st.cats[seat].findIndex(v => v == null)}; },
+  botDelay(st){ return st.rolls === 0 ? 700 : 1150; },
+  view(st){
+    return {n:st.n, names:st.names, cats:st.cats, turn:st.turn, rolls:st.rolls, dice:st.dice, held:st.held, seq:st.seq, phase:st.phase, boca:st.boca, last:st.last,
+      tots:st.cats.map(totalOf), round:Math.min(10, 11 - Math.max(...st.cats.map(openCount)))};
+  },
+  topInfo(g, v){
+    const who = g.phase === 'play' ? (g.turn === v.me ? 'Sua vez' : 'Vez de ' + esc(g.names[g.turn])) : 'Fim';
+    return `<div class="status">Rodada ${g.round}/10 · ${who}</div>`;
+  },
+  onEvent(e){ if(e.k === 'start'){ diceSeen = -1; holdSel = {seq:-2, mask:null}; } },
+  rules:`<h3>Objetivo</h3><p>Fazer mais pontos preenchendo as <b>10 casas</b> da tabela com 5 dados — ou tirar um <b>General de boca</b>, que vence na hora.</p>
+  <h3>Como jogar</h3><ol><li>Na sua vez você pode jogar os dados até <b>3 vezes</b>. Depois de cada lançamento, toque nos dados que quer <b>guardar</b>; os outros são jogados de novo.</li>
+  <li>Você pode parar a qualquer momento (até depois do 1º lançamento) e <b>marcar uma casa</b> livre. Depois do 3º, é obrigatório marcar.</li>
+  <li>Se os dados não servirem para nenhuma casa boa, você <b>risca</b> (marca zero) a casa que quiser. Cada casa só é usada uma vez.</li>
+  <li>A partida tem 10 rodadas; ganha quem somar mais pontos.</li></ol>
+  <h3>Casas</h3><table><tr><th>Casa</th><th>Como pontua</th><th>De primeira</th></tr>
+  <tr><td>1, 2, 3, 4, 5, 6</td><td>Soma dos dados daquele número (ex.: três 4 = 12)</td><td>—</td></tr>
+  <tr><td>Seguida</td><td>1-2-3-4-5 ou 2-3-4-5-6: <b>20</b></td><td><b>25</b></td></tr>
+  <tr><td>Full</td><td>Trinca + par (ex.: 3-3-3-5-5): <b>30</b></td><td><b>35</b></td></tr>
+  <tr><td>Quadra</td><td>Quatro dados iguais (cinco também valem): <b>40</b></td><td><b>45</b></td></tr>
+  <tr><td>General</td><td>Cinco dados iguais: <b>50</b></td><td><b>vence a partida</b></td></tr></table>
+  <p><b>De primeira</b> (ou "de boca") é quando a combinação sai no 1º lançamento da vez, sem guardar nada.</p>
+  <h3>General de boca</h3><p>Usamos a regra mais conhecida nas mesas brasileiras: cinco dados iguais logo no 1º lançamento da vez é <b>General de boca</b> e o jogador <b>vence a partida imediatamente</b>, em qualquer rodada (mesmo que a casa General já esteja marcada). Em algumas casas ele vale só pontos — aqui, vale a vitória.</p>
+  <h3>Bots</h3><p>O <b>Difícil</b> calcula, para cada dado guardado e cada casa, o valor esperado exato do resto da partida (considerando as casas que ainda faltam) e, na última casa, busca a chance de passar o líder. O <b>Normal</b> faz o mesmo cálculo, mas às vezes escolhe uma opção um pouco pior (a até 1 ponto da melhor). O <b>Fácil</b> guarda o número que mais saiu e marca onde dá mais pontos na hora.</p>`,
+  render(g, v, ui){ renderGeneral(g, v, ui); }
+});
+setTimeout(() => { try{ GN.solve(); }catch(_){} }, 400);   // prepara a tabela do bot sem travar o início
+
+/* ============================ INTERFACE ============================ */
+const PIPS = {1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8]};
+const dieHTML = v => [...Array(9).keys()].map(i => `<i class="${v && PIPS[v].includes(i) ? 'on' : ''}"></i>`).join('');
+let diceSeen = -1, holdSel = {seq:-2, mask:null}, animUntil = 0;
+function renderGeneral(g, v, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight, me = v.me >= 0 ? v.me : 0;
+  const port = W < 760;
+  st.classList.toggle('port', port);
+  const my = ui.isMyTurn() && g.phase === 'play';
+  // tamanhos
+  const ds = port ? clamp(Math.floor((W - 76 - 4 * 8) / 5), 40, 64) : clamp(Math.floor(Math.min((W - 520) / 7, H / 6)), 56, 84);
+  st.style.setProperty('--ds', ds + 'px'); st.style.setProperty('--dg', (port ? 8 : 16) + 'px');
+  const rows = NC + 2;
+  const rh = port ? clamp(Math.floor((H - ds - 150) / rows), 24, 34) : clamp(Math.floor((H - 30) / rows), 28, 44);
+  st.style.setProperty('--rh', rh + 'px');
+  if(!st.querySelector('.tray')){
+    st.innerHTML = `<div class="tray"><div class="who" id="who"></div><div class="felt"><div class="dice" id="dice"></div>
+      <div class="rollrow"><button class="rollbtn" id="bRoll">🎲 Jogar</button><div class="pips" id="pips"><span></span><span></span><span></span></div></div></div>
+      <div class="hint" id="hint"></div></div><div class="sheetw"><table class="sheet" id="sheet"></table></div>`;
+    $('#bRoll').onclick = () => {
+      const vv = ui.view.game; if(!ui.isMyTurn()) return;
+      const keep = vv.rolls === 0 ? [false,false,false,false,false] : holdSel.mask.slice();
+      if(keep.every(Boolean)){ toast('Solte pelo menos um dado (toque nele) para jogar de novo.'); return; }
+      ui.act({t:'roll', keep});
+    };
+    diceSeen = -1;
+  }
+  if(holdSel.seq !== g.seq){ holdSel = {seq:g.seq, mask:g.held.slice()}; }
+  // vez
+  $('#who').innerHTML = g.phase !== 'play' ? (g.boca >= 0 ? `🎉 General de boca de ${esc(g.names[g.boca])}!` : 'Fim de jogo') :
+    my ? 'Sua vez!' : `Vez de ${esc(g.names[g.turn])}`;
+  // dados
+  const dice = $('#dice'), rolling = g.seq !== diceSeen && g.rolls > 0;
+  const canHold = my && g.rolls >= 1 && g.rolls < 3;
+  const heldNow = canHold ? holdSel.mask : g.held;
+  dice.innerHTML = g.dice.map((d, i) => `<div class="dwrap"><div class="die ${d ? '' : 'empty'} ${heldNow[i] && d ? 'held' : ''} ${canHold ? 'tap' : ''} ${d === 1 || d === 4 ? '' : ''}" data-i="${i}">${dieHTML(d)}</div>
+    <div class="htag">${heldNow[i] && d ? 'GUARDADO' : ''}</div></div>`).join('');
+  if(rolling){
+    diceSeen = g.seq;
+    const dur = 520 * (CFG.speed || 1); animUntil = Date.now() + dur;
+    $$('.die', dice).forEach((el, i) => {
+      if(g.held[i]) return;
+      let k = 0; const t = setInterval(() => { el.innerHTML = dieHTML(1 + Math.floor(Math.random() * 6)); if(++k > 40) clearInterval(t); }, 60);
+      anim(el, [{transform:'translateY(-30px) rotate(0)'}, {transform:`translateY(-10px) rotate(${(i % 2 ? -1 : 1) * 260}deg)`, offset:.6}, {transform:'translateY(0) rotate(360deg)'}], {duration:dur, easing:'cubic-bezier(.3,.7,.4,1)'});
+      setTimeout(() => { clearInterval(t); el.innerHTML = dieHTML(g.dice[i]); }, dur);
+    });
+  } else if(g.rolls === 0) diceSeen = g.seq;
+  if(canHold) $$('.die', dice).forEach(el => el.onclick = () => { const i = +el.dataset.i; holdSel.mask[i] = !holdSel.mask[i]; Snd.move(); ui.rerender(); });
+  $$('#pips span').forEach((s, i) => s.classList.toggle('on', i < g.rolls));
+  const bR = $('#bRoll');
+  bR.disabled = !my || g.rolls >= 3;
+  bR.textContent = g.rolls === 0 ? '🎲 Jogar dados' : g.rolls >= 3 ? 'Marque uma casa' : `🎲 Jogar de novo (${g.rolls + 1}/3)`;
+  $('#hint').textContent = !my ? (g.phase === 'play' && g.rolls ? `${g.names[g.turn]} — lançamento ${g.rolls}/3` : '') :
+    g.rolls === 0 ? 'Jogue os dados.' : g.rolls < 3 ? 'Toque nos dados para guardar · ou toque numa casa verde para marcar.' : 'Toque numa casa para marcar (vermelha = riscar com zero).';
+  // tabela de pontos
+  const catW = port ? 78 : 128, nameW = port ? Math.floor((W - 18 - catW) / g.n) : 84;
+  st.style.setProperty('--cwid', nameW + 'px');
+  $('#sheet').style.width = (catW + nameW * g.n) + 'px';
+  const order = [...Array(g.n).keys()];
+  let h = `<colgroup><col style="width:${catW}px">${order.map(() => `<col style="width:${nameW}px">`).join('')}</colgroup><tr><th style="text-align:left">Casa</th>${order.map(i => `<th class="${i === g.turn && g.phase === 'play' ? 'cur' : ''}" style="max-width:${nameW}px" data-seat="${i}">${esc(g.names[i])}${i === me ? '' : ''}</th>`).join('')}</tr>`;
+  for(let c=0;c<NC;c++){
+    const tag = c >= 6 ? `<small>${GN.BASE[c]}${c < 9 ? '/' + GN.FIRST[c] : ''}</small>` : '';
+    h += `<tr class="${c === 6 ? 'gsep' : ''}"><td class="cat">${port && c < 6 ? GN.SHORT[c] : GN.NAMES[c].replace('Jogo de ', '')}${port ? '' : tag}</td>`;
+    for(const i of order){
+      const val = g.cats[i][c], cur = i === g.turn && g.phase === 'play';
+      const isLast = g.last && g.last.seat === i && g.last.cat === c;
+      if(val != null) h += `<td class="v ${val === 0 ? 'zero' : ''} ${cur ? 'cur' : ''} ${isLast ? 'last' : ''}">${val === 0 ? '✕' : val}</td>`;
+      else if(cur && my && g.rolls >= 1){
+        const p = GN.score(c, g.dice, g.rolls === 1);
+        h += `<td class="prev ${p ? '' : 'z'}" data-c="${c}">${p || '0'}</td>`;
+      } else h += `<td class="${cur ? 'cur' : ''}"></td>`;
+    }
+    h += '</tr>';
+  }
+  h += `<tr class="tot"><td class="cat" style="color:var(--gold)">Total</td>${order.map(i => `<td class="${i === g.turn && g.phase === 'play' ? 'cur' : ''}">${g.tots[i]}</td>`).join('')}</tr>`;
+  $('#sheet').innerHTML = h;
+  $$('#sheet td.prev').forEach(td => td.onclick = () => {
+    const c = +td.dataset.c, p = GN.score(c, g.dice, g.rolls === 1);
+    if(Date.now() < animUntil) return;
+    if(!p) modal(`<h2>Riscar ${GN.NAMES[c]}?</h2><p>Esses dados não pontuam nessa casa: ela fica com <b>zero</b> até o fim.</p>`, [{label:'Riscar', cls:'b-up', fn:() => ui.act({t:'score', cat:c})}, {label:'Voltar', cls:'b-no'}]);
+    else ui.act({t:'score', cat:c});
+  });
+}
+</script>
+</body>
+</html>

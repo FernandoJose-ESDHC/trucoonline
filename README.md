@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="23 jogos" src="https://img.shields.io/badge/jogos-23-e7b43a">
+  <img alt="40 jogos" src="https://img.shields.io/badge/jogos-40-e7b43a">
   <img alt="Sem cadastro" src="https://img.shields.io/badge/cadastro-n%C3%A3o%20precisa-3ecf7a">
   <img alt="Offline" src="https://img.shields.io/badge/contra%20bots-funciona%20offline-11603a">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
@@ -44,7 +44,7 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 🎴 | **[Canastra](https://fernandojose-esdhc.github.io/trucoonline/games/canastra.html)** | 2 ou 4 | Sequências, coringa no 2, morto, canastra limpa e suja |
 | 🀄 | **[Pife](https://fernandojose-esdhc.github.io/trucoonline/games/pife.html)** | 2 a 6 | Três jogos com 9 cartas e bata primeiro |
 | 🎰 | **[21](https://fernandojose-esdhc.github.io/trucoonline/games/21.html)** | 1 a 5 | Contra a banca, com fichas e dobrar |
-| 🂮 | **[Paciência](https://fernandojose-esdhc.github.io/trucoonline/games/paciencia.html)** | 1 | Klondike, virando 1 ou 3, com desfazer |
+| 🂮 | **[Paciência](https://fernandojose-esdhc.github.io/trucoonline/games/paciencia.html)** | 1 a 4 | Klondike, virando 1 ou 3, com desfazer |
 | ♟️ | **[Xadrez](https://fernandojose-esdhc.github.io/trucoonline/games/xadrez.html)** | 2 | Regras completas, motor próprio em 3 níveis e livro de aberturas |
 | ⛀ | **[Damas](https://fernandojose-esdhc.github.io/trucoonline/games/damas.html)** | 2 | Damas brasileiras: lei da maioria e dama voadora |
 | 🌈 | **[Última Carta](https://fernandojose-esdhc.github.io/trucoonline/games/ultima.html)** | 2 a 8 | Cartas de cores no estilo do clássico: +2, +4, pular, inverter e "ÚLTIMA!" |
@@ -57,8 +57,25 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 🟤 | **[Gamão](https://fernandojose-esdhc.github.io/trucoonline/games/gamao.html)** | 2 | Regras completas, gammon e bot com rede neural |
 | ⚫ | **[Go](https://fernandojose-esdhc.github.io/trucoonline/games/go.html)** | 2 | 9×9 ou 13×13, ko, contagem chinesa e bot Monte Carlo |
 | 🌰 | **[Mancala](https://fernandojose-esdhc.github.io/trucoonline/games/mancala.html)** | 2 | Kalah com 3 a 6 sementes por casa |
-| 📍 | **[Resta Um](https://fernandojose-esdhc.github.io/trucoonline/games/restaum.html)** | 1 | Tabuleiro inglês ou francês, com dica que resolve |
-| 🔐 | **[Senha](https://fernandojose-esdhc.github.io/trucoonline/games/senha.html)** | 1 | Descubra as cores — ou deixe o computador descobrir a sua |
+| 📍 | **[Resta Um](https://fernandojose-esdhc.github.io/trucoonline/games/restaum.html)** | 1 a 4 | Tabuleiro inglês ou francês, com dica que resolve |
+| 🔐 | **[Senha](https://fernandojose-esdhc.github.io/trucoonline/games/senha.html)** | 1 a 4 | Descubra as cores — ou deixe o computador descobrir a sua |
+| 🔒 | **[Tranca](https://fernandojose-esdhc.github.io/trucoonline/games/tranca.html)** | 2 ou 4 | Coringas, 3 preto tranca o lixo, canastra limpa 500 |
+| 🂱 | **[Sueca](https://fernandojose-esdhc.github.io/trucoonline/games/sueca.html)** | 4 (duplas) | 40 cartas, trunfo, mais de 60 dos 120 pontos |
+| ♣️ | **[Bisca](https://fernandojose-esdhc.github.io/trucoonline/games/bisca.html)** | 2 ou 4 | Bisca de 3 cartas com trunfo virado |
+| ♠️ | **[Pôquer](https://fernandojose-esdhc.github.io/trucoonline/games/poquer.html)** | 2 a 8 | Texas Hold'em com blinds, all-in e potes laterais |
+| ♥️ | **[Copas](https://fernandojose-esdhc.github.io/trucoonline/games/copas.html)** | 4 | Fuja das copas e da Dama de Espadas |
+| 🫏 | **[Burro](https://fernandojose-esdhc.github.io/trucoonline/games/burro.html)** | 2 a 6 | Siga o naipe e não seja o último com cartas |
+| 🤲 | **[Rouba-Monte](https://fernandojose-esdhc.github.io/trucoonline/games/roubamonte.html)** | 2 a 4 | Pegue da mesa e roube o monte dos outros |
+| 🎯 | **[General](https://fernandojose-esdhc.github.io/trucoonline/games/general.html)** | 2 a 6 | O Bozó de 5 dados, 10 casas |
+| ✋ | **[Stop](https://fernandojose-esdhc.github.io/trucoonline/games/stop.html)** | 2 a 8 | Adedonha com tempo e votação das respostas |
+| 🎨 | **[Desenhe e Adivinhe](https://fernandojose-esdhc.github.io/trucoonline/games/desenhe.html)** | 2 a 8 | Um desenha, a turma adivinha |
+| 🪢 | **[Forca](https://fernandojose-esdhc.github.io/trucoonline/games/forca.html)** | 1 a 4 | Sozinho, disputa ou desafio entre amigos |
+| 🔤 | **[Palavra do Dia](https://fernandojose-esdhc.github.io/trucoonline/games/palavra.html)** | 1 a 4 | 5 letras em 6 tentativas |
+| 🔎 | **[Caça-Palavras](https://fernandojose-esdhc.github.io/trucoonline/games/cacapalavras.html)** | 1 a 4 | 28 temas, 3 tamanhos |
+| ✏️ | **[Palavras Cruzadas](https://fernandojose-esdhc.github.io/trucoonline/games/cruzadas.html)** | 1 a 4 | Cruzada nova a cada partida, dicas em português |
+| 💣 | **[Campo Minado](https://fernandojose-esdhc.github.io/trucoonline/games/campominado.html)** | 1 | Três tamanhos, primeiro clique seguro, dica |
+| 🔢 | **[Sudoku](https://fernandojose-esdhc.github.io/trucoonline/games/sudoku.html)** | 1 | Solução única, notas e dica explicada |
+| 🟨 | **[2048](https://fernandojose-esdhc.github.io/trucoonline/games/2048.html)** | 1 | Deslize e junte até o 2048 |
 
 Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
 
@@ -236,7 +253,7 @@ No **Douradão**, o **K♦ (Rei de Ouros)** fica acima da Douradinha. Pontos igu
 </details>
 
 <details>
-<summary><b>🂮 Paciência</b> (Klondike) — 1 jogador</summary>
+<summary><b>🂮 Paciência</b> (Klondike) — 1 a 4 jogadores</summary>
 
 - Monte as **quatro pilhas** de cada naipe, do **Ás ao Rei**.
 - Nas 7 colunas, empilhe em ordem decrescente **alternando cores** (vermelho sobre preto). Só **Rei** vai para coluna vazia.
@@ -348,7 +365,7 @@ Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoç
 </details>
 
 <details>
-<summary><b>📍 Resta Um</b> — 1 jogador</summary>
+<summary><b>📍 Resta Um</b> — 1 a 4 jogadores</summary>
 
 - Tabuleiro inglês (33 casas) ou francês (37). Um pino **pula** sobre o vizinho até uma casa vazia, e o pulado sai.
 - Meta: sobrar **um pino** — no centro (ou na ★ do francês) é **Perfeito!**
@@ -356,11 +373,59 @@ Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoç
 </details>
 
 <details>
-<summary><b>🔐 Senha</b> — 1 jogador</summary>
+<summary><b>🔐 Senha</b> — 1 a 4 jogadores</summary>
 
 - Descubra a sequência secreta de cores. **Preto** = cor e lugar certos; **branco** = cor certa no lugar errado.
 - Fácil: 4 casas, 6 cores, sem repetir. Normal: com repetição. Difícil: 5 casas, 8 cores, 12 tentativas. Cada cor tem um símbolo (para daltonismo).
 - **Dica** sugere a melhor tentativa; no modo "O computador adivinha", você escolhe a senha e ele descobre.
+</details>
+
+<details>
+<summary><b>🔒 Tranca</b> — 2 ou 4 (duplas)</summary>
+
+- 2 baralhos com 4 coringas; coringa e 2 são curingas (no máximo 1 por jogo). 11 cartas cada e 2 mortos.
+- Jogos: sequências do mesmo naipe ou trincas. **3 vermelho** vale +100; **3 preto** tranca o lixo para o próximo.
+- O lixo é fechado: só pega quem usar a carta de cima na hora. Canastra limpa 500, suja 300, batida +100 (precisa do morto e de canastra limpa).
+</details>
+
+<details>
+<summary><b>🂱 Sueca</b> e <b>♣️ Bisca</b></summary>
+
+- Baralho de 40 (sem 8, 9, 10). Força e pontos: Ás 11, 7 10, Rei 4, Valete 3, Dama 2 — 120 no total; mais de 60 ganha.
+- **Sueca:** 4 em duplas, trunfo é a última carta do carteador, obrigatório assistir. 61–90 = 1 jogo, 91–119 = 2, 120 = 4.
+- **Bisca:** 3 cartas na mão, compra após cada vaza, trunfo virado sob o monte; 2 jogadores ou duplas.
+</details>
+
+<details>
+<summary><b>♠️ Pôquer</b>, <b>♥️ Copas</b>, <b>🫏 Burro</b> e <b>🤲 Rouba-Monte</b></summary>
+
+- **Pôquer:** Texas Hold'em sem limite, 1.000 fichas, blinds que sobem; melhor mão de 5 entre 7, potes laterais corretos.
+- **Copas:** passe 3 cartas, 2♣ abre, cada copa vale 1 e a Q♠ 13; quem leva tudo "chuta a lua". Menos pontos vence.
+- **Burro:** siga o naipe; sem a carta, compre até achar. O último com cartas é o burro.
+- **Rouba-Monte:** pegue da mesa a carta de mesmo valor ou roube o monte de quem tem o topo igual. Maior monte vence.
+</details>
+
+<details>
+<summary><b>🎯 General</b> (Bozó) — 2 a 6</summary>
+
+- 5 dados, até 3 lançamentos por vez guardando os que quiser. 10 casas: 1 a 6, Seguida 20, Full 30, Quadra 40, General 50 (de primeira valem 25/35/45).
+- **General de boca** (cinco iguais no 1º lançamento) vence na hora.
+</details>
+
+<details>
+<summary><b>✋ Stop</b>, <b>🎨 Desenhe e Adivinhe</b> e jogos de palavras</summary>
+
+- **Stop:** letra sorteada, todos preenchem as categorias; STOP ou fim do tempo encerra; a maioria anula respostas. 10 pontos resposta única, 5 repetida.
+- **Desenhe e Adivinhe:** um desenha a palavra escolhida, os outros chutam; quem acerta mais rápido ganha mais, e quem desenha também pontua.
+- **Forca**, **Palavra do Dia** (5 letras, 6 tentativas), **Caça-Palavras** e **Palavras Cruzadas**: sozinho ou em disputa online com a mesma palavra/grade para todos.
+</details>
+
+<details>
+<summary><b>💣 Campo Minado</b>, <b>🔢 Sudoku</b> e <b>🟨 2048</b> — 1 jogador</summary>
+
+- **Campo Minado:** abra tudo sem pisar nas minas; primeiro clique seguro, bandeira por toque longo, dica.
+- **Sudoku:** solução única em três níveis, notas, desfazer e dica que explica o próximo passo.
+- **2048:** deslize e junte peças iguais; dá para continuar depois do 2048.
 </details>
 
 ---

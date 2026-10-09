@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Desenhe e Adivinhe</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{padding:8px}
+#dz{height:100%;display:grid;grid-template-columns:180px minmax(0,1fr) 270px;grid-template-rows:auto minmax(0,1fr);gap:8px}
+/* ---------- barra de cima: palavra, categoria, tempo ---------- */
+.dz-top{grid-column:1/-1;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.32);border-radius:14px;padding:6px 10px;min-height:52px;position:relative;overflow:hidden}
+.dz-rd{font-size:12px;font-weight:800;color:#cfe;white-space:nowrap;line-height:1.25}
+.dz-rd b{display:block;color:var(--gold);font-size:14px}
+.dz-word{flex:1;min-width:0;text-align:center;font-weight:900;color:#fff;font-size:22px;letter-spacing:2px;line-height:1.2}
+.dz-word .lt{display:inline-block;min-width:.8em;border-bottom:3px solid rgba(255,255,255,.75);margin:0 2px;text-align:center;color:var(--gold)}
+.dz-word .lt.h{color:transparent}
+.dz-word .gap{display:inline-block;width:.7em}
+.dz-word .cnt{font-size:12px;color:#cfe;letter-spacing:0;font-weight:700;margin-left:6px}
+.dz-word .msg{font-size:17px;letter-spacing:.5px;color:#ffe6a6}
+.dz-word .rev{color:var(--gold);text-transform:uppercase}
+.dz-cat{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;color:#06301a;background:var(--nos);border-radius:10px;padding:1px 8px;margin-top:2px;text-transform:uppercase}
+.dz-time{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:19px;background:rgba(0,0,0,.35);border:3px solid var(--gold);color:#fff}
+.dz-time.urg{border-color:var(--eles);color:#ffb3b3;animation:pulse 1s infinite}
+.dz-time:empty{visibility:hidden}
+.dz-bar{position:absolute;left:0;bottom:0;height:3px;background:var(--gold);transition:width .25s linear}
+/* ---------- jogadores ---------- */
+.dz-pl{display:flex;flex-direction:column;gap:5px;overflow:auto;min-height:0}
+.dzp{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:5px 8px;font-size:13px;font-weight:800;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 6px;align-items:center;position:relative}
+.dzp .rk{font-size:11px;color:#9cb;min-width:18px}
+.dzp .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dzp .pt{color:var(--gold)}
+.dzp .stt{grid-column:2/-1;font-size:11px;color:#cfe;font-weight:700;min-height:0}
+.dzp .stt:empty{display:none}
+.dzp.me .nm{color:#bff5d4}
+.dzp.dr{border-color:var(--gold);background:rgba(231,180,58,.16)}
+.dzp.ok{border-color:var(--nos);background:rgba(62,207,122,.18)}
+.dzp.ok .stt{color:#9ff0c0}
+/* ---------- quadro ---------- */
+.dz-board{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.dz-cw{flex:1 1 0;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}
+.dz-cv{position:relative}
+#dzCv{display:block;background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.45);touch-action:none;cursor:default}
+#dzCv.pen{cursor:crosshair}
+.dz-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:10px}
+.dz-ov:empty{display:none}
+.dz-card{pointer-events:auto;background:rgba(6,39,26,.94);border:2px solid var(--gold);border-radius:14px;padding:12px 14px;max-width:94%;max-height:96%;overflow:auto;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .25s}
+.dz-card h3{color:var(--gold);font-size:17px;margin-bottom:8px}
+.dz-card p{font-size:14px;color:#e3f3ea;margin:4px 0}
+.dz-card .big3{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.dz-card .big3 button{flex:1 1 110px;padding:12px 10px;border-radius:12px;border:none;background:var(--gold);color:#3a2600;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 3px 0 var(--gold2)}
+.dz-card .big3 button small{display:block;font-size:10px;font-weight:700;letter-spacing:1px;opacity:.75;text-transform:uppercase}
+.dz-card .big3 button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--gold2)}
+.dz-card.low{align-self:flex-end;margin-bottom:6px}
+.dz-card .wd{font-size:24px;font-weight:900;color:var(--gold);text-transform:uppercase;letter-spacing:1px}
+.dz-card ul{list-style:none;margin:6px 0 0;padding:0;font-size:13px;columns:2;column-gap:14px;text-align:left}
+.dz-card li{break-inside:avoid;padding:1px 0}
+.dz-card li b{color:#9ff0c0}
+.dz-wait{pointer-events:none;background:rgba(0,0,0,.6);color:#fff;border-radius:12px;padding:10px 16px;font-weight:800;font-size:15px}
+/* ---------- ferramentas do desenhista ---------- */
+.dz-tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center}
+.dz-tools:empty{display:none}
+.dz-tools .grp{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;align-items:center}
+.dz-tools .sw{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.55);cursor:pointer;padding:0}
+.dz-tools .sw.sel{border-color:#fff;box-shadow:0 0 0 3px var(--gold);transform:scale(1.12)}
+.dz-tools .wd,.dz-tools .tb{height:32px;min-width:34px;border-radius:9px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff;cursor:pointer;display:grid;place-items:center;font-size:15px;font-weight:800;padding:0 6px}
+.dz-tools .wd i{display:block;border-radius:50%;background:#fff}
+.dz-tools .wd.sel,.dz-tools .tb.sel{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.dz-tools .wd.sel i{background:#3a2600}
+.dz-tools .tb.gv{background:rgba(192,24,43,.55);font-size:12px}
+.dz-tools .tb:disabled{opacity:.4}
+/* ---------- palpites ---------- */
+.dz-chat{display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0}
+.dz-feed{flex:1 1 0;min-height:0;overflow:auto;background:rgba(0,0,0,.3);border-radius:12px;padding:6px 9px;font-size:13px;line-height:1.45;-webkit-user-select:text;user-select:text}
+.dz-feed div{padding:1px 0;word-break:break-word}
+.dz-feed .ok{color:#9ff0c0;font-weight:800}
+.dz-feed .q{color:#ffcf7a;font-weight:800}
+.dz-feed .i{color:#cfe;font-style:italic}
+.dz-feed .w{color:var(--gold);font-weight:800}
+.dz-feed b{color:#ffe6a6}
+#dzForm{display:flex;gap:6px}
+#dzIn{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;font-size:16px;outline:none}
+#dzIn:focus{border-color:var(--gold)}
+#dzIn:disabled{opacity:.55}
+#dzForm button{flex:none;padding:0 14px;border-radius:10px;border:none;background:var(--nos);color:#06301a;font-weight:900;font-size:15px;cursor:pointer}
+#dzForm button:disabled{opacity:.4}
+/* ---------- celular ---------- */
+@media (max-width:759px){
+  #stage{padding:6px}
+  #dz{display:flex;flex-direction:column;gap:5px}
+  .dz-top{min-height:44px;padding:4px 8px;gap:8px}
+  .dz-word{font-size:18px;letter-spacing:1px}
+  .dz-word .msg{font-size:14px}
+  .dz-time{width:38px;height:38px;font-size:16px;border-width:2px}
+  .dz-rd{font-size:10px} .dz-rd b{font-size:12px}
+  .dz-board{flex:none}
+  .dz-cw{flex:none}
+  .dz-pl{flex:none;flex-direction:row;flex-wrap:wrap;gap:4px;justify-content:center;overflow:visible}
+  .dzp{display:flex;gap:5px;padding:2px 8px;font-size:12px;border-radius:14px}
+  .dzp .rk{display:none}
+  .dzp .nm{max-width:86px}
+  .dzp .stt{font-size:11px}
+  .dz-chat{flex:1 1 0;min-height:86px}
+  .dz-tools{gap:4px}
+  .dz-tools .sw{width:24px;height:24px}
+  .dz-tools .wd,.dz-tools .tb{height:30px;min-width:32px}
+  .dz-card{padding:8px 10px} .dz-card h3{font-size:15px;margin-bottom:6px}
+  .dz-card .big3 button{font-size:14px;padding:9px 8px;flex-basis:90px}
+  .dz-card .wd{font-size:19px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="desenhe-palavras.js"></script>
+<script src="desenhe-ai.js"></script>
+<script>
+"use strict";
+/* ============================ constantes ============================ */
+const PAL = ['#1b1b1b','#8d8d8d','#e53935','#fb8c00','#fdd835','#43a047','#1b5e20','#4fc3f7','#1e4fd8','#8e24aa','#f06292','#795548','#ffffff'];
+const PAL_NOMES = ['Preto','Cinza','Vermelho','Laranja','Amarelo','Verde','Verde-escuro','Azul-claro','Azul','Roxo','Rosa','Marrom','Borracha'];
+const BORRACHA = 12;
+const WID = [5, 11, 22, 40];                  // espessuras em milésimos da largura do quadro
+const ESC_MS = 15000;                         // tempo para escolher a palavra
+const MAXCHUNK = 300, MAXOPS = 3000, MAXPTS = 40000;
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64I = {}; [...B64].forEach((c,i) => B64I[c] = i);
+// pontos 0..4095 -> 4 caracteres cada (2 por eixo)
+const encPts = pts => pts.map(([x,y]) => B64[x>>6] + B64[x&63] + B64[y>>6] + B64[y&63]).join('');
+const decPts = s => { const o = []; for(let i=0;i+3<s.length;i+=4) o.push([(B64I[s[i]]<<6) | B64I[s[i+1]], (B64I[s[i+2]]<<6) | B64I[s[i+3]]]); return o; };
+const validPts = s => typeof s === 'string' && s.length >= 4 && s.length % 4 === 0 && s.length <= 4*MAXCHUNK && /^[A-Za-z0-9_-]+$/.test(s);
+const r5 = x => Math.round(x/5) * 5;
+const rand = (a,b) => a + Math.random()*(b-a);
+const clock = () => (window.DZ_CLOCK ? window.DZ_CLOCK() : Date.now());
+const SPD = () => clamp((typeof CFG !== 'undefined' && CFG.speed) || 1, 0.02, 2);
+const NIVEL_TXT = {facil:'Fácil', medio:'Média', dificil:'Difícil'};
+
+/* ============================ banco de palavras ============================ */
+const BANK = {facil:[], medio:[], dificil:[]}, WINFO = {}, BYCAT = {}, ALLW = [];
+['facil','medio','dificil'].forEach(lv => Object.keys(DZ_PALAVRAS[lv]).forEach(cat => DZ_PALAVRAS[lv][cat].split('|').forEach(raw => {
+  const w = raw.trim().normalize('NFC'), k = dzNorm(w);
+  if(!w || WINFO[k]) return;
+  WINFO[k] = {w, cat, lv}; BANK[lv].push(w); (BYCAT[cat] = BYCAT[cat] || []).push(w); ALLW.push(w);
+})));
+// palavras que o bot sabe desenhar, por nível
+const DRAWN = {facil:[], medio:[], dificil:[]};
+Object.keys(DZ_DRAW).forEach(w => { const i = WINFO[dzNorm(w)]; if(i && i.w === w) DRAWN[i.lv].push(w); });
+
+/* ============================ quem é bot ============================ */
+function seatInfo(s){ try{ const h = Mesa._H; if(h && h.seats && h.seats[s]) return h.seats[s]; }catch(_){} return null; }
+const isBot = (st, s) => { const x = seatInfo(s); return x ? !x.human : !st.hum[s]; };
+const cidOf = s => { const x = seatInfo(s); return x ? String(x.cid || '') : ''; };
+
+/* ============================ regras ============================ */
+const letterIdx = w => [...w].map((c,i) => (c === ' ' || c === '-') ? -1 : i).filter(i => i >= 0);
+const maskOf = st => [...st.w].map((c,i) => c === ' ' ? ' ' : c === '-' ? '-' : (st.rev[i] ? c : '_')).join('');
+const feed = (st, f) => { st.feed.push(f); if(st.feed.length > 40) st.feed.splice(0, st.feed.length - 40); };
+const nm = (st, s) => esc(st.names[s]);
+
+function options3(st){
+  const bot = isBot(st, st.dr), src = bot ? DRAWN : BANK;
+  const lvs = st.nivel === 'misto' ? ['facil','medio','dificil'] : [st.nivel, st.nivel, st.nivel];
+  const out = [], free = w => !out.includes(w), fresh = w => free(w) && !st.used.includes(dzNorm(w));
+  const all = src.facil.concat(src.medio, src.dificil);
+  for(const lv of lvs){
+    let pool = src[lv].filter(fresh);
+    if(!pool.length && bot){ const ord = lv === 'dificil' ? ['medio','facil'] : lv === 'medio' ? ['dificil','facil'] : ['medio','dificil'];
+      for(const o of ord){ pool = src[o].filter(fresh); if(pool.length) break; } }
+    if(!pool.length) pool = src[lv].filter(free);
+    if(!pool.length) pool = all.filter(free);
+    out.push(pick(pool));
+  }
+  return out;
+}
+function startTurn(st, now){
+  st.dr = (st.ord0 + st.turn) % st.n; st.fase = 'esc'; st.rid++; st.lk++;
+  Object.assign(st, {log:[], np:0, lq:0, sent:{}, w:'', cat:'', rev:[], hints:[], hi:0, got:{}, ngot:0, dpts:0, feed:[], wrong:[], bd:null, bg:{}, why:'', lastG:{}});
+  st.op3 = options3(st);
+  st.ini = now; st.dur = ESC_MS; st.fim = now + ESC_MS; st.botAt = now + rand(1300, 2800) * SPD();
+}
+function choose(st, i, now){
+  const w = st.op3[i], inf = WINFO[dzNorm(w)];
+  st.w = w; st.cat = inf ? inf.cat : ''; st.used.push(dzNorm(w));
+  st.fase = 'des'; st.ini = now; st.dur = st.tempo; st.fim = now + st.tempo;
+  st.rev = [...w].map(() => false);
+  // dicas: algumas letras aparecem entre 30% e 85% do tempo (sempre sobram pelo menos 2 escondidas)
+  const L = letterIdx(w).length, nh = Math.max(0, Math.min(clamp(Math.floor(L / 2.5), 1, 5), L - 2));
+  st.hints = Array.from({length:nh}, (_, k) => now + st.tempo * (0.3 + 0.55 * (nh > 1 ? k / (nh - 1) : 0.5)));
+  st.hi = 0;
+  const slow = {facil:1.25, normal:1, dificil:0.8}[st.diff] || 1;
+  for(let s=0;s<st.n;s++) if(s !== st.dr) st.bg[s] = now + rand(5000, 9000) * slow * SPD();
+  st.bd = isBot(st, st.dr) && DZ_DRAW[w] ? {seed:(Math.random()*1e9)|0, si:0, pi:0, wait: now + 900 * SPD(), done:false} : null;
+  feed(st, {k:'i', x:`✏️ ${nm(st, st.dr)} está desenhando.`});
+  return [{k:'snd', s:'deal'}, {k:'log', text:`✏️ ${nm(st, st.dr)} está desenhando (rodada ${st.turn + 1} de ${st.tot}).`}];
+}
+function endRound(st, now, why){
+  st.fase = 'rev'; st.why = why; st.bd = null;
+  st.ini = now; st.dur = SPD() < 0.3 ? 5500 * SPD() : 5500; st.fim = now + st.dur;
+  feed(st, {k:'w', x:`A palavra era <b>${esc(st.w)}</b>.`});
+  const ev = [{k:'log', text:`A palavra era <b>${esc(st.w)}</b>.`}];
+  if(why === 'todos') ev.push({k:'banner', text:'Todos acertaram!'}, {k:'snd', s:'win'});
+  else if(why === 'tempo') ev.push({k:'banner', text:'Acabou o tempo!', bad:!st.ngot}, {k:'snd', s:'alert'});
+  else if(why === 'desistiu') ev.push({k:'banner', text:'Pulou a palavra', bad:true});
+  return ev;
+}
+function nextTurn(st, now){
+  st.turn++;
+  if(st.turn >= st.tot){ st.fase = 'fim'; return []; }
+  startTurn(st, now);
+  return [{k:'vez', seat:st.dr}, {k:'snd', s:'card'}];
+}
+function revealHint(st){
+  const hid = letterIdx(st.w).filter(i => !st.rev[i]);
+  if(hid.length <= 2) return false;
+  st.rev[pick(hid)] = true; return true;
+}
+function lev(a, b){
+  if(Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({length:a.length + 1}, (_, i) => [i]);
+  for(let j=1;j<=b.length;j++) d[0][j] = j;
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+function isNear(g, w){
+  const a = dzCompact(g), b = dzCompact(w);
+  if(a.length < 3 || b.length < 4) return false;
+  if(a.includes(b)) return true;
+  return lev(a, b) <= (b.length >= 8 ? 2 : 1);
+}
+// palpite (humano ou bot); devolve {events} ou {err}
+function guess(st, seat, txt, now){
+  if(st.fase !== 'des') return {err:'Espere a próxima rodada.'};
+  if(seat === st.dr) return {err:'Você está desenhando!'};
+  if(st.got[seat] != null) return {err:'Você já acertou! Espere os outros.'};
+  const g = String(txt == null ? '' : txt).replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  if(!dzCompact(g)) return {err:'Digite uma palavra.'};
+  if(dzCompact(g) === dzCompact(st.w)){
+    const frac = clamp((st.fim - now) / st.dur, 0, 1);
+    const pts = r5(50 + 150*frac) + ([40, 20, 10][st.ngot] || 0), dp = r5(20 + 40*frac);
+    st.got[seat] = pts; st.ngot++; st.sc[seat] += pts; st.sc[st.dr] += dp; st.dpts += dp;
+    feed(st, {k:'ok', s:seat});
+    const ev = [{k:'acerto', seat}, {k:'say', seat, text:'Acertei!'}, {k:'log', text:`✅ ${nm(st, seat)} acertou! (+${pts})`}];
+    const left = []; for(let s=0;s<st.n;s++) if(s !== st.dr && st.got[s] == null) left.push(s);
+    if(!left.length) ev.push(...endRound(st, now, 'todos'));
+    return {events:ev};
+  }
+  if(isNear(g, st.w)){ feed(st, {k:'q', s:seat, x:g}); return {events:[{k:'quase', seat}]}; }
+  feed(st, {k:'g', s:seat, x:g});
+  const n = dzNorm(g); if(!st.wrong.includes(n)) st.wrong.push(n);
+  return {events:[]};
+}
+function pushOp(st, op, npts){ st.log.push(op); st.np += npts; }
+const setLq = (st, q) => { if(typeof q === 'number' && isFinite(q)) st.lq = q; };
+
+/* ---------- bots (rodam no relógio do anfitrião) ---------- */
+function botDrawStep(st, now){
+  const bd = st.bd; if(!bd || bd.done || now < bd.wait || !isBot(st, st.dr)) return false;
+  const strokes = dzExpand(st.w, bd.seed); if(!strokes || !strokes.length){ bd.done = true; return false; }
+  const K = Math.max(3, Math.round(({facil:5, normal:7, dificil:9}[st.diff] || 7) / Math.min(1, SPD())));
+  const s = strokes[bd.si], chunk = s.pts.slice(Math.max(0, bd.pi - 1), Math.min(bd.pi + K, bd.pi - 1 + MAXCHUNK));
+  pushOp(st, ['s', s.c, s.w, bd.pi === 0 ? 1 : 0, encPts(chunk)], chunk.length);
+  bd.pi += K;
+  if(bd.pi >= s.pts.length){ bd.si++; bd.pi = 0; bd.wait = now + rand(220, 700) * SPD() * (st.diff === 'facil' ? 1.3 : 1); if(bd.si >= strokes.length) bd.done = true; }
+  return true;
+}
+function botGuessText(st, s){
+  const pool = BYCAT[st.cat] || ALLW;
+  return dzBotGuess({word:st.w, cat:st.cat, rev:st.rev, wrong:st.wrong, frac:clamp((clock() - st.ini) / st.dur, 0, 1),
+    ink:st.np, diff:st.diff, pool, all:ALLW, rnd:Math.random, knows:w => dzKnows(w, s, st.seed, st.diff)});
+}
+
+/* ============================ cliente: quadro ============================ */
+const CL = { ui:null, me:-1, g:null, game:-1, key:'', ops:[], lastLg:null, lastSync:0, pend:[], q:Date.now(), cur:null, rid:-1,
+  tool:{c:0, w:1}, recvAt:0, left:0, dur:1, lastBeep:-1, fitKey:'', W:0, H:0, lastSend:0, feedN:'', timers:false };
+
+function mergeLog(g, gameNo){
+  const L = g.lg; if(!L || L === CL.lastLg) return; CL.lastLg = L;
+  const key = gameNo + ':' + L.k;
+  if(L.from === 0){ CL.key = key; CL.ops = L.ops.slice(); return; }
+  if(key === CL.key && L.from === CL.ops.length){ if(L.ops.length) CL.ops.push(...L.ops); return; }
+  if(key === CL.key && L.from < CL.ops.length){ CL.ops = CL.ops.slice(0, L.from).concat(L.ops); return; }
+  // faltou um pedaço (ex.: reconexão): pede a cópia inteira ao anfitrião
+  if(Date.now() - CL.lastSync > 1500 && CL.ui){ CL.lastSync = Date.now(); setTimeout(() => CL.ui.act({t:'sync'}), 0); }
+}
+function strokesOf(ops){
+  const S = [];
+  for(const op of ops){
+    if(op[0] === 's'){
+      const pts = decPts(op[4]), last = S[S.length - 1];
+      if(!op[3] && last && last.c === op[1] && last.w === op[2]) last.pts.push(...pts.slice(1));
+      else S.push({c:op[1], w:op[2], pts});
+    } else if(op[0] === 'u') S.pop();
+    else if(op[0] === 'x') S.length = 0;
+  }
+  return S;
+}
+function drawStroke(ctx, s, W, H){
+  const P = s.pts; if(!P.length) return;
+  ctx.strokeStyle = ctx.fillStyle = PAL[s.c] || '#000';
+  const lw = Math.max(1.2, (WID[s.w] || 8) / 1000 * W); ctx.lineWidth = lw;
+  const X = p => p[0] / 4095 * W, Y = p => p[1] / 4095 * H;
+  if(P.length === 1 || (P.length === 2 && Math.abs(P[0][0]-P[1][0]) + Math.abs(P[0][1]-P[1][1]) < 4)){
+    ctx.beginPath(); ctx.arc(X(P[0]), Y(P[0]), lw/2, 0, Math.PI*2); ctx.fill(); return;
+  }
+  ctx.beginPath(); ctx.moveTo(X(P[0]), Y(P[0]));
+  for(let i=1;i<P.length-1;i++){ const mx = (X(P[i]) + X(P[i+1]))/2, my = (Y(P[i]) + Y(P[i+1]))/2; ctx.quadraticCurveTo(X(P[i]), Y(P[i]), mx, my); }
+  ctx.lineTo(X(P[P.length-1]), Y(P[P.length-1])); ctx.stroke();
+}
+function paint(){
+  const cv = $('#dzCv'); if(!cv || !CL.W) return;
+  const ctx = cv.getContext('2d'), dpr = cv.width / CL.W;
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const S = strokesOf(CL.ops.concat(CL.pend.map(p => p.op)));
+  const c = CL.cur; if(c && c.pts.length > c.sent) S.push({c:c.c, w:c.w, pts:c.pts.slice(Math.max(0, c.sent - 1))});
+  S.forEach(s => drawStroke(ctx, s, CL.W, CL.H));
+}
+function fit(){
+  const dz = $('#dz'), wrap = $('#dzCw'), cv = $('#dzCv'); if(!dz || !wrap) return;
+  const mob = dz.clientWidth < 740 || matchMedia('(max-width:759px)').matches;
+  let W, H;
+  if(mob){
+    W = wrap.parentElement.clientWidth;
+    const stH = $('#stage').clientHeight - 12, used = $('.dz-top').offsetHeight + $('#dzTools').offsetHeight + $('#dzPl').offsetHeight + 15;
+    const maxH = stH - used - 96;
+    H = W * 0.75; if(H > maxH){ H = Math.max(150, maxH); W = Math.min(W, H / 0.75); }
+  } else {
+    const r = wrap.getBoundingClientRect(); W = Math.min(r.width, r.height / 0.75);
+  }
+  W = Math.max(120, Math.floor(W)); H = Math.floor(W * 0.75);
+  const dpr = Math.min(2, window.devicePixelRatio || 1), key = W + 'x' + H + 'x' + dpr;
+  if(key === CL.fitKey) return;
+  CL.fitKey = key; CL.W = W; CL.H = H;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  paint();
+}
+// simplificação de traço (Ramer–Douglas–Peucker)
+function rdp(P, eps){
+  if(P.length < 3) return P;
+  let md = 0, mi = 0; const a = P[0], b = P[P.length-1], dx = b[0]-a[0], dy = b[1]-a[1], L = Math.hypot(dx, dy) || 1;
+  for(let i=1;i<P.length-1;i++){ const d = Math.abs(dy*P[i][0] - dx*P[i][1] + b[0]*a[1] - b[1]*a[0]) / L; if(d > md){ md = d; mi = i; } }
+  if(md <= eps) return [a, b];
+  return rdp(P.slice(0, mi + 1), eps).slice(0, -1).concat(rdp(P.slice(mi), eps));
+}
+const amDrawer = () => !!(CL.g && CL.g.fase === 'des' && CL.g.dr === CL.me);
+function flush(force){
+  const c = CL.cur; if(!c || !CL.ui) return;
+  if(c.pts.length > c.sent){
+    const t = performance.now(); if(!force && t - CL.lastSend < 200) return;
+    if(!amDrawer()){ CL.cur = null; return; }
+    const end = Math.min(c.pts.length, c.sent + MAXCHUNK - 2);
+    const chunk = rdp(c.pts.slice(Math.max(0, c.sent - 1), end), 5);
+    const op = ['s', c.c, c.w, c.sent === 0 ? 1 : 0, encPts(chunk)], q = ++CL.q;
+    CL.pend.push({q, op}); c.sent = end; CL.lastSend = t;
+    CL.ui.act({t:'tr', c:op[1], w:op[2], n:op[3], p:op[4], q});
+  }
+  if(c.done && c.sent >= c.pts.length && CL.cur === c) CL.cur = null;
+}
+function sendDrawOp(t, op){
+  flush(true);
+  const q = ++CL.q; CL.pend.push({q, op}); paint();
+  CL.ui.act({t, q});
+}
+function ptOf(e){
+  const r = $('#dzCv').getBoundingClientRect();
+  return [Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 4095), Math.round(clamp((e.clientY - r.top) / r.height, 0, 1) * 4095)];
+}
+function wireCanvas(cv){
+  cv.addEventListener('pointerdown', e => {
+    if(!amDrawer() || CL.cur) return;
+    e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    CL.cur = {c:CL.tool.c, w:CL.tool.w, pts:[ptOf(e)], sent:0, done:false, id:e.pointerId};
+    paint();
+  });
+  cv.addEventListener('pointermove', e => {
+    const c = CL.cur; if(!c || c.done || c.id !== e.pointerId) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const ctx = cv.getContext('2d'), dpr = cv.width / CL.W, minD = 4095 / CL.W * 2.2;
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = PAL[c.c]; ctx.lineWidth = Math.max(1.2, WID[c.w] / 1000 * CL.W);
+    for(const ev of (evs.length ? evs : [e])){
+      const p = ptOf(ev), q = c.pts[c.pts.length - 1];
+      if(Math.hypot(p[0]-q[0], p[1]-q[1]) < minD) continue;
+      c.pts.push(p);
+      ctx.beginPath(); ctx.moveTo(q[0]/4095*CL.W, q[1]/4095*CL.H); ctx.lineTo(p[0]/4095*CL.W, p[1]/4095*CL.H); ctx.stroke();
+    }
+  });
+  const up = e => { const c = CL.cur; if(!c || c.id !== e.pointerId) return; c.done = true; flush(true); };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+}
+
+/* ============================ cliente: tela ============================ */
+function build(stage){
+  if($('#dz', stage)) return;
+  stage.innerHTML = `<div id="dz">
+    <div class="dz-top"><div class="dz-rd" id="dzRd"></div><div class="dz-word" id="dzWord"></div><div class="dz-time" id="dzTime"></div><div class="dz-bar" id="dzBar"></div></div>
+    <div class="dz-pl" id="dzPl"></div>
+    <div class="dz-board"><div class="dz-cw" id="dzCw"><div class="dz-cv"><canvas id="dzCv"></canvas><div class="dz-ov" id="dzOv"></div></div></div>
+      <div class="dz-tools" id="dzTools"></div></div>
+    <div class="dz-chat"><div class="dz-feed" id="dzFeed"></div>
+      <form id="dzForm" autocomplete="off"><input id="dzIn" maxlength="32" placeholder="Digite seu palpite..." enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="dzSend">➤</button></form></div>
+  </div>`;
+  wireCanvas($('#dzCv'));
+  $('#dzForm').onsubmit = e => {
+    e.preventDefault(); const inp = $('#dzIn'), t = inp.value.trim();
+    if(t && CL.ui){ CL.ui.act({t:'pal', x:t}); inp.value = ''; }
+  };
+  $('#dzTools').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b || !amDrawer()) return;
+    if(b.dataset.c != null){ CL.tool.c = +b.dataset.c; if(CL.tool.c === BORRACHA && CL.tool.w < 2) CL.tool.w = 2; }
+    else if(b.dataset.w != null) CL.tool.w = +b.dataset.w;
+    else if(b.dataset.a === 'er') CL.tool.c = CL.tool.c === BORRACHA ? 0 : BORRACHA;
+    else if(b.dataset.a === 'un') sendDrawOp('desf', ['u']);
+    else if(b.dataset.a === 'cl') sendDrawOp('limpa', ['x']);
+    else if(b.dataset.a === 'gv'){ pmodal('<h2>Pular a palavra?</h2><p>A rodada termina agora e ninguém mais pontua nela.</p>',
+      [{label:'Pular', cls:'b-up', fn:() => CL.ui.act({t:'desiste'})}, {label:'Continuar desenhando', cls:'b-no'}]); return; }
+    renderTools(CL.g);
+  });
+  if(!CL.timers){
+    CL.timers = true;
+    setInterval(() => flush(false), 250);
+    setInterval(tickClock, 200);
+    window.addEventListener('resize', () => { CL.fitKey = ''; fit(); });
+    if(window.ResizeObserver) new ResizeObserver(() => fit()).observe($('#stage'));
+  }
+}
+const setH = (el, h) => { if(el && el._h !== h){ el._h = h; el.innerHTML = h; return true; } return false; };
+function tickClock(){
+  const g = CL.g, el = $('#dzTime'); if(!g || !el) return;
+  const left = Math.max(0, CL.left - (Date.now() - CL.recvAt)), s = Math.ceil(left / 1000);
+  const show = g.fase === 'des' || g.fase === 'esc';
+  el.textContent = show ? s : '';
+  el.classList.toggle('urg', g.fase === 'des' && s <= 10);
+  $('#dzBar').style.width = (show ? clamp(left / CL.dur, 0, 1) * 100 : 0) + '%';
+  if(g.fase === 'des' && s <= 5 && s > 0 && s !== CL.lastBeep){ CL.lastBeep = s; beep(s === 1 ? 660 : 520, 0.05, 'sine', 0.035); }
+}
+function wordHTML(g, v){
+  const me = v.me, drName = v.seats[g.dr] ? esc(v.seats[g.dr].name) : '';
+  const cat = g.cat ? `<div><span class="dz-cat">${esc(g.cat)}</span></div>` : '';
+  if(g.fase === 'esc') return `<span class="msg">${g.dr === me ? 'Escolha a palavra para desenhar' : `✏️ ${drName} está escolhendo...`}</span>`;
+  if(g.fase === 'fim') return `<span class="msg">🏁 Fim de jogo!</span>`;
+  if(g.fase === 'rev') return `<span class="msg">A palavra era</span> <span class="rev">${esc(g.word)}</span>${cat}`;
+  if(g.word && g.dr === me) return `<span class="msg">Desenhe:</span> <span class="rev">${esc(g.word)}</span>${cat}`;
+  if(g.word) return `<span class="msg">✅</span> <span class="rev">${esc(g.word)}</span>${cat}`;
+  const parts = g.mask.split(/([ -])/), lens = [];
+  const html = parts.map(p => {
+    if(p === ' ') return '<span class="gap"></span>';
+    if(p === '-') return '<span>-</span>';
+    if(p) lens.push(p.length);
+    return [...p].map(c => c === '_' ? '<span class="lt h">_</span>' : `<span class="lt">${esc(c.toUpperCase())}</span>`).join('');
+  }).join('');
+  return `${html}<span class="cnt">(${lens.join(' ')})</span>${cat}`;
+}
+function rankOf(sc){ const o = sc.map((x,i) => i).sort((a,b) => sc[b] - sc[a]); const r = []; o.forEach((s,k) => r[s] = (k && sc[o[k-1]] === sc[s]) ? r[o[k-1]] : k + 1); return r; }
+function renderPlayers(g, v){
+  const rk = rankOf(g.sc);
+  setH($('#dzPl'), g.sc.map((p, s) => {
+    const x = v.seats[s] || {name:'?'}, got = g.fase === 'fim' ? null : g.got[s];
+    const stt = g.fase === 'esc' && s === g.dr ? 'escolhendo...' : s === g.dr && g.fase !== 'fim' ? (g.fase === 'rev' && g.dpts ? `✏️ +${g.dpts}` : '✏️ desenhando') : got != null ? `✅ +${got}` : '';
+    return `<div class="dzp ${s === g.dr && g.fase !== 'fim' ? 'dr' : ''} ${got != null ? 'ok' : ''} ${s === v.me ? 'me' : ''}" data-seat="${s}">
+      <span class="rk">${rk[s]}º</span><span class="nm">${x.human ? '' : '🤖 '}${esc(x.name)}</span><span class="pt">${p}</span><span class="stt">${stt}</span></div>`;
+  }).join(''));
+}
+function renderFeed(g, v){
+  const el = $('#dzFeed'), name = s => esc((v.seats[s] || {name:'?'}).name);
+  const h = g.feed.map(f => f.k === 'g' ? `<div><b>${name(f.s)}:</b> ${esc(f.x)}</div>`
+    : f.k === 'ok' ? `<div class="ok">✅ ${name(f.s)} acertou!</div>`
+    : f.k === 'q' ? `<div class="q">🔥 Quase! “${esc(f.x)}” está bem perto.</div>`
+    : `<div class="${f.k === 'w' ? 'w' : 'i'}">${f.x}</div>`).join('') || '<div class="i">Os palpites aparecem aqui.</div>';
+  if(setH(el, h)) el.scrollTop = el.scrollHeight;
+}
+function renderTools(g){
+  const el = $('#dzTools'); if(!el) return;
+  if(!g || !(g.fase === 'des' && g.dr === CL.me)){ setH(el, ''); return; }
+  const t = CL.tool;
+  setH(el, `<div class="grp">${PAL.slice(0, 12).map((c,i) => `<button class="sw ${t.c === i ? 'sel' : ''}" data-c="${i}" style="background:${c}" title="${PAL_NOMES[i]}" aria-label="${PAL_NOMES[i]}"></button>`).join('')}</div>
+    <div class="grp">${WID.map((w,i) => `<button class="wd ${t.w === i ? 'sel' : ''}" data-w="${i}" title="Espessura ${i+1}"><i style="width:${4+i*5}px;height:${4+i*5}px"></i></button>`).join('')}
+    <button class="tb ${t.c === BORRACHA ? 'sel' : ''}" data-a="er" title="Borracha">🧽</button><button class="tb" data-a="un" title="Desfazer">↶</button>
+    <button class="tb" data-a="cl" title="Limpar o quadro">🗑️</button><button class="tb gv" data-a="gv" title="Pular a palavra">Pular</button></div>`);
+}
+function renderOverlay(g, v, ui){
+  const el = $('#dzOv'), me = v.me, name = s => esc((v.seats[s] || {name:'?'}).name);
+  let h = '';
+  if(g.fase === 'esc' && g.dr === me && g.op3){
+    h = `<div class="dz-card"><h3>Escolha a palavra para desenhar</h3><div class="big3">${g.op3.map((w,i) => {
+      const inf = WINFO[dzNorm(w)]; return `<button data-i="${i}">${esc(w)}<small>${inf ? NIVEL_TXT[inf.lv] + ' · ' + esc(DZ_CATS[inf.cat]) : ''}</small></button>`; }).join('')}</div></div>`;
+  } else if(g.fase === 'esc'){
+    h = `<div class="dz-wait">✏️ ${name(g.dr)} está escolhendo a palavra...</div>`;
+  } else if(g.fase === 'rev'){
+    const got = Object.keys(g.got).map(Number).sort((a,b) => g.got[b] - g.got[a]);
+    const why = g.why === 'todos' ? 'Todos acertaram!' : g.why === 'desistiu' ? `${name(g.dr)} pulou a palavra.` : got.length ? 'Acabou o tempo!' : 'Acabou o tempo e ninguém acertou.';
+    h = `<div class="dz-card low"><p>${why} A palavra era</p><div class="wd">${esc(g.word)}</div>
+      ${got.length ? `<ul><li>✏️ ${name(g.dr)} <b>+${g.dpts}</b></li>${got.map(s => `<li>✅ ${name(s)} <b>+${g.got[s]}</b></li>`).join('')}</ul>` : ''}</div>`;
+  } else if(g.fase === 'fim'){
+    const rk = rankOf(g.sc), ord = g.sc.map((x,i) => i).sort((a,b) => g.sc[b] - g.sc[a]);
+    h = `<div class="dz-card"><h3>🏁 Fim de jogo!</h3><ul>${ord.map(s => `<li>${rk[s]}º ${name(s)} <b>${g.sc[s]}</b></li>`).join('')}</ul></div>`;
+  }
+  if(setH(el, h)) $$('button[data-i]', el).forEach(b => b.onclick = () => ui.act({t:'esc', i:+b.dataset.i}));
+}
+function renderInput(g, v){
+  const inp = $('#dzIn'), btn = $('#dzSend');
+  let ph = 'Digite seu palpite...', dis = false;
+  if(g.fase !== 'des'){ ph = g.fase === 'esc' ? 'Aguarde a palavra ser escolhida...' : 'Aguarde a próxima rodada...'; dis = true; }
+  else if(g.dr === v.me){ ph = 'Você está desenhando ✏️'; dis = true; }
+  else if(g.got[v.me] != null){ ph = 'Você acertou! 🎉 Espere os outros...'; dis = true; }
+  if(inp.placeholder !== ph) inp.placeholder = ph;
+  if(inp.disabled !== dis){ inp.disabled = dis; btn.disabled = dis; if(dis) inp.value = ''; }
+}
+function renderAll(g, v, ui){
+  CL.ui = ui; CL.me = v.me;
+  build(ui.stage);
+  if(v.gameNo !== CL.game){ Object.assign(CL, {game:v.gameNo, ops:[], key:'', lastLg:null, pend:[], cur:null, rid:-1}); }
+  mergeLog(g, v.gameNo);
+  const mine = g.fase === 'des' && g.dr === v.me;
+  if(g.lg.r !== CL.rid){ CL.rid = g.lg.r; CL.pend = []; CL.cur = null; CL.tool = {c:0, w:1}; }
+  if(mine) CL.pend = CL.pend.filter(p => p.q > g.lq); else { CL.pend = []; CL.cur = null; }
+  CL.g = g; CL.recvAt = Date.now(); CL.left = g.left; CL.dur = g.dur || 1;
+  setH($('#dzRd'), g.fase === 'fim' ? '' : `Rodada<b>${g.rodada}/${g.tot}</b>`);
+  setH($('#dzWord'), wordHTML(g, v));
+  renderPlayers(g, v); renderFeed(g, v); renderTools(g); renderOverlay(g, v, ui); renderInput(g, v);
+  $('#dzCv').classList.toggle('pen', mine);
+  fit(); paint(); tickClock();
+}
+
+/* ============================ definição para a Mesa ============================ */
+Mesa.run({
+  id:'desenhe', name:'Desenhe e Adivinhe', icon:'🎨', tagline:'Desenhe, adivinhe e divirta a turma',
+  seats: o => clamp(+o.jogadores || 4, 2, 8),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']]},
+    {key:'tempo', label:'Tempo por rodada', default:'80', choices:[['60','60 s'],['80','80 s'],['100','100 s']]},
+    {key:'voltas', label:'Voltas', default:'2', choices:[['1','1 volta'],['2','2 voltas'],['3','3 voltas']]},
+    {key:'nivel', label:'Palavras', default:'misto', choices:[['misto','Misturadas'],['facil','Fáceis'],['medio','Médias'],['dificil','Difíceis']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${o.tempo || 80}s · ${o.voltas || 2} VOLTA${+o.voltas === 1 ? '' : 'S'} · BOT ${({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'}[o.diff] || 'NORMAL')}`,
+  tickMs:250,
+  setup(players, o){
+    const n = players.length, now = clock(), voltas = clamp(+o.voltas || 2, 1, 3);
+    const st = {n, names:players.map(p => p.name), hum:players.map(p => !!p.human), sc:Array(n).fill(0),
+      tempo:clamp(+o.tempo || 80, 30, 120) * 1000, nivel:['facil','medio','dificil','misto'].includes(o.nivel) ? o.nivel : 'misto',
+      diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal', voltas, turn:0, tot:n * voltas, ord0:Math.floor(Math.random() * n),
+      rid:0, lk:0, used:[], op3:[], seed:(Math.random()*1e9)|0};
+    startTurn(st, now);
+    return st;
+  },
+  startEvents(st){ return [{k:'vez', seat:st.dr}]; },
+  // todos os humanos podem agir a qualquer momento (desenhar, chutar); os bots jogam pelo relógio
+  waiting(st){ if(st.fase === 'fim') return []; const w = []; for(let s=0;s<st.n;s++) if(!isBot(st, s)) w.push(s); return w; },
+  apply(st, seat, a){
+    const now = clock();
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    const drawing = st.fase === 'des' && seat === st.dr;
+    switch(a.t){
+      case 'esc': {
+        const i = a.i | 0;
+        if(st.fase !== 'esc' || seat !== st.dr || i < 0 || i > 2 || a.i !== i) return {ok:false, err:'Agora não dá para escolher.'};
+        return {events:choose(st, i, now)};
+      }
+      case 'tr': {
+        if(!drawing) return {ok:false, err:'Agora não é a sua vez de desenhar.'};
+        const c = a.c, w = a.w;
+        if(!Number.isInteger(c) || c < 0 || c > BORRACHA || !Number.isInteger(w) || w < 0 || w > 3 || !validPts(a.p)) return {ok:false, err:'Traço inválido.'};
+        setLq(st, a.q);
+        if(st.log.length >= MAXOPS || st.np >= MAXPTS) return {events:[{k:'toast', seat, text:'O quadro está cheio — use Limpar.'}]};
+        pushOp(st, ['s', c, w, a.n ? 1 : 0, a.p], a.p.length / 4);
+        return {events:[]};
+      }
+      case 'desf':
+        if(!drawing) return {ok:false, err:'Agora não é a sua vez de desenhar.'};
+        setLq(st, a.q); if(st.log.length < MAXOPS + 500) st.log.push(['u']);
+        return {events:[]};
+      case 'limpa':
+        if(!drawing) return {ok:false, err:'Agora não é a sua vez de desenhar.'};
+        setLq(st, a.q); st.log = []; st.np = 0; st.lk++;
+        return {events:[]};
+      case 'desiste':
+        if(!drawing) return {ok:false, err:'Só quem desenha pode pular.'};
+        return {events:endRound(st, now, 'desistiu')};
+      case 'pal': {
+        if(typeof a.x !== 'string') return {ok:false, err:'Palpite inválido.'};
+        if(now - (st.lastG[seat] || 0) < 600) return {ok:false, err:'Calma! Um palpite de cada vez.'};
+        const r = guess(st, seat, a.x, now);
+        if(r.err) return {ok:false, err:r.err};
+        st.lastG[seat] = now;
+        return r;
+      }
+      case 'sync': st.sent[seat] = null; return {events:[]};
+      case 'nada': return {events:[]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  // relógio do anfitrião: escolha automática, dicas, bots desenhando e chutando, fim de tempo
+  tick(st, o, agora){
+    const now = window.DZ_CLOCK ? clock() : agora;
+    let ch = false; const ev = [];
+    if(st.fase === 'esc'){
+      if(isBot(st, st.dr) ? now >= st.botAt : now >= st.fim){
+        let i = Math.floor(Math.random() * 3);
+        if(isBot(st, st.dr)){ const ok = [0,1,2].filter(k => DZ_DRAW[st.op3[k]]); if(ok.length) i = pick(ok); }
+        ev.push(...choose(st, i, now)); ch = true;
+      }
+    } else if(st.fase === 'des'){
+      while(st.hi < st.hints.length && now >= st.hints[st.hi]){ st.hi++; if(revealHint(st)){ ch = true; ev.push({k:'dica'}); } }
+      if(botDrawStep(st, now)) ch = true;
+      const iv = {facil:[6000, 10000], normal:[4500, 8000], dificil:[3500, 6000]}[st.diff] || [4500, 8000];
+      for(let s=0;s<st.n && st.fase === 'des';s++){
+        if(s === st.dr || st.got[s] != null || !isBot(st, s)) continue;
+        if(st.bg[s] == null) st.bg[s] = now + rand(3000, 6000) * SPD();
+        if(now < st.bg[s]) continue;
+        st.bg[s] = now + rand(iv[0], iv[1]) * SPD();
+        const r = guess(st, s, botGuessText(st, s), now);
+        if(r.events){ ev.push(...r.events); ch = true; }
+      }
+      if(st.fase === 'des' && now >= st.fim){ ev.push(...endRound(st, now, 'tempo')); ch = true; }
+    } else if(st.fase === 'rev'){
+      if(now >= st.fim){ ev.push(...nextTurn(st, now)); ch = true; }
+    }
+    return ch ? {changed:true, events:ev} : null;
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    const mx = Math.max(...st.sc), winners = st.sc.map((x,i) => x === mx ? i : -1).filter(i => i >= 0);
+    const rk = rankOf(st.sc), ord = st.sc.map((x,i) => i).sort((a,b) => st.sc[b] - st.sc[a]);
+    const tab = ord.map(s => `${rk[s]}º ${esc(st.names[s])} — ${st.sc[s]} pts`).join('<br>');
+    const head = winners.length > 1 ? `Empate no topo: ${winners.map(s => esc(st.names[s])).join(' e ')}!` : `${esc(st.names[winners[0]])} venceu!`;
+    return {winners, draw:winners.length === st.n, text:`${head}<br><br>${tab}`, scores:st.sc.slice()};
+  },
+  bot(st, seat){
+    if(st.fase === 'esc' && seat === st.dr) return {t:'esc', i:Math.max(0, [0,1,2].findIndex(k => DZ_DRAW[st.op3[k]]))};
+    if(st.fase === 'des' && seat !== st.dr && st.got[seat] == null && clock() - (st.lastG[seat] || 0) >= 600) return {t:'pal', x:botGuessText(st, seat)};
+    return {t:'nada'};
+  },
+  botDelay(){ return 900; },
+  // cada lugar vê só o que pode: a palavra fica escondida até acertar; o traço vai em pedaços (só o que falta)
+  view(st, seat){
+    const now = clock(), see = st.fase === 'rev' || st.fase === 'fim' || (st.fase === 'des' && (seat === st.dr || st.got[seat] != null));
+    const k = st.sent[seat], cid = cidOf(seat);
+    const from = (k && k.k === st.lk && k.cid === cid && k.n <= st.log.length) ? k.n : 0;
+    if(seat >= 0) st.sent[seat] = {k:st.lk, n:st.log.length, cid};
+    return {
+      n:st.n, sc:st.sc.slice(), fase:st.fase, dr:st.dr, rodada:Math.min(st.turn + 1, st.tot), tot:st.tot,
+      cat:st.fase === 'esc' || !st.cat ? '' : DZ_CATS[st.cat] || '',
+      mask:st.fase === 'des' ? maskOf(st) : '', word:see ? st.w : '',
+      op3:st.fase === 'esc' && seat === st.dr ? st.op3.slice() : null,
+      got:Object.assign({}, st.got), dpts:st.dpts, why:st.why,
+      left:Math.max(0, st.fim - now), dur:st.dur,
+      feed:st.feed.filter(f => f.k !== 'q' || f.s === seat).slice(-18),
+      lg:{k:st.lk, r:st.rid, from, ops:st.log.slice(from)}, lq:seat === st.dr ? st.lq : 0
+    };
+  },
+  render(g, v, ui){ renderAll(g, v, ui); },
+  topInfo(g, v){
+    if(v.me < 0 || g.sc[v.me] == null) return '';
+    const rk = rankOf(g.sc)[v.me];
+    return `<div class="status">Você: ${g.sc[v.me]} pts · ${rk}º lugar</div>`;
+  },
+  onEvent(e, v){
+    const me = v ? v.me : -1;
+    if(e.k === 'acerto'){ if(e.seat === me){ banner('Você acertou!'); Snd.win(); } else Snd.msg(); }
+    else if(e.k === 'quase'){ if(e.seat === me){ toast('🔥 Quase! Está bem perto.'); beep(700, 0.08, 'sine', 0.05); } }
+    else if(e.k === 'dica') Snd.card();
+    else if(e.k === 'vez' && e.seat === me){ banner('Sua vez de desenhar!'); Snd.alert(); }
+  },
+  rules: o => `<h3>Objetivo</h3><p>Fazer mais pontos desenhando e adivinhando. A cada rodada uma pessoa desenha e as outras tentam descobrir a palavra.</p>
+<h3>Como jogar</h3><ul>
+<li><b>Quem desenha</b> escolhe 1 de 3 palavras sorteadas (tem ${ESC_MS/1000} s; se não escolher, o jogo escolhe). Depois desenha no quadro com cores, espessuras, borracha, <b>desfazer</b> e <b>limpar</b>. Não vale escrever letras nem números!</li>
+<li><b>Quem adivinha</b> digita palpites na caixa de texto. Palpites errados aparecem para todos; quando alguém acerta, os outros só veem “Fulano acertou!”.</li>
+<li>Se o palpite estiver <b>muito perto</b> (uma letra trocada, plural…), aparece “Quase!” só para quem digitou. Acentos e maiúsculas não importam.</li>
+<li>A <b>categoria</b> e o número de letras aparecem desde o início, e algumas <b>letras são reveladas</b> com o tempo.</li>
+<li>A rodada acaba quando o tempo (${o.tempo || 80} s) termina, quando todos acertam ou se quem desenha pular a palavra.</li></ul>
+<h3>Pontos</h3><ul>
+<li>Quem acerta: de 50 a 200 pontos, conforme a rapidez, mais um bônus para os primeiros (+40, +20, +10).</li>
+<li>Quem desenha: de 20 a 60 pontos por pessoa que acertar (mais rápido = mais pontos).</li></ul>
+<h3>Fim</h3><p>Cada jogador desenha uma vez por volta (${o.voltas || 2} volta${+o.voltas === 1 ? '' : 's'}). Ganha quem tiver mais pontos no fim.</p>
+<h3>Bots</h3><p>Os bots chutam usando a categoria, o tamanho da palavra, as letras reveladas e os palpites errados dos outros — acertam mais conforme o desenho e as dicas aparecem. Quando é a vez deles, desenham traço a traço palavras do seu caderno de desenhos.</p>
+<h3>Dica</h3><p>Combine com a turma de não falar a resposta no chat da mesa (💬) — use só a caixa de palpites.</p>`
+});
+</script>
+</body>
+</html>

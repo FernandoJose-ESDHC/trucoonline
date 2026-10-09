@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Rouba-Monte</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px 8px;gap:6px}
+.opps{display:flex;justify-content:center;gap:8px;flex-wrap:nowrap}
+.opp{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:4px 8px 6px;text-align:center;font-weight:800;font-size:12px;width:var(--ow);position:relative;transition:border-color .2s}
+.opp .onm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .hc{font-size:11px;color:#cfe;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite;background:rgba(0,0,0,.45)}
+.mback{width:12px;height:17px;border-radius:3px;background:linear-gradient(135deg,#8e1b22,#5a0e14);border:2px solid #f4ead2;flex:none}
+/* monte de cada jogador: carta do topo virada + pilha */
+.monte{position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin-top:3px}
+.monte .stk{position:relative;width:var(--mw);height:calc(var(--mw)*1.43)}
+.monte .stk .card{--cw:var(--mw);--ch:calc(var(--mw)*1.43);position:absolute;left:0;top:0}
+.monte .stk .card.b1{transform:translate(3px,3px)} .monte .stk .card.b2{transform:translate(6px,6px)}
+.monte .cnt{font-size:12px;font-weight:900;color:#ffe6a6;margin-top:6px}
+.monte .empty{width:var(--mw);height:calc(var(--mw)*1.43);border-radius:8px;border:2px dashed rgba(255,255,255,.25);display:grid;place-items:center;font-size:10px;color:#9cb}
+.tgt{cursor:pointer}
+.tgt .stk .card:last-child,.card.tgt{box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(231,180,58,.9);animation:pulse 1.2s infinite}
+.danger .stk .card:last-child{box-shadow:0 0 0 3px var(--eles),0 0 12px rgba(255,90,90,.7)}
+/* mesa */
+.centro{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:12px}
+.stock{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#cfe;font-weight:700;flex:none}
+.stock .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.table{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px;max-width:calc(var(--tw)*5.2 + 40px);min-height:calc(var(--tw)*1.43);
+  background:rgba(0,0,0,.15);border-radius:14px;padding:8px;position:relative}
+.table .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.table .empty{font-size:12px;color:#9cb;align-self:center;padding:10px}
+.table.drop{outline:3px dashed var(--gold);outline-offset:2px;cursor:pointer}
+.lastmv{font-size:12px;font-weight:800;color:#ffe6a6;text-align:center;min-height:16px;text-shadow:0 1px 3px #000}
+/* minha área */
+.mine{display:flex;align-items:flex-end;justify-content:center;gap:12px}
+.mycol{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:38px;align-items:center}
+.ctl button{padding:9px 12px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer}
+.hand{display:flex;justify-content:center;gap:calc(var(--cw)*.1);padding-top:12px}
+.hand .card{cursor:pointer}
+.hand .card.can{box-shadow:0 0 0 2px rgba(231,180,58,.9),0 3px 8px rgba(0,0,0,.45)}
+.hand .card.off{filter:brightness(.7)}
+.mymonte .stk{--mw:var(--myw)}
+.score{font-size:13px;font-weight:800;color:#ffe6a6;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.score .me{color:#bff5d4}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================== ROUBA-MONTE ==============================
+   Cartas no estado = números: naipe*13 + valor (0 = Ás … 12 = Rei). Só o
+   valor importa. O topo de cada monte é a última carta do array.          */
+const RR = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const SSYM = ['♣','♥','♠','♦'];
+const rk = i => i % 13;
+const toCard = i => ({r:RR[i % 13], s:SSYM[(i / 13) | 0], id:'c' + i});
+const RNAME = ['Ás','2','3','4','5','6','7','8','9','10','Valete','Dama','Rei'];
+const topOf = m => m.length ? m[m.length - 1] : -1;
+
+function refill(s, p){ if(!s.hands[p].length && s.stock.length) s.hands[p] = s.stock.splice(-Math.min(4, s.stock.length)); }
+function nextTurn(s){
+  for(let k=1;k<=s.n;k++){ const q = (s.turn + k) % s.n; refill(s, q); if(s.hands[q].length){ s.turn = q; return; } }
+  s.phase = 'end';
+}
+// todas as jogadas possíveis de p
+function moves(s, p){
+  const out = [];
+  for(const c of s.hands[p]){
+    const r = rk(c);
+    const nt = s.table.filter(x => rk(x) === r).length;
+    if(nt) out.push({c, tgt:'t', g:nt + 1});
+    for(let q=0;q<s.n;q++){ const t = topOf(s.montes[q]); if(t >= 0 && rk(t) === r) out.push(q === p ? {c, tgt:'o', g:1} : {c, tgt:'m', q, g:s.montes[q].length + 1}); }
+    out.push({c, tgt:'d', g:0});
+  }
+  return out;
+}
+function doMove(s, p, m){
+  const h = s.hands[p]; h.splice(h.indexOf(m.c), 1);
+  const r = rk(m.c); let took = 0;
+  if(m.tgt === 't'){ const tk = s.table.filter(x => rk(x) === r); s.table = s.table.filter(x => rk(x) !== r); s.montes[p].push(...tk, m.c); took = tk.length; }
+  else if(m.tgt === 'm'){ took = s.montes[m.q].length; s.montes[p].push(...s.montes[m.q], m.c); s.montes[m.q] = []; }
+  else if(m.tgt === 'o') s.montes[p].push(m.c);
+  else s.table.push(m.c);
+  s.moves++;
+  refill(s, p);
+  if(m.tgt === 'd' || !s.again || !s.hands[p].length) nextTurn(s);
+  return took;
+}
+function validMove(s, p, a){
+  if(!a || a.t !== 'play') return 'Jogada inválida.';
+  const mm = /^c(\d+)$/.exec(String(a.id || '')); if(!mm) return 'Carta inválida.';
+  const c = +mm[1]; if(!s.hands[p].includes(c)) return 'Essa carta não está na sua mão.';
+  const r = rk(c);
+  if(a.tgt === 't'){ if(!s.table.some(x => rk(x) === r)) return 'Não há carta desse valor na mesa.'; return {c, tgt:'t'}; }
+  if(a.tgt === 'o'){ if(topOf(s.montes[p]) < 0 || rk(topOf(s.montes[p])) !== r) return 'O topo do seu monte não tem esse valor.'; return {c, tgt:'o'}; }
+  if(a.tgt === 'm'){ const q = a.q | 0; if(q === p || q < 0 || q >= s.n) return 'Monte inválido.';
+    if(topOf(s.montes[q]) < 0 || rk(topOf(s.montes[q])) !== r) return 'O topo desse monte não tem o mesmo valor.'; return {c, tgt:'m', q}; }
+  if(a.tgt === 'd') return {c, tgt:'d'};
+  return 'Jogada inválida.';
+}
+
+/* ---------------------------- MOTOR DO BOT ----------------------------
+   Conta as cartas: tudo o que está na mesa e nos montes já foi visto. Pesa
+   o ganho (roubar monte grande vale mais, ainda mais do líder) contra o
+   risco de o topo do próprio monte ser roubado e de dar carta de graça na mesa. */
+function unseenRanks(s, p){
+  const u = Array(13).fill(4);
+  for(const c of s.hands[p]) u[rk(c)]--;
+  for(const c of s.table) u[rk(c)]--;
+  for(const m of s.montes) for(const c of m) u[rk(c)]--;
+  return u;
+}
+// chance de pelo menos um dos 'H' cartões escondidos (de N) ser de um valor com 'u' cópias escondidas
+function pAny(u, H, N){ if(u <= 0 || H <= 0 || N <= 0) return 0; let q = 1; for(let i=0;i<H;i++) q *= Math.max(0, (N - u - i)) / (N - i); return 1 - q; }
+function evalMoves(s, p, diff){
+  const ms = moves(s, p), u = unseenRanks(s, p);
+  let N = s.stock.length, Hall = 0; const opp = [];
+  for(let q=0;q<s.n;q++) if(q !== p){ N += s.hands[q].length; Hall += s.hands[q].length; opp.push(q); }
+  const nx = opp.length ? (p + 1) % s.n : p;
+  const Hrisk = diff === 'dificil' ? Hall : s.hands[nx].length;      // o Normal só olha o próximo
+  let lead = -1; for(const q of opp) if(lead < 0 || s.montes[q].length > s.montes[lead].length) lead = q;
+  const myHand = s.hands[p];
+  for(const m of ms){
+    const r = rk(m.c); let v;
+    const holdSame = myHand.filter(x => x !== m.c && rk(x) === r).length;
+    if(m.tgt === 'd'){
+      // carta na mesa: o adversário pode pegar (+2 para ele); se eu tenho outra igual, eu posso pegar depois
+      v = -pAny(u[r], Hrisk, N) * 2.2 + (holdSame ? 1.2 * (1 - pAny(u[r], Hrisk, N)) : 0) - (u[r] + holdSame === 0 ? 0 : .1);
+    } else {
+      const size = s.montes[p].length + m.g;                         // tamanho do meu monte depois
+      v = m.g;
+      if(m.tgt === 'm') v += (m.g - 1) * (m.q === lead ? 1 : .6);    // tirar do adversário (e do líder) vale mais
+      const hide = s.again && myHand.length > 1 ? .55 : 1;            // jogando de novo, posso cobrir o topo
+      const risk = pAny(u[r], Hrisk, N) * size * .9 * hide;
+      v -= risk;
+      // o que eu largo como topo antigo deixa de estar exposto
+      const oldTop = topOf(s.montes[p]);
+      if(oldTop >= 0 && rk(oldTop) !== r) v += pAny(u[rk(oldTop)], Hrisk, N) * s.montes[p].length * .9 * hide * (diff === 'dificil' ? 1 : .5);
+    }
+    if(diff === 'facil') v = m.g * 1.0 + (m.tgt === 'm' ? m.g * .3 : 0) + Math.random() * 1.5;
+    m.v = v;
+  }
+  return ms;
+}
+function bestOf(ms){ let b = ms[0]; for(const m of ms) if(m.v > b.v) b = m; return b; }
+// Difícil: para cada jogada, sorteia as mãos escondidas e simula até voltar a minha vez
+// (todos jogando como o Normal); fica com a jogada de melhor saldo médio de cartas.
+function determinize(s, p){
+  const seen = new Uint8Array(52);
+  for(const c of s.hands[p]) seen[c] = 1; for(const c of s.table) seen[c] = 1; for(const m of s.montes) for(const c of m) seen[c] = 1;
+  const pool = []; for(let i=0;i<52;i++) if(!seen[i]) pool.push(i);
+  shuffle(pool);
+  const t = {n:s.n, hands:s.hands.map((h, q) => q === p ? h.slice() : pool.splice(0, h.length)), stock:pool, table:s.table.slice(),
+    montes:s.montes.map(m => m.slice()), turn:s.turn, phase:s.phase, again:s.again, moves:0};
+  return t;
+}
+const balance = (t, p) => { let o = 0; for(let q=0;q<t.n;q++) if(q !== p) o = Math.max(o, t.montes[q].length); return t.montes[p].length - (t.n === 2 ? o : (o + t.montes.reduce((a, m, q) => q === p ? a : a + m.length, 0) / (t.n - 1)) / 2); };
+function lookPick(s, p, K){
+  const ms = evalMoves(s, p, 'normal');
+  if(ms.length === 1) return ms[0];
+  for(const m of ms) m.sum = 0;
+  for(let k=0;k<K;k++){
+    const base = determinize(s, p);
+    for(const m of ms){
+      const t = {n:base.n, hands:base.hands.map(h => h.slice()), stock:base.stock.slice(), table:base.table.slice(), montes:base.montes.map(x => x.slice()), turn:p, phase:'play', again:base.again, moves:0};
+      const b0 = balance(t, p);
+      doMove(t, p, {c:m.c, tgt:m.tgt, q:m.q});
+      let guard = 0;
+      while(t.phase === 'play' && guard++ < 60){
+        if(t.turn === p && guard > 1 && (t.moves > 1)) { if(!t.again) break; }
+        const q = t.turn; const mv = bestOf(evalMoves(t, q, 'normal'));
+        const wasMe = q === p; doMove(t, q, mv);
+        if(!wasMe && t.turn === p) break;          // a rodada dos outros acabou
+      }
+      m.sum += balance(t, p) - b0;
+    }
+  }
+  return ms.reduce((a, b) => b.sum > a.sum ? b : a);
+}
+function roubaBot(s, p, diff){
+  if(diff === 'dificil') return lookPick(s, p, 100);
+  return bestOf(evalMoves(s, p, diff));
+}
+
+/* ------------------------------- REGRAS -------------------------------- */
+const DIFFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+Mesa.run({
+  id:'roubamonte', name:'Rouba-Monte', icon:'🃏', tagline:'Pegue da mesa e roube o monte dos outros',
+  options:[
+    {key:'seats', label:'Jogadores', default:'2', choices:[['2','2'],['3','3'],['4','4']]},
+    {key:'again', label:'Depois de pegar', default:'sim', choices:[['sim','Joga de novo'],['nao','Passa a vez']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => clamp(+o.seats || 2, 2, 4),
+  seatLabel: s => 'Jogador ' + (s + 1),
+  modeLabel: o => (o.seats || 2) + ' JOG. · ' + (DIFFS[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length, d = shuffle([...Array(52).keys()]);
+    const s = {n, names:players.map(p => p.name), hands:[], montes:players.map(() => []), table:d.splice(0, 4), stock:null,
+      turn:Math.floor(Math.random() * n), phase:'play', again:o.again !== 'nao', moves:0, last:null};
+    for(let i=0;i<n;i++) s.hands.push(d.splice(0, 4));
+    s.stock = d;
+    return s;
+  },
+  startEvents(s){ return [{k:'snd', s:'deal'}, {k:'log', text:`Começa ${esc(s.names[s.turn])}.`}]; },
+  waiting(s){ return s.phase === 'play' ? [s.turn] : []; },
+  over(s){
+    if(s.phase !== 'end') return null;
+    const sz = s.montes.map(m => m.length), mx = Math.max(...sz), w = sz.map((x, i) => x === mx ? i : -1).filter(i => i >= 0);
+    return {winners:w, draw: w.length === s.n, text:'Montes: ' + s.names.map((n, i) => `${esc(n)} <b>${sz[i]}</b>`).join(' · ') + (w.length > 1 ? ' — empate!' : '')};
+  },
+  apply(s, seat, a){
+    if(s.phase !== 'play') return {ok:false, err:'A partida terminou.'};
+    if(seat !== s.turn) return {ok:false, err:'Não é a sua vez.'};
+    const m = validMove(s, seat, a);
+    if(typeof m === 'string') return {ok:false, err:m};
+    const r = rk(m.c), nm = esc(s.names[seat]);
+    const took = doMove(s, seat, m);
+    s.last = {p:seat, tgt:m.tgt, q:m.q, c:m.c, took, seq:(s.last ? s.last.seq : 0) + 1};
+    const ev = [{k:'snd', s: m.tgt === 'd' ? 'card' : 'capture'}];
+    if(m.tgt === 'm'){ ev.push({k:'banner', text:`${s.names[seat]} roubou ${took} cartas!`}, {k:'say', seat:m.q, text:'Roubado!'}, {k:'log', text:`<b>${nm}</b> roubou o monte de ${esc(s.names[m.q])} (${took}) com um ${RNAME[r]}.`}); }
+    else if(m.tgt === 't') ev.push({k:'log', text:`${nm} pegou ${took > 1 ? took + ' cartas' : 'o ' + RNAME[r]} da mesa.`});
+    else if(m.tgt === 'o') ev.push({k:'log', text:`${nm} pôs um ${RNAME[r]} no próprio monte.`});
+    if(s.phase === 'end') return {events:ev, pause:700};
+    return {events:ev};
+  },
+  bot(s, seat, o){ const m = roubaBot(s, seat, o.diff); return {t:'play', id:'c' + m.c, tgt:m.tgt, q:m.q}; },
+  botDelay(s, seat, o){ return 850; },
+  view(s, seat){
+    const me = seat >= 0 && seat < s.n;
+    return {n:s.n, names:s.names, hand: me ? s.hands[seat].map(toCard) : [], counts:s.hands.map(h => h.length), stock:s.stock.length,
+      table:s.table.map(toCard), montes:s.montes.map(m => ({n:m.length, top: m.length ? toCard(topOf(m)) : null, under: m.length > 1 ? toCard(m[m.length - 2]) : null})),
+      turn:s.turn, phase:s.phase, again:s.again, last: s.last ? Object.assign({}, s.last, {c:toCard(s.last.c)}) : null};
+  },
+  topInfo(g, v){
+    return `<div class="score">${g.names.map((n, i) => `<span class="${i === v.me ? 'me' : ''}">${esc(i === v.me ? 'Você' : n)} ${g.montes[i].n}</span>`).join('·')}<span>· Baralho ${g.stock}</span></div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Terminar com o <b>maior monte</b> de cartas.</p>
+  <h3>Preparação</h3><p>Baralho de 52 cartas, de 2 a 4 jogadores. Cada um recebe <b>4 cartas</b> e outras <b>4 ficam abertas na mesa</b>. O resto é o baralho de compra. Só o <b>valor</b> das cartas importa (o naipe não).</p>
+  <h3>Na sua vez</h3><p>Escolha uma carta da mão e:</p><ul>
+  <li><b>Pegar da mesa</b>: se houver na mesa carta(s) do mesmo valor, você pega todas elas junto com a sua e forma (ou aumenta) o seu monte, com a sua carta virada para cima no topo.</li>
+  <li><b>Roubar um monte</b>: se a carta do topo do monte de um adversário tiver o mesmo valor que a sua, você pega o monte inteiro dele para o seu, com a sua carta por cima.</li>
+  <li><b>No seu monte</b>: se o topo do seu próprio monte tiver o mesmo valor, você pode pôr a carta nele.</li>
+  <li><b>Descartar</b>: se não puder (ou não quiser) pegar nada, deixe a carta aberta na mesa e passe a vez.</li></ul>
+  <p>Pegar não é obrigatório. Na regra padrão desta mesa, <b>quem pega ou rouba joga de novo</b> (até descartar); na variante "Passa a vez", toda jogada passa a vez.</p>
+  <p>Quando suas cartas acabam, você compra mais 4 do baralho. A partida termina quando o baralho e todas as mãos acabam; as cartas que sobraram na mesa não são de ninguém.</p>
+  <h3>Dicas</h3><ul><li>O topo do seu monte é a sua fraqueza: quanto maior o monte, mais perigoso deixar no topo um valor que ainda tem muitas cópias por aí.</li>
+  <li>Conte as cartas: tudo que está na mesa e nos montes já foi visto. Se as 4 cartas de um valor já apareceram, esse topo está seguro.</li></ul>
+  <h3>Bots</h3><p>Preferem roubar montes grandes (principalmente de quem está na frente), calculam a chance de o próprio topo ser roubado e evitam descartar valores que entregam pontos. O Difícil considera as mãos de todos os adversários.</p>`,
+  render(g, v, ui){ renderRM(g, v, ui); }
+});
+
+/* ------------------------------ INTERFACE ------------------------------ */
+let sel = null, lastSeq = -1, myRects = new Map();
+function monteHTML(m, cls, extra=''){
+  if(!m.n) return `<div class="monte ${cls}" ${extra}><div class="empty">sem monte</div><span class="cnt">0</span></div>`;
+  const b = m.n > 2 ? '<div class="card back b2"></div>' : '';
+  const u = m.n > 1 ? '<div class="card back b1"></div>' : '';
+  return `<div class="monte ${cls}" ${extra}><div class="stk">${b}${u}${cardEl(m.top).outerHTML}</div><span class="cnt">${m.n} carta${m.n > 1 ? 's' : ''}</span></div>`;
+}
+function renderRM(g, v, ui){
+  const st = ui.stage, me = v.me, n = g.n, W = st.clientWidth, H = st.clientHeight;
+  const myTurn = ui.isMyTurn() && g.phase === 'play' && g.turn === me;
+  myRects = new Map($$('.hand .card', st).map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  if(!st.querySelector('.opps')){
+    st.innerHTML = `<div class="opps" id="opps"></div><div class="lastmv" id="lmv"></div><div class="centro"><div class="stock" id="stock"></div><div class="table" id="table"></div></div>
+      <div class="ctl" id="ctl"></div><div class="status" id="stt"></div><div class="mine"><div class="mycol" id="mym"></div><div class="mycol"><div class="hand" id="hand" data-seat="${me}"></div></div></div>`;
+  }
+  if(sel && !g.hand.some(c => c.id === sel)) sel = null;
+  if(!myTurn) sel = null;
+  const cw = Math.floor(clamp(Math.min((W - 40) / 5.4, H / 6), 54, 100));
+  const ow = Math.floor(clamp((W - 16 - (n - 2) * 8) / (n - 1), 96, 200));
+  const mw = Math.floor(clamp(Math.min(ow * .42, H / 11), 34, 64));
+  const tw = Math.floor(clamp(Math.min((W - 40) / 6.2, (H - cw * 1.43 - mw * 1.43 - 200) / 2.8), 40, 82));
+  st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw * 1.43) + 'px');
+  st.style.setProperty('--ow', ow + 'px'); st.style.setProperty('--mw', mw + 'px'); st.style.setProperty('--tw', tw + 'px');
+  st.style.setProperty('--myw', Math.floor(cw * .8) + 'px');
+  const sc = sel ? g.hand.find(c => c.id === sel) : null;
+  // adversários
+  let oh = '';
+  for(let k=1;k<n;k++){ const i = (me + k) % n, m = g.montes[i];
+    const can = sc && m.top && m.top.r === sc.r;
+    const danger = !sc && m.n && g.hand.some(c => m.top && c.r === m.top.r);
+    oh += `<div class="opp ${g.turn === i && g.phase === 'play' ? 'vez' : ''}" data-seat="${i}"><div class="onm">${esc(g.names[i])}</div>
+      <div class="hc"><span class="mback"></span>${g.counts[i]} na mão</div>${monteHTML(m, (can ? 'tgt' : '') + (danger && myTurn ? ' danger' : ''), `data-q="${i}"`)}</div>`; }
+  $('#opps').innerHTML = oh;
+  // última jogada
+  const L = g.last;
+  let lm = '';
+  if(L){ const who = L.p === me ? 'Você' : g.names[L.p];
+    lm = L.tgt === 'm' ? `${who} roubou o monte de ${L.q === me ? 'você' : g.names[L.q]} (${L.took})!` : L.tgt === 't' ? `${who} pegou ${L.took + 1} carta${L.took ? 's' : ''} da mesa` :
+      L.tgt === 'o' ? `${who} pôs ${L.c.r} no próprio monte` : `${who} descartou ${L.c.r}${L.c.s}`; }
+  $('#lmv').textContent = lm;
+  // baralho e mesa
+  $('#stock').innerHTML = `${g.stock ? '<div class="card back"></div>' : '<div class="card slot"></div>'}<span>Baralho (${g.stock})</span>`;
+  const tb = $('#table'); tb.style.maxWidth = '';
+  tb.innerHTML = g.table.length ? '' : '<div class="empty">Mesa vazia</div>';
+  tb.classList.toggle('drop', !!sc);
+  g.table.forEach(c => { const el = cardEl(c); el.dataset.id = c.id; if(sc && c.r === sc.r) el.classList.add('tgt'); tb.appendChild(el); });
+  // a mesa precisa caber no espaço do meio: diminui as cartas se for preciso
+  const mid = st.querySelector('.centro');
+  for(let k=0, t=tw; k<8 && tb.scrollHeight > mid.clientHeight - 4 && t > 30; k++){ t = Math.floor(t * .88); st.style.setProperty('--tw', t + 'px'); tb.style.maxWidth = `calc(${t}px*${g.table.length > 10 ? 8 : 5.2} + 70px)`; }
+  // animação do descarte (depois de medir a mesa)
+  if(L && L.seq !== lastSeq && L.tgt === 'd'){ const el = tb.querySelector(`[data-id="${L.c.id}"]`);
+    const src = L.p === me ? myRects.get(L.c.id) : st.querySelector(`.opp[data-seat="${L.p}"]`); const r = src && src.getBoundingClientRect ? src.getBoundingClientRect() : src; if(el && r) flyFrom(el, r, {dur:340}); }
+  // meu monte
+  const mm = g.montes[me]; const canO = sc && mm.top && mm.top.r === sc.r;
+  $('#mym').innerHTML = `<div class="small" style="margin:0">Seu monte</div>` + monteHTML(mm, 'mymonte ' + (canO ? 'tgt' : ''), 'id="myMonte"');
+  if(L && L.seq !== lastSeq && L.tgt !== 'd'){ const tgt = st.querySelector(L.p === me ? '#myMonte .stk' : `.opp[data-seat="${L.p}"] .stk`);
+    const src = L.p === me ? myRects.get(L.c.id) : st.querySelector(`.opp[data-seat="${L.p}"] .hc`); const r = src && src.getBoundingClientRect ? src.getBoundingClientRect() : src;
+    if(tgt && r) flyFrom(tgt.lastElementChild, r, {dur:360}); }
+  lastSeq = L ? L.seq : -1;
+  // minha mão
+  const hand = $('#hand'); hand.innerHTML = '';
+  g.hand.forEach(c => {
+    const el = cardEl(c); el.dataset.id = c.id;
+    const caps = capsOf(g, me, c);
+    if(myTurn){ el.classList.add(caps.length ? 'can' : 'off'); if(c.id === sel) el.classList.add('sel');
+      el.onclick = () => { sel = sel === c.id ? null : c.id; ui.rerender(); }; }
+    hand.appendChild(el);
+  });
+  // botões de ação para a carta escolhida
+  let ch = '';
+  if(sc){
+    for(const m of capsOf(g, me, sc)){
+      if(m.tgt === 't') ch += `<button class="b-ok" data-t="t">Pegar da mesa (${g.table.filter(x => x.r === sc.r).length + 1})</button>`;
+      if(m.tgt === 'm') ch += `<button class="b-y" data-t="m" data-q="${m.q}">Roubar ${esc(g.names[m.q])} (${g.montes[m.q].n + 1})</button>`;
+      if(m.tgt === 'o') ch += `<button class="b-ok" data-t="o">No meu monte</button>`;
+    }
+    ch += `<button class="b-no" data-t="d">Descartar na mesa</button>`;
+  }
+  $('#ctl').innerHTML = ch;
+  const go = (tgt, q) => { const id = sel; sel = null; ui.act({t:'play', id, tgt, q}); };
+  $$('#ctl button').forEach(b => b.onclick = () => go(b.dataset.t, b.dataset.q != null ? +b.dataset.q : undefined));
+  if(sc){
+    $$('#table .card.tgt').forEach(el => el.onclick = e => { e.stopPropagation(); go('t'); });
+    tb.onclick = () => { if(sel) go(g.table.some(x => x.r === sc.r) ? 't' : 'd'); };
+    $$('.opp .monte.tgt').forEach(el => el.onclick = () => go('m', +el.dataset.q));
+    if(canO) $('#myMonte').onclick = () => go('o');
+  } else tb.onclick = null;
+  let s = '';
+  if(g.phase === 'end') s = 'Fim de jogo';
+  else if(myTurn) s = sel ? 'Escolha onde jogar a carta (ou toque nela de novo para desistir)' : 'Sua vez — toque numa carta da mão';
+  else s = 'Vez de ' + g.names[g.turn];
+  $('#stt').textContent = s;
+}
+function capsOf(g, me, c){
+  const out = [];
+  if(g.table.some(x => x.r === c.r)) out.push({tgt:'t'});
+  g.montes.forEach((m, q) => { if(m.top && m.top.r === c.r) out.push(q === me ? {tgt:'o'} : {tgt:'m', q}); });
+  return out;
+}
+</script>
+</body>
+</html>

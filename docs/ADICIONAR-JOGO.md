@@ -42,6 +42,7 @@ Pronto: o jogo aparece na Central, com salas online e bots.
 | `botDelay(estado, lugar, opts)` | não | Tempo de "pensar" do bot, em ms. |
 | `onEvent(evento, mesa, ui)` | não | Reage a eventos no navegador de cada jogador (sons, animações). |
 | `rules` | não | HTML das regras (string ou função das opções). |
+| `tick(estado, opts, agora)` / `tickMs` | não | Relógio do anfitrião para rodadas com tempo (padrão a cada 500 ms). Devolva `{changed, events}` quando mudar algo. |
 
 ### Eventos prontos
 

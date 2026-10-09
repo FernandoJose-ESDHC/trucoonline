@@ -61,6 +61,15 @@
 .think::after{content:"";animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 .rate{display:inline-block;padding:2px 10px;border-radius:20px;background:var(--gold);color:#3a2600;font-weight:900;margin-right:4px}
+/* disputa: painel dos adversários */
+.opp{width:100%;max-width:640px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.opp .op{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.28);border-radius:10px;padding:4px 9px;font-size:12.5px;font-weight:700;color:#ffe9c4;border:1px solid rgba(255,255,255,.08)}
+.opp .op.me{border-color:rgba(231,180,58,.6)}
+.opp .op .nm{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.opp .op .pc{color:#ff8a7a;font-variant-numeric:tabular-nums}
+.opp .op .tag{font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.12)}
+.opp .op .tag.win{background:var(--gold);color:#3a2600}
+.solo1 #bVel,.solo1 #bChat{display:none!important}
 .mini{display:inline-grid;grid-template-columns:repeat(7,9px);gap:2px;vertical-align:middle;margin:4px 0}
 .mini i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12)}
 .mini i.p{background:#e2483a} .mini i.x{background:transparent} .mini i.g{box-shadow:0 0 0 1.5px var(--gold)}
@@ -111,11 +120,11 @@ function miniBoard(kind, b){
   for(let cell=0; cell<49; cell++){ const i = G.idx[cell]; h += i < 0 ? '<i class="x"></i>' : `<i class="${b[i] ? 'p' : ''} ${cell === BOARDS[kind].perfect ? 'g' : ''}"></i>`; }
   return h + '</span>';
 }
-function endText(st){
-  const n = countPegs(st.b), G = G_(st.kind), on = n === 1 && st.b[perfIdx(st.kind)] === 1;
+function endText(st, kind){
+  const n = countPegs(st.b), on = n === 1 && st.b[perfIdx(kind)] === 1;
   const [t, d] = rating(n, on);
   const secs = (st.end || Date.now()) - st.start;
-  return `<span class="rate">${t}</span> ${d}<br>${miniBoard(st.kind, st.b)}<br>` +
+  return `<span class="rate">${t}</span> ${d}<br>${miniBoard(kind, st.b)}<br>` +
     `${st.hist.length} ${plural(st.hist.length,'pulo','pulos')} em <b>${fmtTime(secs)}</b>` +
     (st.undos ? ` · ${st.undos} ${plural(st.undos,'jogada desfeita','jogadas desfeitas')}` : '') +
     (st.hints ? ` · ${st.hints} ${plural(st.hints,'dica','dicas')}` : ' · sem dicas');
@@ -133,101 +142,219 @@ function hintMsg(kind, h){
   }
 }
 
+const NIVEIS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const isPerfect = (kind, ps) => countPegs(ps.b) === 1 && ps.b[perfIdx(kind)] === 1;
+function newPlayer(kind){ return {b:initBoard(kind), hist:[], last:null, start:Date.now(), end:null, hints:0, undos:0, hint:null, hintSeq:0, stuck:false, out:false, ver:0}; }
+// classificação da disputa: menos pinos; com 1 pino, na casa de honra vale mais; empate: quem terminou primeiro
+function ranking(st){
+  const key = ps => countPegs(ps.b) * 2 - (isPerfect(st.kind, ps) ? 1 : 0);
+  return st.p.map((ps, s) => s).sort((a, b) => {
+    const A = st.p[a], B = st.p[b];
+    if(!!A.out !== !!B.out) return A.out ? -1 : 1;
+    return key(A) - key(B) || (A.end || 0) - (B.end || 0);
+  });
+}
+function pegsTxt(kind, ps){ const n = countPegs(ps.b); return n === 1 ? (isPerfect(kind, ps) ? '1 pino — Perfeito!' : '1 pino') : `${n} pinos`; }
+function closePlayer(st, seat, ev){
+  const ps = st.p[seat]; ps.out = true; ps.end = ps.end || Date.now(); ps.hint = null;
+  ev.push({k:'log', text:`${esc(st.names[seat])} terminou com ${pegsTxt(st.kind, ps)}.`}, {k:'say', seat, text: countPegs(ps.b) === 1 ? 'Resta um! 🎯' : 'Terminei.'});
+  // acaba quando todos terminam, ou quando alguém fez o perfeito (ninguém mais consegue passar)
+  if(st.p.every(x => x.out) || isPerfect(st.kind, ps)) st.result = disputeResult(st);
+}
+function disputeResult(st){
+  const rk = ranking(st), t = s => fmtTime((st.p[s].end || Date.now()) - st.p[s].start);
+  const lines = rk.map((s, i) => `${i+1}º <b>${esc(st.names[s])}</b> — ${pegsTxt(st.kind, st.p[s])}${st.p[s].out ? ` em ${t(s)}` : ' (ainda jogando)'}`);
+  return {winners:[rk[0]], text:`${miniBoard(st.kind, st.p[rk[0]].b)}<br>` + lines.join('<br>')};
+}
+
+/* -------- bots da disputa: o solucionador, aos poucos, sem travar o anfitrião -------- */
+const RB = new Map();          // 'gid:lugar' → {key, an}
+let rbTimer = 0;
+const BOT_MS = {facil:3600, normal:2700, dificil:2100};
+const SLIP = {facil:0.22, normal:0.08, dificil:0.01};   // chance de um pulo "humano" (fora do caminho do solucionador)
+function rbFor(st, seat){
+  const k = st.gid + ':' + seat, ps = st.p[seat], key = ps.b.join('');
+  let R = RB.get(k);
+  if(!R || R.key !== key){ if(RB.size > 40) RB.clear(); R = {key, an:AI.analyzer(st.kind, ps.b.slice(), perfIdx(st.kind))}; RB.set(k, R); }   // cópia: a análise continua depois que o tabuleiro muda
+  return R;
+}
+// trabalha em pedacinhos de poucos milissegundos entre as jogadas
+function rbTick(){
+  rbTimer = 0; let busy = false;
+  for(const R of RB.values()) if(!R.an.result){ try{ R.an.step(6); }catch(e){ R.an.result = {status:'dead'}; } busy = busy || !R.an.result; }
+  if(busy) rbTimer = setTimeout(rbTick, 25);
+}
+function greedyNoisy(kind, b){
+  const ms = AI.moves(kind, b); if(!ms.length) return null;
+  const G = G_(kind);
+  const sc = ms.map(m => { const c = b.slice(); c[m[0]] = 0; c[m[1]] = 0; c[m[2]] = 1;
+    let iso = 0; for(let x=0;x<G.n;x++) if(c[x] && !G.NB[x].some(y => c[y])) iso++;
+    return {m, s:-iso * 3 - G.CEN[m[2]] + AI.moves(kind, c).length * 0.2 + Math.random() * 2.5}; });
+  sc.sort((a, b) => b.s - a.s);
+  return sc[0].m;
+}
+let RB_SYNC = 25;               // ms que o bot pode pensar "na hora" se a análise não ficou pronta
+function disputeBot(st, seat, lvl){
+  const ps = st.p[seat];
+  const ms = legal(st.kind, ps.b);
+  if(!ms.length) return {t:'finish'};
+  let m = null;
+  if(Math.random() >= SLIP[lvl]){
+    const R = rbFor(st, seat);
+    if(!R.an.result) R.an.step(RB_SYNC);
+    const r = R.an.result;
+    if(r && r.status === 'ok' && r.move) m = r.move;
+  }
+  m = m || greedyNoisy(st.kind, ps.b);
+  return {t:'jump', from:m[0], to:m[2]};
+}
+const PACE = new Map();
+function paceDelay(st, seat, o){
+  const k = st.gid + ':' + seat, ps = st.p[seat];
+  let P = PACE.get(k);
+  if(!P || P.ver !== ps.ver){
+    const lvl = NIVEIS[o.diff] ? o.diff : 'normal';
+    if(PACE.size > 40) PACE.clear();
+    P = {ver:ps.ver, due:Date.now() + BOT_MS[lvl] * (0.6 + Math.random() * 0.8) * CFG.speed};
+    PACE.set(k, P);
+    if(legal(st.kind, ps.b).length){ rbFor(st, seat); if(!rbTimer) rbTimer = setTimeout(rbTick, 25); }
+  }
+  return Math.max(15, P.due - Date.now()) / CFG.speed;
+}
+
 Mesa.run({
-  id:'restaum', name:'Resta Um', icon:'🔴', solo:true, players:1, tagline:'O clássico quebra-cabeça de pinos',
-  options:[{key:'tab', label:'Tabuleiro', default:'en', choices:[['en','Inglês (33 casas)'],['fr','Francês (37 casas)']]}],
-  modeLabel: o => o.tab === 'fr' ? 'FRANCÊS · 37 CASAS' : 'INGLÊS · 33 CASAS',
+  id:'restaum', name:'Resta Um', icon:'🔴', tagline:'O clássico quebra-cabeça de pinos — sozinho ou em disputa',
+  seats: o => +o.jogadores || 1,
+  options:[{key:'tab', label:'Tabuleiro', default:'en', choices:[['en','Inglês (33 casas)'],['fr','Francês (37 casas)']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}],
+  modeLabel: o => (+o.jogadores > 1 ? `DISPUTA · BOTS ${(NIVEIS[o.diff] || 'Normal').toUpperCase()} · ` : '') + (o.tab === 'fr' ? 'FRANCÊS · 37 CASAS' : 'INGLÊS · 33 CASAS'),
   setup(players, o){
-    const kind = o.tab === 'fr' ? 'fr' : 'en';
-    return {kind, b:initBoard(kind), hist:[], last:null, start:Date.now(), end:null, hints:0, undos:0, hint:null, hintSeq:0, stuck:false, result:null};
+    const kind = o.tab === 'fr' ? 'fr' : 'en', n = players.length;
+    const st = {kind, n, gid:Math.random().toString(36).slice(2, 9), names:players.map(p => p.name), p:[], result:null};
+    const t = Date.now();
+    for(let s=0;s<n;s++){ const ps = newPlayer(kind); ps.start = t; st.p.push(ps); }
+    return st;
   },
-  waiting(st){ return st.result ? [] : [0]; },
+  waiting(st){ return st.result ? [] : st.p.map((ps, s) => ps.out ? -1 : s).filter(s => s >= 0); },
   over(st){ return st.result; },
   apply(st, seat, a){
-    if(!a || typeof a !== 'object' || st.result || seat !== 0) return {ok:false, err:'Jogada inválida.'};
-    const G = G_(st.kind);
-    const okIdx = x => Number.isInteger(x) && x >= 0 && x < G.n;
-    if(a.t === 'jump'){
-      if(!okIdx(a.from) || !okIdx(a.to)) return {ok:false, err:'Casa inválida.'};
-      const m = findJump(G, a.from, a.to);
-      if(!m || !st.b[a.from]) return {ok:false, err:'Esse pulo não vale: pule sobre um pino vizinho até uma casa vazia, na horizontal ou vertical.'};
-      if(!st.b[m[1]]) return {ok:false, err:'Precisa ter um pino no meio para pular.'};
-      if(st.b[m[2]]) return {ok:false, err:'A casa de destino precisa estar vazia.'};
-      st.b[m[0]] = 0; st.b[m[1]] = 0; st.b[m[2]] = 1;
-      st.hist.push(m.slice()); st.last = m.slice(); st.hint = null;
-      const ev = [{k:'jump', m:m.slice()}, {k:'snd', s:'capture'}];
-      const n = countPegs(st.b);
-      if(n === 1){
-        st.end = Date.now();
-        const on = st.b[perfIdx(st.kind)] === 1;
-        st.result = {winners:[0], text:endText(st)};
-        ev.push({k:'banner', text: on ? 'Perfeito!' : 'Resta um!'});
-      } else if(!legal(st.kind, st.b).length){
-        st.stuck = true; st.end = Date.now();
-        ev.push({k:'banner', text:rating(n, false)[0], bad: n > 3}, {k:'snd', s: n <= 3 ? 'win' : 'lose'});
-      }
-      return {events:ev};
-    }
-    if(a.t === 'undo'){
-      if(!st.hist.length) return {ok:false, err:'Nada para desfazer.'};
-      const n = a.n == null ? 1 : a.n;
-      if(!Number.isInteger(n) || n < 1 || n > st.hist.length) return {ok:false, err:'Não dá para desfazer tantas jogadas.'};
-      for(let i=0;i<n;i++){ const m = st.hist.pop(); st.b[m[0]] = 1; st.b[m[1]] = 1; st.b[m[2]] = 0; }
-      st.last = st.hist.length ? st.hist[st.hist.length - 1].slice() : null;
-      st.undos += n; st.hint = null; st.stuck = false; st.end = null;
-      return {events:[{k:'undo'}, {k:'snd', s:'move'}]};
-    }
-    if(a.t === 'restart'){
-      st.b = initBoard(st.kind); st.hist = []; st.last = null; st.hint = null; st.stuck = false;
-      st.start = Date.now(); st.end = null; st.hints = 0; st.undos = 0;
-      return {events:[{k:'snd', s:'deal', n:8}, {k:'restart'}]};
-    }
-    if(a.t === 'hint'){
-      // a análise roda na tela (em segundo plano); aqui só conferimos e registramos
-      const kinds = ['perfect', 'one', 'dead', 'unknown', 'slow'];
-      if(!kinds.includes(a.kind)) return {ok:false, err:'Dica inválida.'};
-      let m = null;
-      if(a.m != null){
-        if(!Array.isArray(a.m) || !okIdx(a.m[0]) || !okIdx(a.m[2])) return {ok:false, err:'Dica inválida.'};
-        m = findJump(G, a.m[0], a.m[2]);
-        if(!canJump(st.b, m)) return {ok:false, err:'Dica desatualizada.'};
-      }
-      if(a.kind !== 'dead' && !m) return {ok:false, err:'Dica inválida.'};
-      const undo = Number.isInteger(a.undo) && a.undo > 0 && a.undo <= st.hist.length ? a.undo : 0;
-      st.hints++; st.hintSeq++;
-      st.hint = {m: m ? m.slice() : null, kind:a.kind, undo, seq:st.hintSeq};
-      return {events:[{k:'snd', s: a.kind === 'perfect' || a.kind === 'one' ? 'card' : 'alert'}]};
-    }
-    if(a.t === 'finish'){
-      if(!st.stuck) return {ok:false, err:'Ainda há pulos possíveis.'};
-      st.end = st.end || Date.now();
-      st.result = {winners: countPegs(st.b) === 1 ? [0] : [], text:endText(st)};
-      return {events:[]};
-    }
-    return {ok:false, err:'Jogada inválida.'};
+    const ps = st.p[seat];
+    if(!a || typeof a !== 'object' || st.result || !ps || ps.out) return {ok:false, err:'Jogada inválida.'};
+    const dispute = st.n > 1;
+    const r = applyMove(st, ps, seat, a, dispute);
+    if(r && r.ok !== false) ps.ver++;
+    return r;
   },
-  // "bot" = o solucionador jogando sozinho (usado nos testes automáticos)
-  bot(st){
-    if(st.stuck) return {t:'finish'};
-    const r = AI.hint(st.kind, st.b, perfIdx(st.kind), 1500);
-    const m = r.move || AI.greedy(st.kind, st.b);
-    return m ? {t:'jump', from:m[0], to:m[2]} : {t:'finish'};
+  // modo sozinho: o solucionador jogando (testes automáticos); disputa: bots com nível e ritmo humano
+  bot(st, seat, o){
+    if(st.n === 1){
+      const ps = st.p[0];
+      if(ps.stuck) return {t:'finish'};
+      const r = AI.hint(st.kind, ps.b, perfIdx(st.kind), 1500);
+      const m = r.move || AI.greedy(st.kind, ps.b);
+      return m ? {t:'jump', from:m[0], to:m[2]} : {t:'finish'};
+    }
+    PACE.delete(st.gid + ':' + seat);
+    return disputeBot(st, seat, NIVEIS[o && o.diff] ? o.diff : 'normal');
   },
-  botDelay(){ return 380; },
-  view(st){
-    return {kind:st.kind, b:st.b, hist:st.hist, last:st.last, start:st.start, end:st.end, hints:st.hints, undos:st.undos,
-      hint:st.hint, stuck:st.stuck, over:!!st.result, pegs:countPegs(st.b)};
+  botDelay(st, seat, o){ return st.n === 1 ? 380 : paceDelay(st, seat, o); },
+  botFallback(st, seat){ const m = AI.greedy(st.kind, st.p[seat].b); return m ? {t:'jump', from:m[0], to:m[2]} : {t:'finish'}; },
+  view(st, seat){
+    const ps = st.p[seat] || st.p[0];
+    const g = {kind:st.kind, b:ps.b, hist:ps.hist, last:ps.last, start:ps.start, end:ps.end, hints:ps.hints, undos:ps.undos,
+      hint:ps.hint, stuck:ps.stuck, over:!!st.result || !!ps.out, pegs:countPegs(ps.b)};
+    if(st.n > 1){
+      // dos outros vai só a contagem de pinos (o tabuleiro deles ajudaria a resolver)
+      const rk = ranking(st);
+      g.dispute = true; g.out = ps.out; g.done = !!st.result;
+      g.others = st.p.map((x, s) => ({s, name:st.names[s], pegs:countPegs(x.b), perfect:isPerfect(st.kind, x), out:x.out, pos:rk.indexOf(s) + 1}));
+    }
+    return g;
   },
   topInfo(g){
     return `<div class="info"><span class="pc">🔴 ${g.pegs} ${plural(g.pegs,'pino','pinos')}</span><span>↷ ${g.hist.length} ${plural(g.hist.length,'pulo','pulos')}</span><span id="clock"></span></div>`;
   },
-  onEvent(e){
-    if(e.k === 'start' || e.k === 'restart'){ sel = -1; pendingAnim = null; }
-    else if(e.k === 'jump') pendingAnim = e.m;
-    else if(e.k === 'undo') pendingAnim = null;
+  onEvent(e, v){
+    const me = v ? v.me : 0;
+    if(e.k === 'start' || (e.k === 'restart' && e.seat === me)){ sel = -1; pendingAnim = null; }
+    else if(e.k === 'jump' && e.seat === me){ pendingAnim = e.m; if(v.game && v.game.dispute) Snd.capture(); }
+    else if(e.k === 'mysnd' && e.seat === me && Snd[e.s]) Snd[e.s]();
+    else if(e.k === 'undo' && e.seat === me) pendingAnim = null;
   },
   render, rules
 });
+
+function applyMove(st, ps, seat, a, dispute){
+  const G = G_(st.kind);
+  const okIdx = x => Number.isInteger(x) && x >= 0 && x < G.n;
+  // eventos de som/animação só para quem jogou (cada um tem o seu tabuleiro)
+  const me = e => Object.assign(e, {seat});
+  const snd = (x, n) => dispute ? {k:'mysnd', s:x, seat} : (n ? {k:'snd', s:x, n} : {k:'snd', s:x});
+  if(a.t === 'jump'){
+    if(!okIdx(a.from) || !okIdx(a.to)) return {ok:false, err:'Casa inválida.'};
+    const m = findJump(G, a.from, a.to);
+    if(!m || !ps.b[a.from]) return {ok:false, err:'Esse pulo não vale: pule sobre um pino vizinho até uma casa vazia, na horizontal ou vertical.'};
+    if(!ps.b[m[1]]) return {ok:false, err:'Precisa ter um pino no meio para pular.'};
+    if(ps.b[m[2]]) return {ok:false, err:'A casa de destino precisa estar vazia.'};
+    ps.b[m[0]] = 0; ps.b[m[1]] = 0; ps.b[m[2]] = 1;
+    ps.hist.push(m.slice()); ps.last = m.slice(); ps.hint = null;
+    const ev = [me({k:'jump', m:m.slice()})];
+    if(!dispute) ev.push({k:'snd', s:'capture'});
+    const n = countPegs(ps.b);
+    if(n === 1){
+      ps.end = Date.now();
+      const on = ps.b[perfIdx(st.kind)] === 1;
+      if(dispute){ ev.push({k:'banner', text:`${st.names[seat]}: ${on ? 'Perfeito!' : 'Resta um!'}`}); closePlayer(st, seat, ev); }
+      else { st.result = {winners:[0], text:endText(ps, st.kind)}; ev.push({k:'banner', text: on ? 'Perfeito!' : 'Resta um!'}); }
+    } else if(!legal(st.kind, ps.b).length){
+      ps.stuck = true; ps.end = Date.now();
+      if(dispute) closePlayer(st, seat, ev);
+      else ev.push({k:'banner', text:rating(n, false)[0], bad: n > 3}, {k:'snd', s: n <= 3 ? 'win' : 'lose'});
+    }
+    return {events:ev};
+  }
+  if(a.t === 'undo'){
+    if(!ps.hist.length) return {ok:false, err:'Nada para desfazer.'};
+    const n = a.n == null ? 1 : a.n;
+    if(!Number.isInteger(n) || n < 1 || n > ps.hist.length) return {ok:false, err:'Não dá para desfazer tantas jogadas.'};
+    for(let i=0;i<n;i++){ const m = ps.hist.pop(); ps.b[m[0]] = 1; ps.b[m[1]] = 1; ps.b[m[2]] = 0; }
+    ps.last = ps.hist.length ? ps.hist[ps.hist.length - 1].slice() : null;
+    ps.undos += n; ps.hint = null; ps.stuck = false; ps.end = null;
+    return {events:[me({k:'undo'}), snd('move')]};
+  }
+  if(a.t === 'restart'){
+    const t = ps.start;
+    Object.assign(ps, newPlayer(st.kind), {ver:ps.ver});
+    if(dispute) ps.start = t;              // na disputa o relógio não volta
+    return {events:[snd('deal', 8), me({k:'restart'})]};
+  }
+  if(a.t === 'hint'){
+    if(dispute) return {ok:false, err:'Na disputa não tem dica.'};
+    // a análise roda na tela (em segundo plano); aqui só conferimos e registramos
+    const kinds = ['perfect', 'one', 'dead', 'unknown', 'slow'];
+    if(!kinds.includes(a.kind)) return {ok:false, err:'Dica inválida.'};
+    let m = null;
+    if(a.m != null){
+      if(!Array.isArray(a.m) || !okIdx(a.m[0]) || !okIdx(a.m[2])) return {ok:false, err:'Dica inválida.'};
+      m = findJump(G, a.m[0], a.m[2]);
+      if(!canJump(ps.b, m)) return {ok:false, err:'Dica desatualizada.'};
+    }
+    if(a.kind !== 'dead' && !m) return {ok:false, err:'Dica inválida.'};
+    const undo = Number.isInteger(a.undo) && a.undo > 0 && a.undo <= ps.hist.length ? a.undo : 0;
+    ps.hints++; ps.hintSeq++;
+    ps.hint = {m: m ? m.slice() : null, kind:a.kind, undo, seq:ps.hintSeq};
+    return {events:[{k:'snd', s: a.kind === 'perfect' || a.kind === 'one' ? 'card' : 'alert'}]};
+  }
+  if(a.t === 'finish'){
+    if(dispute){ const ev = [snd('move')]; closePlayer(st, seat, ev); return {events:ev}; }   // Encerrar: para com o que tem
+    if(!ps.stuck) return {ok:false, err:'Ainda há pulos possíveis.'};
+    ps.end = ps.end || Date.now();
+    st.result = {winners: countPegs(ps.b) === 1 ? [0] : [], text:endText(ps, st.kind)};
+    return {events:[]};
+  }
+  return {ok:false, err:'Jogada inválida.'};
+}
 
 /* ------------------------- análise em segundo plano ------------------------- */
 // Depois de cada pulo, o solucionador começa a estudar a posição aos pedacinhos
@@ -322,15 +449,17 @@ function setMsg(html, cls){ const el = $('#ruMsg'); if(el){ el.innerHTML = html;
 
 function render(g, v, ui){
   const st = ui.stage, G = G_(g.kind);
+  document.body.classList.toggle('solo1', v.seats.length === 1);
+  if(v.seats.length === 1) $('#gmode').textContent = 'SOZINHO · ' + (g.kind === 'fr' ? 'FRANCÊS · 37 CASAS' : 'INGLÊS · 33 CASAS');
   // tamanhos a partir do palco
   const W = st.clientWidth - 16, H = st.clientHeight - 16;
-  const ctrlH = 46 + 44 + 24;
+  const ctrlH = 46 + 44 + 24 + (g.dispute ? 40 : 0);
   const bd = Math.floor(clamp(Math.min(W, H - ctrlH, 640), 240, 640));
   const cs = bd / 7.6;
   st.style.setProperty('--bd', bd + 'px'); st.style.setProperty('--cs', cs + 'px');
   st.style.setProperty('--gap', clamp((H - bd - ctrlH) / 4 + 8, 8, 18) + 'px');
   if(!st.querySelector('.ru') || st.querySelector('.ru').dataset.kind !== g.kind){
-    st.innerHTML = `<div class="ru" data-kind="${g.kind}"><div class="board" id="bd" role="grid" aria-label="Tabuleiro ${BOARDS[g.kind].nome}"></div>
+    st.innerHTML = `<div class="ru" data-kind="${g.kind}"><div class="opp hidden" id="opp"></div><div class="board" id="bd" role="grid" aria-label="Tabuleiro ${BOARDS[g.kind].nome}"></div>
       <div class="ruMsg" id="ruMsg" aria-live="polite"></div>
       <div class="ctrl"><button class="tbtn" id="bUndo">↶ Desfazer</button><button class="tbtn y" id="bHint">💡 Dica</button>
         <button class="tbtn" id="bNew">🔄 Reiniciar</button><button class="tbtn g hidden" id="bEnd">🏁 Encerrar</button><button class="tbtn y hidden" id="bBack"></button></div></div>`;
@@ -370,13 +499,20 @@ function render(g, v, ui){
   // botões
   $('#bUndo').disabled = !playing || !g.hist.length;
   $('#bHint').disabled = !playing;
+  $('#bHint').classList.toggle('hidden', !!g.dispute);
   $('#bNew').disabled = !playing;
-  $('#bEnd').classList.toggle('hidden', !(playing && g.stuck));
+  $('#bEnd').classList.toggle('hidden', !(playing && (g.stuck || g.dispute)));
+  if(g.dispute && playing) $('#bEnd').onclick = () => modal('<h2>Encerrar?</h2><p>Você termina a disputa com os pinos que estão no tabuleiro agora.</p>',
+    [{label:'Encerrar', cls:'b-up', fn:() => ui.act({t:'finish'})}, {label:'Continuar', cls:'b-no'}]);
+  else $('#bEnd').onclick = () => ui.act({t:'finish'});
+  renderOpp(g, v);
   const back = playing && g.hint && g.hint.undo > 0 ? g.hint.undo : 0;
   $('#bBack').classList.toggle('hidden', !back);
   $('#bBack').textContent = back ? `↶ Voltar ${back} ${plural(back,'jogada','jogadas')}` : '';
   // mensagem
-  if(g.over) setMsg('Fim de jogo.', '');
+  if(g.dispute && g.out && !g.done) setMsg(`Você terminou com <b>${g.pegs} ${plural(g.pegs,'pino','pinos')}</b>. Aguardando os outros…`, g.pegs <= 3 ? 'good' : '');
+  else if(g.over) setMsg('Fim de jogo.', '');
+  else if(g.dispute && !g.hist.length) setMsg('Disputa: todos com o mesmo tabuleiro. Ganha quem terminar com <b>menos pinos</b> (1 pino na casa de honra vale mais); empate: quem terminou primeiro.', '');
   else if(g.stuck){
     const [t, d] = rating(g.pegs, false);
     const und = g.hint && g.hint.undo ? ` Desfazendo ${g.hint.undo} ${plural(g.hint.undo,'jogada','jogadas')}, volta a dar para terminar perfeito.` : '';
@@ -387,8 +523,17 @@ function render(g, v, ui){
   else if(sel >= 0) setMsg('Agora toque na casa <b>verde</b> para onde o pino vai pular.', '');
   else if(!g.hist.length) setMsg(`Toque num pino que possa pular sobre o vizinho até uma casa vazia. Meta: sobrar <b>um pino só</b> — ${BOARDS[g.kind].alvo} é perfeito!`, '');
   else setMsg(`Faltam ${g.pegs - 1} ${plural(g.pegs - 1,'pulo','pulos')} para restar um.`, '');
-  bgFor(g);
+  if(!g.dispute) bgFor(g);
   startClock(ui);
+}
+// painel da disputa: pinos de cada um (só a contagem) e quem está na frente
+function renderOpp(g, v){
+  const box = $('#opp'); if(!box) return;
+  box.classList.toggle('hidden', !g.dispute);
+  if(!g.dispute) return;
+  box.innerHTML = g.others.slice().sort((a, b) => a.pos - b.pos).map(o => `<div class="op ${o.s === v.me ? 'me' : ''}" data-seat="${o.s}">
+    <span>${o.pos === 1 ? '👑' : o.pos + 'º'}</span><span class="nm">${esc(o.s === v.me ? 'Você' : o.name)}</span>
+    <span class="pc">🔴 ${o.pegs}</span>${o.out ? `<span class="tag ${o.pegs === 1 ? 'win' : ''}">${o.perfect ? 'perfeito' : 'terminou'}</span>` : ''}</div>`).join('');
 }
 function tap(i, g, ui, moves){
   if(!moves.length) return;
@@ -439,6 +584,11 @@ function rules(){
   <h3>Avaliação</h3><table><tr><th>Sobraram</th><th>Resultado</th></tr><tr><td>1 na casa de honra</td><td>Perfeito!</td></tr><tr><td>1</td><td>Ótimo!</td></tr>
   <tr><td>2</td><td>Muito bom!</td></tr><tr><td>3</td><td>Bom!</td></tr><tr><td>4</td><td>Razoável</td></tr><tr><td>5 ou 6</td><td>Dá para melhorar</td></tr><tr><td>7 ou mais</td><td>Iniciante</td></tr></table>
   <h3>Dica 💡</h3><p>A dica usa um solucionador de verdade: ele procura um caminho até o perfeito a partir da posição atual e mostra o próximo pulo. Se o perfeito já não for possível, ele procura um caminho até um pino só; se nem isso der, avisa e diz quantas jogadas desfazer para voltar ao caminho do perfeito (o botão <b>Voltar</b> faz isso de uma vez). A análise começa sozinha, em segundo plano, a cada pulo — por isso a resposta costuma ser imediata.</p>
+  <h3>Disputa (2 a 4 jogadores)</h3><ul><li>Todos começam com <b>o mesmo tabuleiro</b> e jogam ao mesmo tempo, cada um no seu.</li>
+  <li>Você termina quando não houver mais pulos ou quando tocar em <b>🏁 Encerrar</b>. Desfazer e reiniciar valem enquanto você não terminou (o relógio não volta).</li>
+  <li>Ganha quem terminar com <b>menos pinos</b>; com um pino só, terminar na casa de honra (Perfeito) vale mais. Empate: quem terminou primeiro.</li>
+  <li>Se alguém fizer o Perfeito, a disputa acaba na hora. O painel mostra só quantos pinos cada um tem — ninguém vê o tabuleiro dos outros.</li>
+  <li>Na disputa a <b>Dica</b> fica desligada. Os bots usam o solucionador conforme o nível, no ritmo de uma pessoa.</li></ul>
   <h3>Para jogar melhor</h3><ul><li>Comece tirando pinos dos braços da cruz e deixe o centro para o fim.</li><li>Evite deixar pinos sozinhos, longe dos outros: eles não têm em quem pular.</li>
   <li>Pense em "pacotes": às vezes três ou quatro pulos seguidos limpam um braço inteiro.</li></ul>`;
 }

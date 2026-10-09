@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Sudoku</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px 8px}
+.sd{display:flex;flex-direction:column;gap:6px;height:100%;min-height:0}
+/* corpo: grade + teclado (lado a lado no PC, empilhados no celular) */
+.body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:14px}
+.body.col{flex-direction:column;gap:8px;justify-content:flex-start}
+.info{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}
+.cnt{background:rgba(0,0,0,.45);border-radius:10px;padding:5px 10px;font-weight:900;font-size:15px;color:#ffe6a6;text-align:center;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);width:var(--bs);height:var(--bs);flex:none;
+  background:#2b2418;border:3px solid #2b2418;border-radius:8px;gap:1px;box-shadow:0 8px 24px rgba(0,0,0,.45);overflow:hidden}
+.k{background:#f4ecd8;display:grid;place-items:center;position:relative;cursor:pointer;font-weight:800;font-size:calc(var(--bs)*.062);color:#1d4fb8;
+  -webkit-tap-highlight-color:transparent;user-select:none}
+.k.g{color:#1f1a12;font-weight:900}
+.k.br{margin-right:2px} .k.bb{margin-bottom:2px}
+.k.zone{background:#e6dcc0} .k.same{background:#f2cf72} .k.sel{background:#ffd95c;box-shadow:inset 0 0 0 3px #b8860b}
+.k.bad{color:#d0161f} .k.bad.g{color:#8a0f0b;background:#f7c9c4}
+.k.hl{background:#cfe9d9} .k.ht{background:#9fe3b8;box-shadow:inset 0 0 0 3px #1c8a4a;animation:htP 1.2s infinite}
+@keyframes htP{50%{background:#c9f3d6}}
+.k.pop{animation:kpop .25s ease-out}
+@keyframes kpop{from{transform:scale(1.35)}to{transform:scale(1)}}
+.nt{position:absolute;inset:1px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);font-size:calc(var(--bs)*.026);font-weight:700;color:#5a5244;line-height:1}
+.nt span{display:grid;place-items:center} .nt span.hi{color:#b8860b;font-weight:900}
+.side{display:flex;flex-direction:column;gap:8px;align-items:stretch;width:min(330px,100%)}
+.body.col .side{width:var(--bs)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.body.col .pad{grid-template-columns:repeat(9,1fr);gap:4px}
+.pad button{position:relative;border:0;border-radius:10px;background:linear-gradient(180deg,#fff7e3,#e8dbb8);color:#1d3f8a;font-weight:900;font-size:24px;
+  padding:8px 0;box-shadow:0 3px 0 #a48d5a;cursor:pointer;font-family:inherit}
+.body.col .pad button{font-size:21px;padding:7px 0 9px}
+.pad button:active{transform:translateY(2px);box-shadow:0 1px 0 #a48d5a}
+.pad button small{position:absolute;right:5px;bottom:2px;font-size:10px;color:#7a6a45;font-weight:800}
+.body.col .pad button small{right:0;left:0;text-align:center;bottom:0;font-size:9px}
+.pad button.full{opacity:.3}
+.pad.notes button{background:linear-gradient(180deg,#e6f3ff,#bcd6ef);color:#33507a;box-shadow:0 3px 0 #6d8db0}
+.tools2{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.tools2 .tbtn{min-width:0;font-size:12px;padding:8px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.1}
+.tools2 .tbtn b{font-size:18px}
+.tools2 .tbtn.on{background:#2f6fb0;border-color:#9fd0ff}
+.hint{background:rgba(0,0,0,.42);border:1px solid rgba(231,180,58,.5);border-radius:12px;padding:8px 10px;font-size:13px;line-height:1.4;color:#f3ead2}
+.hint .ht{font-weight:900;color:var(--gold);font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+.hint .row{margin-top:6px;gap:6px}
+.hint .tbtn{font-size:12px;padding:5px 10px}
+.msg{text-align:center;font-weight:700;font-size:13px;color:#ffe9c4;min-height:17px}
+@media (max-width:720px){ .tools2 .tbtn{font-size:11px} .tools2 .tbtn b{font-size:16px} .hint{font-size:12px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="sudoku-ai.js"></script>
+<script>
+"use strict";
+const NIVEIS = {facil:'Fácil', medio:'Médio', dificil:'Difícil'};
+const S = SudokuAI;
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const okDig = v => Number.isInteger(v) && v >= 0 && v <= 9;
+
+function newPlayer(puz){ return {g:puz.slice(), notes:new Array(81).fill(0), undo:[], done:false, res:null, fin:null, hint:null, hints:0, acts:0, at:Date.now(), err:null}; }
+const filledUser = (st, p) => p.g.reduce((s,v,i) => s + (!st.giv[i] && v ? 1 : 0), 0);
+const correctUser = (st, p) => p.g.reduce((s,v,i) => s + (!st.giv[i] && v === st.sol[i] ? 1 : 0), 0);
+const empties = st => st.giv.reduce((s,x) => s + !x, 0);
+const elapsed = (st, p, now) => p.fin != null ? p.fin : now - st.t0;
+// casas em conflito (mesmo número repetido na linha, coluna ou quadrado)
+function conflicts(g){
+  const bad = new Set();
+  S.UNITS.forEach(U => { const seen = {}; U.forEach(i => { const v = g[i]; if(!v) return; if(seen[v] != null){ bad.add(i); bad.add(seen[v]); } else seen[v] = i; }); });
+  return bad;
+}
+// grava a jogada no "desfazer" (valor e notas da casa e dos vizinhos que mudarem)
+function setCell(st, p, i, v){
+  const rec = {i, v:p.g[i], n:p.notes[i], peers:[]};
+  p.g[i] = v; p.notes[i] = 0;
+  if(v) for(const j of S.PEERS[i]) if(p.notes[j] & S.bit(v)){ rec.peers.push([j, p.notes[j]]); p.notes[j] &= ~S.bit(v); }
+  p.undo.push(rec); if(p.undo.length > 400) p.undo.shift();
+}
+function undo(p){
+  const r = p.undo.pop(); if(!r) return false;
+  p.g[r.i] = r.v; p.notes[r.i] = r.n; r.peers.forEach(([j, n]) => p.notes[j] = n);
+  return true;
+}
+function checkDone(st, s, ev){
+  const p = st.p[s];
+  if(p.g.some(v => !v) || conflicts(p.g).size) return;
+  p.done = true; p.res = 'win'; p.fin = elapsed(st, p, Date.now());
+  ev.push({k:'banner', text:'Sudoku completo!'});
+  ev.push({k:'snd', s:'win'});
+}
+function result(st){
+  const p = st.p[0]; if(!p.done) return null;
+  const nv = NIVEIS[st.nivel];
+  if(p.res === 'win') return {winners:[0], text:`Você completou o Sudoku <b>${nv}</b> em <b>${fmt(p.fin)}</b>${p.hints ? ` com ${p.hints} dica(s)` : ' sem dicas'}!`};
+  return {winners:[], text:`Você desistiu com ${Math.round(100*correctUser(st, p)/empties(st))}% das casas certas.`};
+}
+
+/* ---------- bot (para os testes automáticos): resolve por lógica ---------- */
+const PACE = {facil:9500, normal:6000, dificil:3600};
+const TIERF = [1, 1, 2.1, 3.3];
+const PLAN = {};
+function botPlan(st, s, o){
+  const p = st.p[s], key = st.gid + ':' + s + ':' + p.acts;
+  if(PLAN[s] && PLAN[s].key === key) return PLAN[s];
+  const lvl = o.diff || 'normal', base = PACE[lvl] || PACE.normal, jit = () => 0.7 + Math.random()*0.6;
+  const fillF = 1.25 - 0.6*filledUser(st, p)/Math.max(1, empties(st));
+  let r;
+  // percebeu o próprio erro: volta atrás até ele
+  const inherited = !p.err ? p.g.findIndex((v,k) => v && !st.giv[k] && v !== st.sol[k]) : -1;
+  if(inherited >= 0){ r = {a:{t:'set', i:inherited, v:0}, ms:2500*jit()}; }   // casa errada deixada por um humano (bot só nos testes)
+  else if(p.err && (p.acts >= p.err.at || p.err.now)){ r = {a:{t:'undo'}, ms:(p.err.back ? 700 : 4200)*jit()}; }
+  else {
+    const nx = S.nextPlacement(p.g);
+    if(nx.place){
+      let {i, v} = nx.place;
+      // o Fácil às vezes se engana numa casa com poucas opções (e percebe depois)
+      if(lvl === 'facil' && !p.err && Math.random() < 0.05){
+        const alt = S.digits(S.cands(p.g)[i]).filter(d => d !== v);
+        if(alt.length) v = pick(alt);
+      }
+      r = {a:{t:'set', i, v}, ms:base*TIERF[nx.tier]*fillF*(1 + 0.25*nx.chain.length)*jit(), wrong:v !== nx.place.v, mark:v !== nx.place.v};
+    } else if(p.err){ r = {a:{t:'undo'}, ms:2500*jit()}; }
+    else {
+      // travou sem erro conhecido (casas deixadas por um humano): apaga um conflito; senão, a casa errada
+      const bad = [...conflicts(p.g)].filter(i => !st.giv[i]);
+      let i = bad.length ? bad[0] : p.g.findIndex((v,k) => v && !st.giv[k] && v !== st.sol[k]);
+      r = i >= 0 ? {a:{t:'set', i, v:0}, ms:3000*jit()} : {a:{t:'giveup'}, ms:1500};
+    }
+  }
+  return PLAN[s] = Object.assign({key}, r);
+}
+
+Mesa.run({
+  id:'sudoku', name:'Sudoku', icon:'🔢', tagline:'Lógica pura: cada Sudoku tem uma única solução',
+  options:[
+    {key:'nivel', label:'Nível', default:'medio', choices:[['facil','Fácil'],['medio','Médio'],['dificil','Difícil']]},
+    {key:'conf', label:'Conflitos', default:'sim', choices:[['sim','Mostrar repetidos'],['nao','Não mostrar']]}
+  ],
+  solo:true, players:1,
+  setup(players, o){
+    const nivel = NIVEIS[o.nivel] ? o.nivel : 'medio';
+    const gen = S.generate(nivel, null, 1500);
+    const st = {names:players.map(p => p.name), nivel, conf:o.conf !== 'nao', puz:gen.puzzle, sol:gen.sol,
+      giv:gen.puzzle.map(v => v ? 1 : 0), t0:Date.now(), gid:Math.floor(Math.random()*1e9)};
+    st.p = players.map(() => newPlayer(st.puz));
+    return st;
+  },
+  waiting(st){ return st.p.map((p,s) => p.done ? -1 : s).filter(s => s >= 0); },
+  over(st){ return result(st); },
+  apply(st, s, a){ return applyRaw(st, s, a); },
+  bot(st, s, o){ return botPlan(st, s, o).a; },
+  botDelay(st, s, o){ const r = botPlan(st, s, o); return Math.max(40, (st.p[s].at + r.ms*CFG.speed - Date.now()) / CFG.speed); },
+  botFallback(st, s){ return {t:'giveup'}; },
+  view(st, s){
+    const now = Date.now(), me = st.p[s];
+    return {
+      nivel:st.nivel, conf:st.conf, gid:st.gid,
+      giv:st.giv.join(''), g:me ? me.g.join('') : st.puz.join(''), notes:me ? me.notes.slice() : [],
+      canUndo:!!(me && me.undo.length), done:me ? me.done : true, res:me ? me.res : null, hint:me ? me.hint : null, hints:me ? me.hints : 0,
+      el:me ? elapsed(st, me, now) : 0, running:!!(me && !me.done)
+    };
+  },
+  render, topInfo,
+  onEvent(e){ if(e.k === 'start'){ sel = -1; noteMode = false; lastGid = null; } },
+  rules: `<h3>Objetivo</h3><p>Preencher a grade 9×9 de modo que cada <b>linha</b>, cada <b>coluna</b> e cada <b>quadrado 3×3</b> tenha os números de 1 a 9, sem repetir. Cada Sudoku tem uma única solução.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Toque numa casa e depois num número (no PC também dá para digitar 1–9; setas movem; 0, Delete ou Backspace apagam).</li>
+  <li><b>✏️ Notas:</b> com o modo de notas ligado (ou tecla N), os números viram anotações pequenas. Ao colocar um número, ele sai das notas dos vizinhos.</li>
+  <li><b>Destaques:</b> a linha, a coluna e o quadrado da casa escolhida ficam marcados, e os números iguais também.</li>
+  <li><b>Conflitos</b> (opção): números repetidos na mesma linha, coluna ou quadrado aparecem em vermelho. Isso não diz se um número está certo — só se ele repete.</li>
+  <li><b>↶ Desfazer</b> volta a última jogada (Ctrl+Z). O teclado mostra quantos de cada número ainda faltam.</li>
+  <li><b>💡 Dica:</b> mostra o próximo passo lógico com a explicação (ou aponta uma casa errada).</li></ul>
+  <h3>Níveis</h3><ul><li><b>Fácil:</b> sai só com “único lugar” e “única possibilidade”.</li>
+  <li><b>Médio:</b> pede bloqueios (o número preso numa linha dentro do quadrado) e pares.</li>
+  <li><b>Difícil:</b> pede técnicas avançadas, como trincas, X-Wing e XY-Wing. Todos são resolvíveis só com lógica, sem chute.</li></ul>`
+});
+
+function applyRaw(st, s, a){
+  const p = st.p[s];
+  if(!a || typeof a !== 'object' || !p) return {ok:false, err:'Jogada inválida.'};
+  if(p.done) return {ok:false, err:'Você já terminou.'};
+  const ev = [];
+  const touch = () => { p.acts++; p.at = Date.now(); };
+  switch(a.t){
+    case 'set': {
+      const i = a.i, v = a.v;
+      if(!Number.isInteger(i) || i < 0 || i > 80 || !okDig(v)) return {ok:false, err:'Jogada inválida.'};
+      if(st.giv[i]) return {ok:false, err:'Essa casa já veio preenchida.'};
+      if(p.g[i] === v) return {events:[]};
+      const plan = PLAN[s] && PLAN[s].key === st.gid + ':' + s + ':' + p.acts ? PLAN[s] : null;
+      setCell(st, p, i, v); touch(); p.hint = null;
+      // erro do bot Fácil: lembra em que ponto do "desfazer" ele está para voltar depois
+      if(plan && plan.mark && plan.a.i === i && plan.a.v === v) p.err = {u:p.undo.length, at:p.acts + 2 + Math.floor(Math.random()*6)};
+      if(v && st.conf && conflicts(p.g).has(i)) ev.push({k:'snd', s:'error'});
+      else ev.push({k:'snd', s:v ? 'card' : 'move'});
+      checkDone(st, s, ev);
+      return {events:ev};
+    }
+    case 'note': {
+      const i = a.i, v = a.v;
+      if(!Number.isInteger(i) || i < 0 || i > 80 || !okDig(v) || !v) return {ok:false, err:'Jogada inválida.'};
+      if(p.g[i]) return {ok:false, err:'Apague o número antes de anotar.'};
+      p.undo.push({i, v:0, n:p.notes[i], peers:[]}); if(p.undo.length > 400) p.undo.shift();
+      p.notes[i] ^= S.bit(v); touch();
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    case 'clearnotes': {
+      if(!p.notes.some(Boolean)) return {events:[]};
+      p.notes = p.notes.map(() => 0); touch(); return {events:[]};
+    }
+    case 'undo': {
+      if(!undo(p)) return {ok:false, err:'Nada para desfazer.'};
+      touch(); p.hint = null;
+      if(p.err){ if(p.undo.length < p.err.u){ p.err = null; } else { p.err.now = true; p.err.back = true; } }
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    case 'hint': {
+      p.hints++; touch();
+      const wrong = p.g.map((v,i) => v && !st.giv[i] && v !== st.sol[i] ? i : -1).filter(i => i >= 0);
+      if(wrong.length){
+        p.hint = {tech:'Casa errada', target:wrong[0], hl:wrong, fix:{i:wrong[0], v:0},
+          text:`${wrong.length > 1 ? `Há ${wrong.length} casas com o número errado. Comece pela` : 'A'} casa <b>${S.cellName(wrong[0])}</b>: esse número não é o da solução. Apague-a e continue.`};
+        return {events:[{k:'snd', s:'alert'}]};
+      }
+      const nx = S.nextPlacement(p.g);
+      if(!nx.place){ p.hint = {tech:'Sem passo', target:-1, hl:[], text:'Não achei um passo lógico daqui.'}; return {events:[]}; }
+      const steps = nx.chain.slice(-3).map(c => `<li><i>${c.tech}:</i> ${c.text}</li>`).join('');
+      p.hint = {tech:nx.last.tech, target:nx.place.i, hl:nx.last.hl, fix:{i:nx.place.i, v:nx.place.v},
+        text:(steps ? `<ol style="margin:4px 0 4px 18px;padding:0">${steps}</ol>Com isso: ` : '') + nx.last.text};
+      return {events:[{k:'snd', s:'msg'}]};
+    }
+    case 'giveup':
+      p.done = true; p.res = 'gave'; p.fin = elapsed(st, p, Date.now());
+      return {events:[]};
+  }
+  return {ok:false, err:'Jogada inválida.'};
+}
+
+/* ------------------------------ interface ------------------------------ */
+let sel = -1, noteMode = false, lastGid = null, clk = {el:0, at:0, running:false}, lastG = null, prevG = '', keyUi = null;
+function topInfo(g){ return `<div class="status">Sudoku ${NIVEIS[g.nivel]}</div>`; }
+
+function render(g, v, ui){
+  keyUi = ui;
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight;
+  if(g.gid !== lastGid){ lastGid = g.gid; sel = -1; prevG = g.g; }
+  const side = W > H*1.15 && W >= 640;
+  const oppH = 0, infoH = 40;
+  let bs;
+  if(side) bs = Math.min(H - oppH - infoH - 16, W - 340);
+  else bs = Math.min(W - 8, H - oppH - infoH - 150);
+  bs = Math.max(240, Math.floor((bs - 6)/9)*9 + 6);
+  const conf = g.conf ? conflicts([...g.g].map(Number)) : new Set();
+  const selV = sel >= 0 ? +g.g[sel] : 0;
+  const hint = g.hint, hl = new Set(hint ? hint.hl : []);
+  const cnt = Array(10).fill(0); for(const ch of g.g) cnt[+ch]++;
+  let cells = '';
+  for(let i=0;i<81;i++){
+    const val = +g.g[i], given = g.giv[i] === '1', r = S.ROW(i), c = S.COL(i);
+    let cls = 'k' + (given ? ' g' : '') + (c === 2 || c === 5 ? ' br' : '') + (r === 2 || r === 5 ? ' bb' : '');
+    if(sel >= 0){ if(i === sel) cls += ' sel'; else if(val && val === selV) cls += ' same';
+      else if(S.ROW(sel) === r || S.COL(sel) === c || S.BOX(sel) === S.BOX(i)) cls += ' zone'; }
+    if(hint && i !== sel){ if(i === hint.target) cls += ' ht'; else if(hl.has(i)) cls += ' hl'; }
+    if(conf.has(i)) cls += ' bad';
+    if(val && prevG && prevG[i] !== g.g[i]) cls += ' pop';
+    let inner = '';
+    if(val) inner = val;
+    else if(g.notes[i]){ inner = '<div class="nt">' + [1,2,3,4,5,6,7,8,9].map(d => `<span class="${selV === d ? 'hi' : ''}">${g.notes[i] & S.bit(d) ? d : ''}</span>`).join('') + '</div>'; }
+    cells += `<div class="${cls}" data-i="${i}">${inner}</div>`;
+  }
+  prevG = g.g;
+  const pad = [1,2,3,4,5,6,7,8,9].map(d => `<button data-d="${d}" class="${cnt[d] >= 9 ? 'full' : ''}">${d}<small>${Math.max(0, 9 - cnt[d])}</small></button>`).join('');
+  const playing = !g.done && v.phase === 'game';
+  const tools = `<div class="tools2">
+    <button class="tbtn ${noteMode ? 'on' : ''}" id="bNote"><b>✏️</b>Notas</button>
+    <button class="tbtn" id="bDel"><b>⌫</b>Apagar</button>
+    <button class="tbtn" id="bUndo" ${g.canUndo && playing ? '' : 'disabled'}><b>↶</b>Desfazer</button>
+    <button class="tbtn" id="bHint" ${playing ? '' : 'disabled'}><b>💡</b>Dica</button>
+    <button class="tbtn" id="bGive" ${playing ? '' : 'disabled'}><b>🏳️</b>Desistir</button></div>`;
+  const hintBox = hint && playing ? `<div class="hint"><div class="ht">💡 ${esc(hint.tech)}</div>${hint.text}
+    ${hint.fix ? `<div class="row"><button class="tbtn" id="bFix">${hint.fix.v ? 'Preencher ' + hint.fix.v : 'Apagar a casa'}</button><button class="tbtn" id="bHideH">Fechar</button></div>` : ''}</div>` : '';
+  let msg = '';
+  if(g.done) msg = '';
+  else if(!g.g.includes('0') && conf.size) msg = 'A grade está cheia, mas há números repetidos.';
+  else if(!g.g.includes('0')) msg = 'A grade está cheia, mas algo não confere. Revise!';
+  st.innerHTML = `<div class="sd">
+    <div class="info"><div class="cnt" id="clock">⏱ 0:00</div>${g.hints ? `<div class="cnt">💡 ${g.hints}</div>` : ''}<div class="msg">${msg}</div></div>
+    <div class="body ${side ? '' : 'col'}" style="--bs:${bs}px">
+      <div class="grid" id="grid">${cells}</div>
+      <div class="side">${side ? hintBox : ''}<div class="pad ${noteMode ? 'notes' : ''}">${pad}</div>${tools}${side ? '' : hintBox}</div>
+    </div></div>`;
+  if(g !== lastG){ lastG = g; clk = {el:g.el, at:Date.now(), running:g.running && v.phase === 'game'}; }
+  paintClock();
+  // eventos
+  $('#grid').onclick = e => { const el = e.target.closest('.k'); if(!el) return; const i = +el.dataset.i; sel = sel === i ? -1 : i; ui.rerender(); };
+  $$('.pad button', st).forEach(b => b.onclick = () => press(+b.dataset.d));
+  $('#bNote').onclick = () => { noteMode = !noteMode; ui.rerender(); };
+  $('#bDel').onclick = () => press(0);
+  $('#bUndo').onclick = () => ui.act({t:'undo'});
+  if($('#bHint')) $('#bHint').onclick = () => ui.act({t:'hint'});
+  if($('#bGive')) $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A partida termina e conta como derrota.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  if($('#bFix')) $('#bFix').onclick = () => { sel = hint.fix.i; ui.act({t:'set', i:hint.fix.i, v:hint.fix.v}); };
+  if($('#bHideH')) $('#bHideH').onclick = () => { const h = $('.hint'); h && h.remove(); };
+}
+function press(d){
+  const ui = keyUi, v = ui && ui.view, g = v && v.game; if(!g || g.done || v.phase !== 'game') return;
+  if(sel < 0){ toast('Escolha uma casa primeiro.'); return; }
+  if(g.giv[sel] === '1'){ toast('Essa casa já veio preenchida.'); return; }
+  if(!d){ if(+g.g[sel]) ui.act({t:'set', i:sel, v:0}); else if(g.notes[sel]) for(const x of S.digits(g.notes[sel])) ui.act({t:'note', i:sel, v:x}); return; }
+  if(noteMode){ if(+g.g[sel]) toast('Apague o número antes de anotar.'); else ui.act({t:'note', i:sel, v:d}); }
+  else ui.act({t:'set', i:sel, v:+g.g[sel] === d ? 0 : d});
+}
+function paintClock(){ const c = $('#clock'); if(c) c.textContent = '⏱ ' + fmt(clk.el + (clk.running ? Date.now() - clk.at : 0)); }
+setInterval(paintClock, 500);
+document.addEventListener('keydown', e => {
+  const ui = keyUi, v = ui && ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show') || /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  if(/^[1-9]$/.test(e.key)) press(+e.key);
+  else if(['0','Delete','Backspace'].includes(e.key)) press(0);
+  else if(e.key === 'n' || e.key === 'N'){ noteMode = !noteMode; ui.rerender(); }
+  else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); ui.act({t:'undo'}); }
+  else if(e.key.startsWith('Arrow')){
+    e.preventDefault(); if(sel < 0) sel = 40;
+    else { const r = S.ROW(sel), c = S.COL(sel), d = {ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1]}[e.key];
+      sel = ((r + d[0] + 9) % 9)*9 + (c + d[1] + 9) % 9; }
+    ui.rerender();
+  }
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

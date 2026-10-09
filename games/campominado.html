@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Campo Minado</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 6px 0}
+.cm{display:flex;flex-direction:column;gap:6px;height:100%;min-height:0}
+/* barra de controles */
+.cmbar{display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap}
+.cnt{background:rgba(0,0,0,.45);border-radius:10px;padding:6px 10px;font-weight:900;font-size:16px;color:#ffe6a6;min-width:74px;text-align:center;font-variant-numeric:tabular-nums}
+.cmbar .tbtn{font-size:15px;padding:8px 11px;border-radius:10px;min-width:42px}
+.tbtn.mode{min-width:112px}
+.tbtn.mode.flag{background:#7a1e1e;border-color:#ff8a8a}
+.tbtn.y{background:var(--gold);color:#3a2600;border-color:transparent;font-weight:800}
+.cmmsg{text-align:center;font-weight:700;font-size:13px;color:#ffe9c4;min-height:18px}
+.cmmsg b{color:#fff}
+/* tabuleiro */
+.wrap{flex:1;min-height:0;overflow:auto;display:flex;border-radius:12px;background:rgba(0,0,0,.18);-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+  overscroll-behavior:contain;margin-bottom:max(6px,env(safe-area-inset-bottom))}
+.board{margin:auto;display:grid;gap:0;padding:6px;flex:none;--cs:28px;grid-template-columns:repeat(var(--cols),var(--cs));grid-auto-rows:var(--cs)}
+.c{width:var(--cs);height:var(--cs);display:grid;place-items:center;font-weight:900;font-size:calc(var(--cs)*.62);line-height:1;cursor:pointer;
+  background:linear-gradient(145deg,#5e9c79,#3e7a59);border:calc(var(--cs)*.06) solid;border-color:#86c3a0 #24513a #24513a #86c3a0;border-radius:calc(var(--cs)*.12);
+  -webkit-tap-highlight-color:transparent;position:relative}
+@media (hover:hover){ .c:hover{filter:brightness(1.12)} }
+.c.o{background:#e9dfc6;border:1px solid #c8b993;border-radius:2px;cursor:default;filter:none}
+.c.o.nz{cursor:pointer}
+.n1{color:#1747c9}.n2{color:#11793a}.n3{color:#cc1b1b}.n4{color:#18207a}.n5{color:#7d1212}.n6{color:#0d7a7a}.n7{color:#111}.n8{color:#666}
+.c.f::after{content:"🚩";font-size:calc(var(--cs)*.58)}
+.c.x{background:#e5352f;border:1px solid #8a0f0b;border-radius:2px}
+.c.x::after{content:"💥";font-size:calc(var(--cs)*.66)}
+.c.m{background:#cfc4a8;border:1px solid #a89a76;border-radius:2px}
+.c.m::after{content:"💣";font-size:calc(var(--cs)*.6)}
+.c.w{background:#cfc4a8;border:1px solid #a89a76;border-radius:2px}
+.c.w::after{content:"❌";font-size:calc(var(--cs)*.5)}
+.c.press{filter:brightness(1.35)}
+.c.hs{box-shadow:inset 0 0 0 4px #3ecf7a,0 0 14px #3ecf7a;z-index:2;animation:hP 1s infinite}
+.c.hm{box-shadow:inset 0 0 0 4px #ff5a5a,0 0 14px #ff5a5a;z-index:2;animation:hP 1s infinite}
+@keyframes hP{50%{filter:brightness(1.35)}}
+.c.lp{animation:lp .35s linear}
+@keyframes lp{from{box-shadow:inset 0 0 0 0 rgba(255,80,80,.0)}to{box-shadow:inset 0 0 0 calc(var(--cs)*.5) rgba(255,80,80,.55)}}
+.board.dead .c:not(.o){filter:saturate(.4) brightness(.8)}
+@media (max-width:720px){ .cmbar{gap:4px} .cmbar .tbtn{padding:8px 5px;min-width:34px} .tbtn.mode{min-width:0} .tbtn.mode .ml{display:none} .cnt{min-width:0;font-size:14px;padding:6px 6px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="campominado-ai.js"></script>
+<script>
+"use strict";
+const NIVEIS = {facil:{W:9, H:9, M:10, nome:'Fácil'}, medio:{W:16, H:16, M:40, nome:'Médio'}, dificil:{W:30, H:16, M:99, nome:'Difícil'}};
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const nivelOf = o => NIVEIS[o.nivel] || NIVEIS.medio;
+
+function newPlayer(N){
+  return {rev:new Array(N).fill(-1), flag:new Array(N).fill(0), opened:0, flags:0, booms:[], done:false, res:null, fin:null, t0:null, at:Date.now(), acts:0, last:null};
+}
+// tempo corrido (o relógio começa no primeiro clique)
+function elapsed(st, p, now){
+  if(p.fin != null) return p.fin;
+  return p.t0 == null ? 0 : now - p.t0;
+}
+function genMines(st, start){
+  const r = MinaAI.generate(st.W, st.H, st.M, start, st.noGuess, 1500);
+  st.mines = r.mines; st.num = MinaAI.counts(st.W, st.H, r.mines); st.start = start;
+}
+// abre a casa i para o jogador; devolve eventos
+function openCell(st, s, i, ev){
+  const p = st.p[s];
+  if(p.rev[i] >= 0 || p.flag[i]) return;
+  if(!st.mines){ genMines(st, i); }
+  if(!p.t0) p.t0 = Date.now();
+  if(st.mines[i]){ boom(st, s, i, ev); return; }
+  const got = MinaAI.flood(st.W, st.H, st.num, p.rev, i);
+  got.forEach(j => { if(p.flag[j]){ p.flag[j] = 0; p.flags--; } });
+  p.opened += got.length;
+}
+function boom(st, s, i, ev){
+  const p = st.p[s], now = Date.now();
+  p.rev[i] = 9; p.booms.push(i);
+  if(p.flag[i]){ p.flag[i] = 0; p.flags--; }
+  ev.push({k:'snd', s:'capture'});
+  p.done = true; p.res = 'lost'; p.fin = elapsed(st, p, now); ev.push({k:'banner', text:'Bum! 💥', bad:true});
+}
+// "chord": número com as bandeiras completas abre os outros vizinhos
+function chord(st, s, i, ev){
+  const p = st.p[s], v = p.rev[i];
+  if(!(v >= 1 && v <= 8)) return {events:[]};
+  const nb = MinaAI.nbrs(st.W, st.H)[i];
+  if(nb.filter(j => p.flag[j] || p.rev[j] === 9).length !== v) return {events:[]};
+  for(const j of nb){ if(p.rev[j] < 0 && !p.flag[j]) openCell(st, s, j, ev); if(p.done) break; }
+  checkWin(st, s, ev);
+  if(!ev.length) ev.push({k:'snd', s:'move'});
+  return {events:ev};
+}
+function checkWin(st, s, ev){
+  const p = st.p[s];
+  if(p.done || p.opened < st.W*st.H - st.M) return;
+  p.done = true; p.res = 'win'; p.fin = elapsed(st, p, Date.now());
+  // bandeiras automáticas nas minas que sobraram
+  st.mines.forEach((m,j) => { if(m && p.rev[j] < 0 && !p.flag[j]){ p.flag[j] = 1; p.flags++; } });
+  ev.push({k:'banner', text:'Campo limpo!'}, {k:'snd', s:'win'});
+}
+function soloResult(st){
+  const p = st.p[0];
+  if(!p.done) return null;
+  const nv = nivelOf(st.opts);
+  if(p.res === 'win') return {winners:[0], text:`Você limpou o campo <b>${nv.nome}</b> (${st.W}×${st.H}, ${st.M} minas) em <b>${fmt(p.fin)}</b>!`};
+  const pct = Math.round(100*p.opened/(st.W*st.H - st.M));
+  return {winners:[], text:`Você pisou numa mina com <b>${pct}%</b> do campo aberto. Tente de novo!`};
+}
+
+// bot (usado nos testes automáticos e se a Mesa precisar): plano em cache por versão do tabuleiro (o tempo de pensar depende da dificuldade da dedução)
+const PLAN = {};
+function botPlan(st, s, o){
+  const p = st.p[s], key = s + ':' + p.acts + ':' + st.gid;
+  if(PLAN[s] && PLAN[s].key === key) return PLAN[s];
+  const rev = p.rev.map(x => x === 9 ? -1 : x);
+  let r = MinaAI.plan(st.W, st.H, st.M, rev, 'dificil', p.last, null, p.booms);
+  // casa com bandeira (de quando era humano): tira a bandeira primeiro
+  if(r && p.flag[r.a.i]) r = {a:{t:'flag', i:r.a.i}, ms:400};
+  if(!r) r = {a:{t:'restart'}, ms:800};
+  return PLAN[s] = Object.assign({key}, r);
+}
+
+Mesa.run({
+  id:'campominado', name:'Campo Minado', icon:'💣', tagline:'Abra o campo sem pisar nas minas',
+  options:[
+    {key:'nivel', label:'Campo', default:'facil', choices:[['facil','Fácil 9×9 · 10 minas'],['medio','Médio 16×16 · 40 minas'],['dificil','Difícil 16×30 · 99 minas']]},
+    {key:'semchute', label:'Sorteio', default:'sim', choices:[['sim','Sem chute (só lógica)'],['nao','Clássico (pode precisar chutar)']]},
+  ],
+  solo:true, players:1,
+  setup(players, o){
+    const nv = nivelOf(o), N = nv.W*nv.H;
+    // as minas só são sorteadas no primeiro clique (que é sempre seguro e abre um zero)
+    return {W:nv.W, H:nv.H, M:nv.M, names:players.map(p => p.name), opts:{nivel:o.nivel},
+      noGuess:o.semchute !== 'nao', mines:null, num:null, start:null, gid:Math.floor(Math.random()*1e9), p:[newPlayer(N)]};
+  },
+  waiting(st){ return st.p.map((p,s) => p.done ? -1 : s).filter(s => s >= 0); },
+  over(st){ return soloResult(st); },
+  apply(st, s, a){
+    if(!a || typeof a !== 'object' || !st.p[s]) return {ok:false, err:'Jogada inválida.'};
+    const p = st.p[s], N = st.W*st.H;
+    if(p.done) return {ok:false, err:'Você já terminou.'};
+    const okI = Number.isInteger(a.i) && a.i >= 0 && a.i < N;
+    const ev = [];
+    if(a.t === 'restart'){
+      st.mines = null; st.num = null; st.gid++; st.p[0] = newPlayer(N);
+      return {events:[{k:'snd', s:'deal', n:4}]};
+    }
+    if(!okI) return {ok:false, err:'Casa inválida.'};
+    const i = a.i;
+    if(a.t === 'flag'){
+      if(p.rev[i] >= 0) return {ok:false, err:'Essa casa já está aberta.'};
+      p.flag[i] ^= 1; p.flags += p.flag[i] ? 1 : -1; p.acts++; p.at = Date.now();
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    if(a.t === 'open'){
+      if(p.flag[i]) return {ok:false, err:'Tire a bandeira antes de abrir essa casa.'};
+      p.acts++; p.at = Date.now(); p.last = i;
+      if(p.rev[i] >= 0 && p.rev[i] < 9) return chord(st, s, i, ev);
+      if(p.rev[i] >= 0) return {events:[]};
+      openCell(st, s, i, ev);
+      checkWin(st, s, ev);
+      if(!ev.length) ev.push({k:'snd', s:'move'});
+      return {events:ev};
+    }
+    if(a.t === 'chord'){ p.acts++; p.at = Date.now(); p.last = i; return chord(st, s, i, ev); }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, s, o){ const r = botPlan(st, s, o); return r.a; },
+  botDelay(st, s, o){
+    // ritmo de gente: o tempo conta a partir da última jogada
+    const r = botPlan(st, s, o);
+    return Math.max(40, (st.p[s].at + r.ms*CFG.speed - Date.now()) / CFG.speed);
+  },
+  view(st, s){
+    const now = Date.now(), N = st.W*st.H, over = !!soloResult(st);
+    const me = st.p[s];
+    const enc = p => {
+      const showMines = over || (p.done && p.res !== 'win');
+      let out = '';
+      for(let i=0;i<N;i++){
+        const r = p.rev[i];
+        if(r === 9) out += 'X';
+        else if(r >= 0) out += r;
+        else if(p.flag[i]) out += (showMines && st.mines && !st.mines[i]) ? 'w' : 'F';
+        else out += (showMines && st.mines && st.mines[i]) ? 'm' : '.';
+      }
+      return out;
+    };
+    return {
+      W:st.W, H:st.H, M:st.M, nivel:st.opts.nivel,
+      b: me ? enc(me) : '', flags: me ? me.flags + me.booms.length : 0, done: me ? me.done : true, res: me ? me.res : null,
+      el: me ? elapsed(st, me, now) : 0, running: !!(me && !me.done && me.t0), booms: me ? me.booms.length : 0, gid:st.gid, over
+    };
+  },
+  render, topInfo,
+  onEvent(e){ if(e.k === 'start'){ zoom = null; lastKey = ''; } },
+  rules: `<h3>Objetivo</h3><p>Abrir todas as casas que <b>não</b> têm mina. Cada número diz quantas minas há nas 8 casas em volta.</p>
+  <h3>Como jogar</h3><ul>
+  <li><b>Abrir:</b> clique/toque numa casa fechada. Uma casa sem minas em volta (zero) abre sozinha a vizinhança.</li>
+  <li><b>Bandeira 🚩:</b> botão direito do mouse, <b>toque longo</b> no celular, ou ligue o botão <b>⛏️/🚩</b> para que o toque ponha bandeira.</li>
+  <li><b>Abrir em volta (“chord”):</b> clique num número que já tem todas as suas bandeiras em volta para abrir de uma vez os outros vizinhos (no PC também com o botão do meio). Cuidado: bandeira errada explode!</li>
+  <li>O <b>primeiro clique é sempre seguro</b> e abre uma área (um zero).</li>
+  <li><b>💡 Dica:</b> marca em verde uma casa segura (ou em vermelho uma mina certa) e explica o raciocínio, usando só o que você já vê.</li>
+  <li>No celular, arraste para rolar o campo e use <b>−</b>/<b>+</b> ou o gesto de pinça para o zoom; <b>⤢</b> ajusta o campo à tela. Em pé, o campo Difícil aparece girado para caber melhor.</li></ul>
+  <h3>Campos</h3><ul><li>Fácil: 9×9 com 10 minas · Médio: 16×16 com 40 · Difícil: 16×30 com 99.</li>
+  <li><b>Sem chute:</b> o sorteio garante que dá para limpar tudo só com lógica a partir da primeira casa. <b>Clássico:</b> às vezes é preciso arriscar.</li></ul>`
+});
+
+/* ------------------------------ interface ------------------------------ */
+let flagMode = false, zoom = null, lastKey = '', cellsEl = [], lastB = '', clk = {el:0, at:0, running:false}, lastG = null;
+let fitCS = 28, tposed = false, needFit = false;
+const isTouch = () => matchMedia('(pointer:coarse)').matches;
+
+function topInfo(g){
+  const nv = NIVEIS[g.nivel] || NIVEIS.medio;
+  return `<div class="status">${nv.nome} · ${g.W}×${g.H} · ${g.M} minas</div>`;
+}
+// índice da casa para a posição na tela (em pé, o campo largo é transposto)
+const cellAt = (g, k) => { const cols = tposed ? g.H : g.W; const dr = Math.floor(k/cols), dc = k%cols; return tposed ? dc*g.W + dr : k; };
+
+function build(g, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight;
+  tposed = H > W*1.05 && g.W > g.H;
+  const cols = tposed ? g.H : g.W, rows = tposed ? g.W : g.H;
+  st.innerHTML = `<div class="cm">
+    <div class="cmbar">
+      <div class="cnt" id="cMines" title="Minas restantes">💣 0</div>
+      <div class="cnt" id="clock" title="Tempo">⏱ 0:00</div>
+      <button class="tbtn mode" id="bMode" title="Trocar entre abrir e pôr bandeira"></button>
+      <button class="tbtn" id="bZo" title="Diminuir">−</button><button class="tbtn" id="bZi" title="Aumentar">+</button><button class="tbtn" id="bFit" title="Ajustar à tela">⤢</button>
+      <button class="tbtn" id="bHint" title="Dica">💡</button><button class="tbtn" id="bNew" title="Novo campo">🔄</button>
+    </div>
+    <div class="cmmsg" id="cmMsg"></div>
+    <div class="wrap" id="wrap"><div class="board" id="bd" style="--cols:${cols}"></div></div></div>`;
+  const wrap = $('#wrap');
+  const bd = $('#bd'); let html = '';
+  for(let k=0;k<cols*rows;k++) html += `<div class="c" data-i="${cellAt(g, k)}"></div>`;
+  bd.innerHTML = html;
+  cellsEl = []; $$('.c', bd).forEach(el => cellsEl[+el.dataset.i] = el);
+  lastB = ''; needFit = true;
+  wireBoard(bd, wrap, ui);
+  $('#bMode').onclick = () => { flagMode = !flagMode; paintMode(); };
+  $('#bZo').onclick = () => zoomBy(1/1.25); $('#bZi').onclick = () => zoomBy(1.25);
+  $('#bFit').onclick = () => { zoom = 1; setCS(); };
+  $('#bHint').onclick = () => showHint(ui);
+  if($('#bNew')) $('#bNew').onclick = () => { const v = ui.view; if(v && v.game && !v.game.b.match(/[0-8]/)) return;
+    modal('<h2>Novo campo?</h2><p>O campo atual será descartado.</p>', [{label:'Novo campo', cls:'b-up', fn:() => ui.act({t:'restart'})}, {label:'Continuar', cls:'b-no'}]); };
+  paintMode();
+}
+// tamanho da casa que cabe na tela (no celular, cabe pelo menos na largura: rola só na vertical)
+function fitBoard(g){
+  const wrap = $('#wrap'); if(!wrap) return;
+  const cols = tposed ? g.H : g.W, rows = tposed ? g.W : g.H;
+  const avW = wrap.clientWidth - 14, avH = wrap.clientHeight - 14;
+  fitCS = Math.max(12, Math.floor(Math.min(avW/cols, avH/rows)));
+  if(zoom == null) zoom = isTouch() && fitCS < 28 ? clamp(Math.floor(avW/cols), fitCS, 34)/fitCS : 1;
+  setCS();
+}
+const cs = () => Math.round(clamp(fitCS*zoom, 12, 64));
+function setCS(){ const bd = $('#bd'); if(bd) bd.style.setProperty('--cs', cs() + 'px'); }
+function zoomBy(f, cx, cy){
+  const wrap = $('#wrap'); if(!wrap) return;
+  const old = cs(); zoom = clamp(zoom*f, 12/fitCS, 64/fitCS); const nw = cs(); if(nw === old) return;
+  const r = wrap.getBoundingClientRect(); cx = cx == null ? r.width/2 : cx - r.left; cy = cy == null ? r.height/2 : cy - r.top;
+  const sx = (wrap.scrollLeft + cx) * nw/old - cx, sy = (wrap.scrollTop + cy) * nw/old - cy;
+  setCS(); wrap.scrollLeft = sx; wrap.scrollTop = sy;
+}
+function paintMode(){ const b = $('#bMode'); if(!b) return; b.innerHTML = flagMode ? '🚩<span class="ml"> Bandeira</span>' : '⛏️<span class="ml"> Abrir</span>'; b.classList.toggle('flag', flagMode); }
+
+function wireBoard(bd, wrap, ui){
+  let lp = null, lpFired = false, pinch = null;
+  const cellOf = e => { const el = e.target.closest && e.target.closest('.c'); return el ? +el.dataset.i : -1; };
+  const cancelLP = () => { if(lp){ clearTimeout(lp.t); lp.el && lp.el.classList.remove('lp'); lp = null; } };
+  bd.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'mouse'){ if(e.button === 1){ e.preventDefault(); const i = cellOf(e); if(i >= 0) doAct(ui, i, 'chord'); } return; }
+    const i = cellOf(e); if(i < 0 || pinch) return;
+    lpFired = false; cancelLP();
+    const el = cellsEl[i];
+    lp = {i, x:e.clientX, y:e.clientY, el, t:setTimeout(() => { lpFired = true; el.classList.remove('lp'); lp = null;
+      try{ navigator.vibrate && navigator.vibrate(25); }catch(_){}
+      doAct(ui, i, flagMode ? 'open' : 'flag'); }, 380)};
+    if(el && el.textContent === '' && !el.classList.contains('o')) el.classList.add('lp');
+  });
+  bd.addEventListener('pointermove', e => { if(lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 9) cancelLP(); });
+  ['pointerup','pointercancel','pointerleave'].forEach(t => bd.addEventListener(t, cancelLP));
+  bd.addEventListener('click', e => {
+    if(lpFired){ lpFired = false; return; }
+    const i = cellOf(e); if(i < 0) return;
+    doAct(ui, i, flagMode ? 'flag' : 'open');
+  });
+  bd.addEventListener('contextmenu', e => { e.preventDefault(); const i = cellOf(e); if(i >= 0 && !lpFired) doAct(ui, i, 'flag'); });
+  // pinça para zoom (dois dedos); um dedo rola normalmente
+  wrap.addEventListener('touchstart', e => { if(e.touches.length === 2){ cancelLP(); const [a,b] = e.touches;
+    pinch = {d:Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY)}; } }, {passive:true});
+  wrap.addEventListener('touchmove', e => { if(pinch && e.touches.length === 2){ e.preventDefault(); const [a,b] = e.touches;
+    const d = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); if(Math.abs(d/pinch.d - 1) > 0.06){ zoomBy(d/pinch.d, (a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2); pinch.d = d; } } }, {passive:false});
+  wrap.addEventListener('touchend', e => { if(e.touches.length < 2) setTimeout(() => { pinch = null; }, 50); }, {passive:true});
+  wrap.addEventListener('wheel', e => { if(e.ctrlKey){ e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.1 : 1/1.1, e.clientX, e.clientY); } }, {passive:false});
+}
+function doAct(ui, i, kind){
+  const v = ui.view, g = v && v.game; if(!g || g.done || v.phase !== 'game') return;
+  const ch = g.b[i];
+  if(kind === 'flag'){ if(ch === '.' || ch === 'F') ui.act({t:'flag', i}); return; }
+  if(ch === 'F') { toast('Tire a bandeira antes (toque longo ou botão direito).'); return; }
+  if(ch === '.') ui.act({t:'open', i});
+  else if(/[1-8]/.test(ch)){
+    // "chord": só se as bandeiras em volta batem com o número
+    const nb = MinaAI.nbrs(g.W, g.H)[i];
+    const fl = nb.filter(j => g.b[j] === 'F' || g.b[j] === 'X').length, hid = nb.filter(j => g.b[j] === '.').length;
+    if(fl === +ch && hid) ui.act({t:'chord', i});
+  }
+}
+function render(g, v, ui){
+  const st = ui.stage;
+  const key = [g.gid, g.W, g.H, st.clientWidth, st.clientHeight].join(',');
+  if(key !== lastKey || !$('#bd')){ lastKey = key; build(g, ui); }
+  // casas que mudaram
+  const b = g.b;
+  for(let i=0;i<b.length;i++){
+    if(b[i] === lastB[i]) continue;
+    const el = cellsEl[i]; if(!el) continue;
+    const ch = b[i];
+    let cls = 'c';
+    if(ch === '.') cls += '';
+    else if(ch === 'F') cls += ' f';
+    else if(ch === 'X') cls += ' x';
+    else if(ch === 'm') cls += ' m';
+    else if(ch === 'w') cls += ' w';
+    else cls += ' o' + (ch !== '0' ? ' nz n' + ch : '');
+    el.className = cls; el.textContent = /[1-8]/.test(ch) ? ch : '';
+  }
+  lastB = b;
+  $('#bd').classList.toggle('dead', !!(g.done && g.res !== 'win'));
+  $('#cMines').textContent = '💣 ' + (g.M - g.flags);
+  // relógio local a partir do tempo enviado pelo anfitrião
+  if(g !== lastG){ lastG = g; clk = {el:g.el, at:Date.now(), running:g.running && v.phase === 'game'}; }
+  paintClock();
+  if(needFit){ needFit = false; fitBoard(g); }
+  // mensagem
+  const msg = $('#cmMsg');
+  if(g.done) msg.innerHTML = '';
+  else if(!/[0-8X]/.test(b)) msg.innerHTML = isTouch() ? 'Toque para abrir · <b>toque longo</b> põe bandeira' : 'Clique para abrir · <b>botão direito</b> põe bandeira';
+  else msg.innerHTML = '';
+}
+// dica: só com o que você vê (o resolvedor lógico nunca olha as minas)
+function showHint(ui){
+  const v = ui.view, g = v && v.game; if(!g || g.done || v.phase !== 'game') return;
+  $$('.c.hs,.c.hm').forEach(el => el.classList.remove('hs','hm'));
+  if(!/[0-8]/.test(g.b)){ toast('Comece por qualquer casa: o primeiro clique é sempre seguro.'); return; }
+  const rev = [...g.b].map(c => /[0-8]/.test(c) ? +c : -1), booms = [];
+  for(let i=0;i<g.b.length;i++) if(g.b[i] === 'X') booms.push(i);
+  const r = MinaAI.analyze(g.W, g.H, g.M, rev, 3, booms, true);
+  const mark = (i, cls) => { const el = cellsEl[i]; if(!el) return; el.classList.add(cls); scrollTo(el); setTimeout(() => el.classList.remove(cls), 4000); };
+  const unflagged = [...r.mines].filter(i => g.b[i] === '.');
+  if(r.safe.length){
+    const i = r.safe[0]; mark(i, 'hs');
+    toast(r.used[3] ? 'Casa verde: segura — só dá para ter certeza contando as minas de todas as possibilidades.' : r.used[2] ? 'Casa verde: segura — compare dois números vizinhos (o que um explica, o outro não pode ter).' : 'Casa verde: segura — um número vizinho já tem todas as suas minas.', 4200);
+  } else if(unflagged.length){ mark(unflagged[0], 'hm'); toast('Casa vermelha: com certeza é mina — ponha uma bandeira.', 4200); }
+  else {
+    let best = -1, bp = 2;
+    for(let i=0;i<rev.length;i++){ if(rev[i] >= 0 || r.mines.has(i) || g.b[i] === 'X') continue;
+      const p = r.prob && r.prob.has(i) ? r.prob.get(i) : r.other; if(p != null && p < bp){ bp = p; best = i; } }
+    if(best >= 0){ mark(best, 'hs'); toast(`Não há casa segura por lógica. A de menor risco (${Math.round(bp*100)}% de mina) está em verde.`, 4500); }
+  }
+}
+function scrollTo(el){ const wrap = $('#wrap'); if(!wrap) return; const r = el.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+  if(r.left < w.left || r.right > w.right || r.top < w.top || r.bottom > w.bottom){ wrap.scrollLeft += r.left - w.left - w.width/2; wrap.scrollTop += r.top - w.top - w.height/2; } }
+function paintClock(){
+  const c = $('#clock'); if(!c) return;
+  c.textContent = '⏱ ' + fmt(clk.el + (clk.running ? Date.now() - clk.at : 0));
+}
+setInterval(paintClock, 500);
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

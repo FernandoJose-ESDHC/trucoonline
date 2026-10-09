@@ -65,8 +65,19 @@ const Mesa = (() => {
   }
 
   /* ---------------------------- MOTOR ---------------------------------- */
+  // relógio opcional do jogo (rodadas com tempo, ex.: Stop, Desenhe): o anfitrião chama
+  // D.tick(estado, opts, agora) a cada D.tickMs (padrão 500 ms). Se devolver {events, changed},
+  // os eventos são enviados e a mesa é sincronizada.
+  function runTick(){
+    if(H.phase !== 'game' || !D.tick || H.busy) return;
+    let r; try{ r = D.tick(H.state, H.opts, Date.now()); }catch(e){ console.error(e); return; }
+    if(!r) return;
+    (r.events || []).forEach(emit);
+    if(r.changed || (r.events && r.events.length)) step();
+  }
   function startGame(){
     clearTimeout(H.botTimer); clearTimeout(H.stepTimer);
+    clearInterval(H.tickTimer); if(D.tick) H.tickTimer = setInterval(runTick, D.tickMs || 500);
     const pool = BOT_NAMES.filter(n => !H.seats.some(s => s && s.name === n));
     for(let i=0;i<nSeats();i++) if(!H.seats[i]) H.seats[i] = {name:pool.shift() || 'Bot ' + (i+1), cid:null, human:false, online:true, wasHuman:false};
     if(H.tally.length !== nSeats()) H.tally = Array(nSeats()).fill(0);
@@ -117,6 +128,7 @@ const Mesa = (() => {
     } else step();
   }
   function finish(res){
+    clearInterval(H.tickTimer);
     H.phase = 'over'; H.waiting = [];
     (res.winners || []).forEach(s => { if(H.tally[s] != null) H.tally[s]++; });
     H.lastOver = {winners:res.winners || [], draw:!!res.draw, text:res.text || '', gameNo:H.gameNo, scores:res.scores || null};

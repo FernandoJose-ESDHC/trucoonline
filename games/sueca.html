@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Sueca</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 8px 8px}
+.sq-top{display:flex;justify-content:center;width:100%}
+.sq-mid{flex:1;min-height:0;width:100%;display:flex;align-items:center;gap:6px}
+.seatc{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:4px 8px;text-align:center;font-weight:800;font-size:12.5px;min-width:74px;max-width:120px;position:relative}
+.seatc .n{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seatc.t0 .n{color:#bff5d4} .seatc.t1 .n{color:#ffc4c4}
+.seatc.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.seatc .sub{font-size:10.5px;color:#cfe;font-weight:700}
+.seatc .fan{display:flex;justify-content:center;margin-top:3px}
+.seatc .fan .card{--cw:13px;--ch:19px;margin-left:-8px;border-width:1.5px;box-shadow:0 1px 2px rgba(0,0,0,.4)} .seatc .fan .card:first-child{margin-left:0}
+.seatc .fan .card::after{display:none}
+.seatc .dl{position:absolute;top:-8px;right:-6px;background:var(--gold);color:#3a2600;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;font-weight:900}
+.felt{flex:1;min-width:0;height:100%;position:relative;border-radius:16px;background:radial-gradient(ellipse at center,rgba(255,255,255,.07),rgba(0,0,0,.18));border:1px solid rgba(255,255,255,.1)}
+.felt .slot{position:absolute;transform:translate(-50%,-50%)}
+.felt .slot .card{--cw:var(--tw);--ch:var(--th)}
+.felt .slot.s0{left:50%;top:70%} .felt .slot.s2{left:50%;top:30%}
+.felt .slot.s1{left:72%;top:50%} .felt .slot.s3{left:28%;top:50%}
+.felt .slot .card.win{box-shadow:0 0 0 3px var(--gold),0 0 18px rgba(231,180,58,.9)}
+.trbox{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.35);border-radius:10px;padding:4px 6px;font-size:10px;font-weight:900;color:#ffe6a6;text-align:center;letter-spacing:.5px}
+.trbox .card{--cw:30px;--ch:43px;margin:3px auto 1px}
+.trbox .card .mid{font-size:15px}
+.trbox .w{font-size:9.5px;color:#cfe;font-weight:700;max-width:72px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0}
+.trbox .big{font-size:20px;line-height:1}
+.trbox .big.red{color:#ff7b8a}
+.ltbox{position:absolute;right:6px;top:6px;background:rgba(0,0,0,.3);border-radius:10px;padding:4px 6px;font-size:9.5px;font-weight:800;color:#cfe;text-align:center}
+.ltbox .row4{display:flex;gap:2px;margin-top:3px}
+.ltbox .card{--cw:20px;--ch:29px;border-radius:3px}
+.ltbox .card .tl{font-size:7.5px}.ltbox .card .br{display:none}.ltbox .card .mid{font-size:10px;top:7px}
+.ltbox .card.win{box-shadow:0 0 0 2px var(--gold)}
+.info{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:12.5px;font-weight:800}
+.info .nos{color:var(--nos)} .info .eles{color:var(--eles)}
+.myhand{display:flex;justify-content:safe center;flex-wrap:nowrap;padding-top:16px;max-width:100%;min-height:calc(var(--ch) + 18px)}
+.myhand .card{margin-left:calc(var(--cw)*-.34)} .myhand .card:first-child{margin-left:0}
+.myhand .card.dim{filter:brightness(.62)}
+.myhand .card.playable{cursor:pointer}
+.sc{font-weight:800;font-size:13px;color:#ffe6a6;text-align:center}
+.box table td,.box table th{text-align:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =============================== SUECA ===============================
+   4 jogadores em duplas, baralho de 40 cartas (sem 8, 9 e 10).
+   Ordem: A 7 K J Q 6 5 4 3 2. Pontos: A=11, 7=10, K=4, J=3, Q=2 (120).
+   Trunfo = última carta dada ao carteador. Obrigatório assistir.
+   ===================================================================== */
+const SRANKS = ['A','2','3','4','5','6','7','J','Q','K'];
+const POW = {A:10,'7':9,K:8,J:7,Q:6,'6':5,'5':4,'4':3,'3':2,'2':1};
+const PTS = {A:11,'7':10,K:4,J:3,Q:2};
+const SI = {'♣':0,'♥':1,'♠':2,'♦':3};
+const pts = c => PTS[c.r] || 0;
+const IDX = id => +String(id).slice(1);
+const DECK40 = makeDeck({ranks:SRANKS});                    // ids c0..c39 (sempre iguais)
+const BYSUIT = SUITS.map(s => DECK40.filter(c => c.s === s).sort((a,b) => POW[b.r] - POW[a.r]));
+const DIFF = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const SNAME = {'♣':'paus','♥':'copas','♠':'espadas','♦':'ouros'};
+const sameTeam = (a, b) => a % 2 === b % 2;
+
+// a carta a vence a carta b (b está ganhando a vaza)?
+const beats = (a, b, tr) => a.s === b.s ? POW[a.r] > POW[b.r] : a.s === tr;
+function winnerOf(trick, tr){ let w = trick[0]; for(const x of trick) if(beats(x.c, w.c, tr)) w = x; return w; }
+function legal(hand, trick){
+  if(!trick.length) return hand.slice();
+  const same = hand.filter(c => c.s === trick[0].c.s);
+  return same.length ? same : hand.slice();
+}
+const sortHand = (h, tr) => h.slice().sort((a,b) => ((a.s === tr) - (b.s === tr)) || SI[a.s] - SI[b.s] || POW[b.r] - POW[a.r]);
+
+function newDeal(st){
+  const d = shuffle(DECK40.map(c => Object.assign({}, c)));
+  // dá 10 cartas a cada um, começando à direita do carteador; a última carta (do carteador) é o trunfo
+  st.hands = [[],[],[],[]];
+  for(let k=1;k<=4;k++){ const p = (st.dealer + k) % 4; st.hands[p] = d.splice(0, 10); }
+  st.trunfo = st.hands[st.dealer][9]; st.tsuit = st.trunfo.s; st.trunfoOut = false;
+  st.trick = []; st.lastTrick = null; st.pts = [0,0]; st.vazas = [0,0]; st.nTrick = 0;
+  st.played = []; st.voids = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  st.turn = (st.dealer + 1) % 4; st.phase = 'play'; st.breakdown = null;
+}
+function endDeal(st, ev){
+  const p0 = st.pts[0];
+  let w = -1, j = 0;
+  if(p0 !== 60){ w = p0 > 60 ? 0 : 1; const p = st.pts[w]; j = p === 120 ? 4 : p >= 91 ? 2 : 1; st.jogos[w] += j; }
+  st.breakdown = {pts:st.pts.slice(), vazas:st.vazas.slice(), w, j};
+  st.phase = 'roundEnd';
+  if(w < 0) ev.push({k:'banner', text:'EMPATE 60 × 60'}, {k:'log', text:`Mão ${st.deal}: empate 60 × 60.`});
+  else {
+    const who = w === 0 ? `${st.names[0]} e ${st.names[2]}` : `${st.names[1]} e ${st.names[3]}`;
+    ev.push({k:'banner', text: j === 4 ? 'BANDEIRA! 120 PONTOS' : j === 2 ? 'DOIS JOGOS!' : 'UM JOGO'}, {k:'snd', s:'win'},
+      {k:'log', text:`Mão ${st.deal}: ${esc(who)} fizeram ${st.pts[w]} pontos (+${j} jogo${j > 1 ? 's' : ''}).`});
+  }
+}
+
+/* ============================ BOT ============================
+   Conhecimento: cartas que já saíram, quem cortou (falhou) cada naipe,
+   onde está a carta de trunfo virada. Normal = heurística de valor
+   esperado; Difícil = Monte Carlo (mãos coerentes) com a heurística. */
+const SP = {tb:5, tp:1.3, mb:3, mp:0.55, lp:0.25, vb:1.5, g7:2, al:2.5, pf:0.75, lm:40, pv:16};
+let SPT = Object.assign({}, SP);
+const NOV = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+// S = {hands, trick:[{p,c}], tsuit, played:Uint8Array(40), voids, trunfoId, trunfoHolder, trunfoOut}
+function policy(S, me, lvl, rnd){
+  const hand = S.hands[me], L = legal(hand, S.trick);
+  if(L.length === 1) return L[0];
+  const tr = S.tsuit, vo = lvl === 'facil' ? NOV : S.voids;
+  const sp = lvl === 'test' ? SPT : SP;
+  const mine = new Uint8Array(40); for(const c of hand) mine[IDX(c.id)] = 1;
+  // o Fácil só lembra dos Ases e setes que já saíram (e da vaza na mesa)
+  const inTrick = new Set(S.trick.map(x => x.c.id));
+  const seen = lvl === 'facil' ? (x => S.played[IDX(x.id)] && (pts(x) >= 10 || inTrick.has(x.id))) : (x => S.played[IDX(x.id)]);
+  const un = BYSUIT.map(arr => arr.filter(x => !seen(x) && !mine[IDX(x.id)]));   // não vistas (maior primeiro)
+  const higher = c => un[SI[c.s]].filter(x => POW[x.r] > POW[c.r]);
+  const isMaster = c => higher(c).length === 0;
+  const cnt = p => S.hands[p].length;
+  // quem pode ter a carta x (fora eu)
+  const holders = x => {
+    if(x.id === S.trunfoId && !S.trunfoOut) return S.trunfoHolder === me ? [] : [S.trunfoHolder];
+    const h = []; for(let k=1;k<4;k++){ const o = (me + k) % 4; if(cnt(o) && !vo[o][SI[x.s]]) h.push(o); } return h;
+  };
+  const ph = (x, o) => { const h = holders(x); return h.includes(o) ? 1 / h.length : 0; };
+  const pAny = (list, o) => { let no = 1; for(const x of list) no *= 1 - ph(x, o); return 1 - no; };
+  const unTr = un[SI[tr]];
+  const noise = () => lvl === 'facil' ? (rnd() - .5) * 10 : lvl === 'normal' ? (rnd() - .5) * 0.6 : (rnd() - .5) * 0.2;
+  const partner = (me + 2) % 4;
+  let best = null, bs = -1e9;
+  if(!S.trick.length){
+    // ---------- saída ----------
+    const opps = [(me + 1) % 4, (me + 3) % 4];
+    const myTr = hand.filter(x => x.s === tr).length;
+    for(const c of L){
+      let sc; const si = SI[c.s];
+      const nIn = hand.filter(x => x.s === c.s).length;
+      if(c.s !== tr){
+        const oppCut = opps.some(o => vo[o][si] && !vo[o][SI[tr]] && unTr.length);
+        const master = isMaster(c);
+        if(master && !oppCut) sc = sp.lm + pts(c);
+        else if(master) sc = -6 - pts(c);
+        else {
+          sc = 8 - pts(c) * 2.6 - POW[c.r] * 0.3 + nIn * 1.2;
+          // parceiro corta esse naipe: jogo baixo para ele trunfar
+          if(vo[partner][si] && !vo[partner][SI[tr]] && unTr.length && !oppCut) sc += sp.pv;
+          if(oppCut) sc -= 12;
+          // tenho o 7 e o Ás ainda não saiu: não abro esse naipe (o 7 fica guardado)
+          if(lvl !== 'facil' && c.r !== '7' && hand.some(x => x.s === c.s && x.r === '7') && un[si].some(x => x.r === 'A')) sc -= 5;
+        }
+      } else {
+        const oppsHave = opps.some(o => !vo[o][SI[tr]]) && unTr.length > 0;
+        const master = isMaster(c);
+        if(!oppsHave) sc = -20 - pts(c) - POW[c.r];
+        else if(master && myTr >= 2) sc = 28 + (myTr >= unTr.length ? 10 : 0);
+        else if(myTr >= 4 || myTr > unTr.length) sc = 12 - pts(c) * 2 - POW[c.r] * 0.5;
+        else sc = -10 - pts(c) - POW[c.r];
+      }
+      sc += noise();
+      if(sc > bs){ bs = sc; best = c; }
+    }
+    return best;
+  }
+  // ---------- seguindo ----------
+  const lead = S.trick[0].c.s, w = winnerOf(S.trick, tr);
+  const trickPts = S.trick.reduce((s,x) => s + pts(x.c), 0);
+  const after = []; for(let k=1; k < 4 - S.trick.length; k++) after.push((me + k) % 4);
+  // chance de o lugar o (depois de mim) vencer a carta b
+  const pBeat = (o, b) => {
+    if(b.s === lead){
+      let p = pAny(higher(b), o);
+      if(lead !== tr && vo[o][SI[lead]] && !vo[o][SI[tr]]) p = 1 - (1 - p) * (1 - pAny(unTr, o) * 0.9);
+      return p;
+    }
+    // b é trunfo numa vaza de outro naipe
+    return vo[o][SI[lead]] ? pAny(higher(b), o) : 0;
+  };
+  for(const c of L){
+    const iWin = beats(c, w.c, tr);
+    const bc = iWin ? c : w.c, bp = iWin ? me : w.p;
+    let P;
+    if(sameTeam(bp, me)){ P = 1; for(const o of after) if(!sameTeam(o, me)) P *= 1 - pBeat(o, bc); }
+    else {
+      const pa = after.find(o => o === partner);
+      P = pa == null ? 0 : pBeat(pa, bc) * sp.pf;
+    }
+    const pot = trickPts + pts(c) + after.length * sp.al;
+    let cost;
+    if(c.s === tr) cost = sp.tb + POW[c.r] * sp.tp;
+    else cost = isMaster(c) ? sp.mb + pts(c) * sp.mp : POW[c.r] * sp.lp;
+    // descarte (sem naipe e sem cortar): prefere esvaziar naipe curto para poder cortar depois
+    if(c.s !== lead && c.s !== tr && pts(c) === 0){
+      const nIn = hand.filter(x => x.s === c.s).length;
+      if(nIn === 1 && hand.some(x => x.s === tr)) cost -= sp.vb;
+      if(hand.some(x => x.s === c.s && x.r === '7') && nIn <= 2) cost += sp.g7;
+    }
+    const sc = (2 * P - 1) * pot - cost + noise();
+    if(sc > bs){ bs = sc; best = c; }
+  }
+  return best;
+}
+// estado de conhecimento a partir do estado real (para o lugar me)
+function infoOf(st, me){
+  const played = new Uint8Array(40); st.played.forEach(id => played[IDX(id)] = 1);
+  return {hands:st.hands, trick:st.trick, tsuit:st.tsuit, played, voids:st.voids, trunfoId:st.trunfo.id, trunfoHolder:st.dealer, trunfoOut:st.trunfoOut};
+}
+// sorteia mãos coerentes para os outros 3 (falhas conhecidas e trunfo virado)
+function sampleWorld(st, me, rnd){
+  const hands = st.hands.map((h,i) => i === me ? h.slice() : []);
+  const need = st.hands.map((h,i) => i === me ? 0 : h.length);
+  const mine = new Set(st.hands[me].map(c => c.id)), played = new Set(st.played);
+  let pool = DECK40.filter(c => !mine.has(c.id) && !played.has(c.id));
+  if(!st.trunfoOut && st.dealer !== me){ hands[st.dealer].push(st.trunfo); need[st.dealer]--; pool = pool.filter(c => c.id !== st.trunfo.id); }
+  for(let tries=0; tries<30; tries++){
+    const cards = pool.slice(); for(let i=cards.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); [cards[i],cards[j]] = [cards[j],cards[i]]; }
+    // as mais restritas primeiro
+    const opts = c => [0,1,2,3].filter(o => o !== me && !st.voids[o][SI[c.s]]);
+    cards.sort((a,b) => opts(a).length - opts(b).length);
+    const hs = hands.map(h => h.slice()), nd = need.slice(); let ok = true;
+    for(const c of cards){
+      const o = opts(c).filter(o => nd[o] > 0);
+      if(!o.length){ ok = false; break; }
+      // proporcional ao espaço livre
+      let tot = o.reduce((s,x) => s + nd[x], 0), r = rnd() * tot, pick = o[0];
+      for(const x of o){ r -= nd[x]; if(r < 0){ pick = x; break; } }
+      hs[pick].push(c); nd[pick]--;
+    }
+    if(ok) return hs;
+  }
+  // sem solução (não deveria acontecer): ignora as falhas
+  const cards = shuffle(pool.slice()); const hs = hands.map(h => h.slice());
+  for(let o=0;o<4;o++) while(hs[o].length < st.hands[o].length) hs[o].push(cards.pop());
+  return hs;
+}
+function rollout(S, rnd){
+  // joga até o fim com a heurística Normal; devolve pontos da dupla 0
+  const pts2 = S.pts.slice();
+  while(S.hands.some(h => h.length)){
+    const p = S.turn;
+    const c = policy(S, p, 'normal', rnd);
+    simPlay(S, p, c, pts2);
+  }
+  return pts2;
+}
+function simPlay(S, p, c, pts2){
+  const h = S.hands[p]; h.splice(h.indexOf(c), 1);
+  if(S.trick.length && c.s !== S.trick[0].c.s) S.voids[p][SI[S.trick[0].c.s]] = 1;
+  if(c.id === S.trunfoId) S.trunfoOut = true;
+  S.played[IDX(c.id)] = 1;
+  S.trick.push({p, c});
+  if(S.trick.length === 4){
+    const w = winnerOf(S.trick, S.tsuit);
+    pts2[w.p % 2] += S.trick.reduce((s,x) => s + pts(x.c), 0);
+    S.trick = []; S.turn = w.p;
+  } else S.turn = (p + 1) % 4;
+}
+const util = p => p + (p > 60 ? 18 : 0) + (p >= 91 ? 12 : 0) + (p === 120 ? 25 : 0) - (p < 60 ? 18 : 0) - (p <= 29 ? 12 : 0) - (p === 0 ? 25 : 0);
+function pimc(st, me, ms, rnd){
+  const L = legal(st.hands[me], st.trick);
+  if(L.length === 1) return L[0];
+  const base = infoOf(st, me);
+  const tot = L.map(() => 0); let n = 0;
+  const t0 = Date.now();
+  while(n < 600 && (n < 12 || Date.now() - t0 < ms)){
+    const hs = sampleWorld(st, me, rnd);
+    for(let i=0;i<L.length;i++){
+      const S = {hands:hs.map(h => h.slice()), trick:st.trick.slice(), tsuit:st.tsuit, played:base.played.slice(),
+        voids:st.voids.map(v => v.slice()), trunfoId:base.trunfoId, trunfoHolder:base.trunfoHolder, trunfoOut:st.trunfoOut, turn:me, pts:st.pts};
+      const c = S.hands[me].find(x => x.id === L[i].id);
+      const acc = st.pts.slice(); simPlay(S, me, c, acc); S.pts = acc;
+      const res = rollout(S, rnd);
+      tot[i] += util(res[me % 2]);
+    }
+    n++;
+  }
+  let bi = 0; for(let i=1;i<L.length;i++) if(tot[i] > tot[bi]) bi = i;
+  return L[bi];
+}
+const PIMC_MS = {v:450};
+function suecaBot(st, me, o){
+  if(st.phase === 'roundEnd') return {t:'next'};
+  const lvl = (o && o.diff) || 'normal';
+  const c = lvl === 'dificil' ? pimc(st, me, PIMC_MS.v, Math.random) : policy(infoOf(st, me), me, lvl, Math.random);
+  return {t:'play', id:c.id};
+}
+
+/* ============================ JOGO ============================ */
+Mesa.run({
+  id:'sueca', name:'Sueca', icon:'🂱', tagline:'Em duplas, com trunfo',
+  options:[
+    {key:'meta', label:'Partida até', default:'4', choices:[['2','2 jogos'],['4','4 jogos'],['6','6 jogos']]},
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  players:4,
+  team: s => s % 2,
+  seatLabel: s => 'Dupla ' + (s % 2 + 1),
+  modeLabel: o => 'ATÉ ' + o.meta + ' JOGOS · BOT ' + (DIFF[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const st = {names:players.map(p => p.name), n:4, jogos:[0,0], meta:+o.meta || 4, deal:1, dealer:Math.floor(Math.random()*4)};
+    newDeal(st); return st;
+  },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Mão 1 — ${esc(st.names[st.dealer])} dá as cartas; trunfo: ${st.trunfo.r}${st.trunfo.s} (${SNAME[st.tsuit]}).`}]; },
+  waiting(st){ return st.phase === 'play' ? [st.turn] : st.phase === 'roundEnd' ? [0] : []; },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = st.jogos[0] === st.jogos[1] ? null : (st.jogos[0] > st.jogos[1] ? 0 : 1);
+    return {winners: w == null ? [] : [w, w + 2], draw: w == null, text:`Jogos: <b>${st.jogos[0]}</b> × <b>${st.jogos[1]}</b>`};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false};
+    const ev = [];
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(st.jogos.some(j => j >= st.meta)){ st.phase = 'end'; return {events:[]}; }
+      st.deal++; st.dealer = (st.dealer + 1) % 4; newDeal(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Mão ${st.deal} — ${esc(st.names[st.dealer])} dá as cartas; trunfo: ${st.trunfo.r}${st.trunfo.s} (${SNAME[st.tsuit]}).`}]};
+    }
+    if(st.phase !== 'play' || seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t !== 'play') return {ok:false};
+    const h = st.hands[seat], c = h.find(x => x.id === a.id);
+    if(!c) return {ok:false, err:'Essa carta não está na sua mão.'};
+    if(!legal(h, st.trick).includes(c)) return {ok:false, err:`Você tem ${SNAME[st.trick[0].c.s]}: é obrigatório assistir ao naipe.`};
+    h.splice(h.indexOf(c), 1);
+    if(st.trick.length && c.s !== st.trick[0].c.s){
+      st.voids[seat][SI[st.trick[0].c.s]] = 1;
+      if(c.s === st.tsuit) ev.push({k:'say', seat, text:'Corto!'});
+    }
+    if(c.id === st.trunfo.id) st.trunfoOut = true;
+    st.played.push(c.id); st.trick.push({p:seat, c});
+    ev.push({k:'snd', s:'card'});
+    if(st.trick.length < 4){ st.turn = (seat + 1) % 4; return {events:ev}; }
+    // fim da vaza
+    const w = winnerOf(st.trick, st.tsuit), tp = st.trick.reduce((s,x) => s + pts(x.c), 0);
+    st.pts[w.p % 2] += tp; st.vazas[w.p % 2]++; st.nTrick++;
+    st.lastTrick = {cards:st.trick, w:w.p, pts:tp}; st.trick = []; st.turn = w.p;
+    ev.push({k:'snd', s: tp >= 10 ? 'capture' : 'move'});
+    if(tp >= 20) ev.push({k:'say', seat:w.p, text:`+${tp}`});
+    if(st.nTrick === 10) endDeal(st, ev);
+    return {events:ev, pause:1150};
+  },
+  bot(st, seat, o){ return suecaBot(st, seat, o); },
+  botDelay(st, s, o){ return st.phase === 'roundEnd' ? 4200 : (o && o.diff === 'dificil' ? 380 : 720); },
+  view(st, seat){
+    return {names:st.names, me:seat, team: seat >= 0 ? seat % 2 : 0, turn:st.turn, phase:st.phase, deal:st.deal, dealer:st.dealer,
+      jogos:st.jogos, meta:st.meta, hand: seat >= 0 ? st.hands[seat] : [], counts:st.hands.map(h => h.length),
+      trick:st.trick, lastTrick:st.lastTrick, trunfo:st.trunfo, tsuit:st.tsuit, trunfoOut:st.trunfoOut,
+      pts:st.pts, vazas:st.vazas, breakdown:st.breakdown};
+  },
+  topInfo(g){ const t = g.team; return `<div class="sc">Jogos: Nós <span style="color:var(--nos)">${g.jogos[t]}</span> × <span style="color:var(--eles)">${g.jogos[1-t]}</span> Eles · até ${g.meta}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Jogo em <b>duplas</b> (parceiros sentados frente a frente). Em cada mão, a dupla que fizer <b>mais de 60 pontos</b> nas vazas ganha jogos. Vence a partida quem chegar primeiro ao número de jogos combinado (4, por padrão).</p>
+  <h3>Cartas</h3><p>Baralho de <b>40 cartas</b> (sem 8, 9 e 10). Força, da maior para a menor: <b>A, 7, K, J, Q, 6, 5, 4, 3, 2</b>.</p>
+  <table><tr><th>Carta</th><th>Pontos</th></tr><tr><td>Ás</td><td>11</td></tr><tr><td>7 (a "bisca")</td><td>10</td></tr><tr><td>Rei (K)</td><td>4</td></tr><tr><td>Valete (J)</td><td>3</td></tr><tr><td>Dama (Q)</td><td>2</td></tr><tr><td>6, 5, 4, 3, 2</td><td>0</td></tr></table>
+  <p>Total do baralho: <b>120 pontos</b>.</p>
+  <h3>Trunfo</h3><p>Cada um recebe 10 cartas. A <b>última carta dada ao carteador</b> fica virada para todos: o naipe dela é o <b>trunfo</b> da mão. Ela continua na mão do carteador até ele a jogar (o quadrinho "Trunfo" mostra com quem está).</p>
+  <h3>Como jogar</h3><ol><li>Começa o jogador seguinte ao carteador; a vez segue no sentido <b>anti-horário</b> (você → direita → frente → esquerda).</li>
+  <li>É <b>obrigatório assistir</b>: jogue uma carta do naipe que abriu a vaza, se tiver. Sem esse naipe (falha), jogue qualquer carta — um trunfo <b>corta</b>.</li>
+  <li>Ganha a vaza o trunfo mais alto; sem trunfo, a carta mais alta do naipe de saída. Quem ganha abre a próxima.</li>
+  <li>São 10 vazas por mão. No fim, cada dupla soma os pontos das cartas que ganhou.</li></ol>
+  <h3>Jogos por mão</h3><table><tr><th>Pontos da dupla</th><th>Ganha</th></tr><tr><td>61 a 90</td><td>1 jogo</td></tr><tr><td>91 a 119</td><td>2 jogos</td></tr><tr><td>120 (bandeira)</td><td>4 jogos</td></tr><tr><td>60 × 60</td><td>empate, ninguém marca</td></tr></table>
+  <p>A cada mão o carteador passa para o próximo jogador. Aqui não existe "renúncia": a mesa não deixa você jogar fora do naipe quando tem carta dele.</p>
+  <h3>Dicas</h3><ul><li><b>Carregar</b>: quando seu parceiro já está ganhando a vaza, jogue cartas de pontos (7, Ás) nela.</li><li>Guarde trunfos para cortar as cartas de pontos dos adversários; conte os trunfos que já saíram.</li><li>A "Última vaza" fica no canto da mesa para você conferir.</li></ul>
+  <h3>Bots</h3><p><b>Fácil</b>: joga razoável, mas não presta atenção em quem já falhou cada naipe. <b>Normal</b>: conta as cartas e os trunfos, sabe quem cortou cada naipe, carrega pontos para o parceiro e guarda trunfos. <b>Difícil</b>: além disso, simula centenas de distribuições possíveis das cartas escondidas (Monte Carlo) antes de cada jogada.</p>`,
+  render(g, v, ui){
+    const S = ui.stage, me = v.me < 0 ? 0 : v.me;
+    const W = S.clientWidth, Hh = S.clientHeight;
+    let cw = clamp((W - 24) / (Math.max(g.hand.length, 6) * 0.66 + 0.34), 38, 86);
+    cw = Math.floor(Math.min(cw, Hh * 0.16 / 1.43));
+    S.style.setProperty('--cw', cw + 'px'); S.style.setProperty('--ch', Math.round(cw * 1.43) + 'px');
+    if(!S.querySelector('.sq-top')){
+      S.innerHTML = `<div class="sq-top" id="sTop"></div>
+        <div class="sq-mid"><div id="sL"></div><div class="felt" id="felt"></div><div id="sR"></div></div>
+        <div class="info" id="info"></div><div class="status" id="st"></div><div class="myhand" id="mh" data-seat="${me}"></div>`;
+      shownTrick = '';
+    }
+    const felt = $('#felt'); const fw = felt.clientWidth, fh = felt.clientHeight;
+    const tw = Math.floor(clamp(Math.min(fw * 0.2, fh * 0.26 / 1.43), 34, 84));
+    felt.style.setProperty('--tw', tw + 'px'); felt.style.setProperty('--th', Math.round(tw * 1.43) + 'px');
+    const pos = i => (i - me + 4) % 4;              // 0 eu, 1 direita, 2 frente, 3 esquerda
+    const chip = i => {
+      const mate = sameTeam(i, me);
+      return `<div class="seatc t${mate ? 0 : 1} ${g.phase === 'play' && g.turn === i && v.waiting.length ? 'vez' : ''}" data-seat="${i}">
+        ${g.dealer === i ? '<span class="dl" title="Carteador">D</span>' : ''}<span class="n">${esc(g.names[i])}</span>
+        <span class="sub">${i === me ? 'você' : mate ? 'parceiro' : 'adversário'}</span>
+        <div class="fan">${'<div class="card back"></div>'.repeat(g.counts[i])}</div></div>`;
+    };
+    $('#sTop').innerHTML = chip((me + 2) % 4); $('#sL').innerHTML = chip((me + 3) % 4); $('#sR').innerHTML = chip((me + 1) % 4);
+    // mesa: vaza atual (ou a que acabou de fechar, durante a pausa)
+    const closing = !g.trick.length && g.lastTrick && (!v.waiting.length || g.phase === 'roundEnd');
+    const tcards = closing ? g.lastTrick.cards : g.trick;
+    const key = (closing ? 'L' : 'T') + tcards.map(x => x.c.id).join(',');
+    let fh2 = `<div class="trbox">TRUNFO<div class="card ${isRed(g.trunfo) ? 'red' : ''}"><span class="tl">${g.trunfo.r}<br>${g.trunfo.s}</span><span class="mid">${g.trunfo.s}</span></div>
+      <div class="w">${g.trunfoOut ? 'já jogado' : (g.dealer === me ? 'com você' : 'com ' + esc(g.names[g.dealer]))}</div></div>`;
+    if(g.lastTrick && !closing){
+      fh2 += `<div class="ltbox">Última vaza<div class="row4">${[0,1,2,3].map(k => { const x = g.lastTrick.cards.find(y => pos(y.p) === k); if(!x) return '';
+        return cardEl(x.c, {cls: x.p === g.lastTrick.w ? 'win' : ''}).outerHTML; }).join('')}</div></div>`;
+    }
+    for(const x of tcards){
+      const win = closing && x.p === g.lastTrick.w;
+      fh2 += `<div class="slot s${pos(x.p)}" data-p="${x.p}">${cardEl(x.c, {cls: win ? 'win' : ''}).outerHTML}</div>`;
+    }
+    const prevIds = shownTrick.slice(1).split(',').filter(Boolean);
+    felt.innerHTML = fh2;
+    for(const x of tcards){
+      if(prevIds.includes(x.c.id) && shownTrick[0] === key[0]) continue;
+      if(closing && shownTrick[0] === 'T') { if(shownTrick.includes(x.c.id)) continue; }
+      const el = felt.querySelector(`.slot[data-p="${x.p}"] .card`);
+      const from = x.p === me ? $('#mh') : S.querySelector(`.seatc[data-seat="${x.p}"]`);
+      if(el && from) flyFrom(el, from.getBoundingClientRect(), {dur:300});
+    }
+    shownTrick = key;
+    // placar da mão
+    const t = g.team;
+    $('#info').innerHTML = `<span class="nos">Nós: ${g.vazas[t]} vaza${g.vazas[t] === 1 ? '' : 's'} · ${g.pts[t]} pts</span><span class="eles">Eles: ${g.vazas[1-t]} vaza${g.vazas[1-t] === 1 ? '' : 's'} · ${g.pts[1-t]} pts</span>`;
+    // minha mão
+    const myTurn = g.phase === 'play' && v.waiting.includes(me);
+    const L = myTurn ? legal(g.hand, g.trick).map(c => c.id) : [];
+    const mh = $('#mh'); mh.innerHTML = '';
+    sortHand(g.hand, g.tsuit).forEach(c => {
+      const el = cardEl(c);
+      if(myTurn){ if(L.includes(c.id)){ el.classList.add('playable'); el.onclick = () => ui.act({t:'play', id:c.id}); } else el.classList.add('dim'); }
+      mh.appendChild(el);
+    });
+    let s = '';
+    if(g.phase === 'play'){
+      if(!v.waiting.length) s = g.lastTrick ? `Vaza de ${g.lastTrick.w === me ? 'você' : g.names[g.lastTrick.w]} (+${g.lastTrick.pts})` : '';
+      else if(myTurn) s = g.trick.length ? (L.length < g.hand.length ? `Sua vez — assista: ${SNAME[g.trick[0].c.s]}` : `Sua vez — sem ${SNAME[g.trick[0].c.s]}: corte ou descarte`) : 'Sua vez — abra a vaza';
+      else s = 'Vez de ' + g.names[g.turn];
+    }
+    if(g.phase === 'roundEnd' && g.breakdown){
+      const b = g.breakdown; s = 'Fim da mão';
+      const rk = g.deal + (v.waiting.includes(me) ? 'w' : '');
+      if(roundKey !== rk){ roundKey = rk;
+        const res = b.w < 0 ? 'Empate 60 × 60 — ninguém marca.' : `${b.w === t ? 'Nós' : 'Eles'} fizemos ${b.pts[b.w]} pontos: <b>+${b.j} jogo${b.j > 1 ? 's' : ''}</b>.`.replace('Eles fizemos', 'Eles fizeram');
+        modal(`<h2>Fim da mão ${g.deal}</h2><table><tr><th></th><th>Nós</th><th>Eles</th></tr><tr><td>Vazas</td><td>${b.vazas[t]}</td><td>${b.vazas[1-t]}</td></tr>
+          <tr><td>Pontos</td><td>${b.pts[t]}</td><td>${b.pts[1-t]}</td></tr><tr><th>Jogos</th><th>${g.jogos[t]}</th><th>${g.jogos[1-t]}</th></tr></table><p>${res}</p>`,
+          v.waiting.includes(me) ? [{label:'Próxima mão ▶', fn:() => ui.act({t:'next'})}] : [{label:'OK'}], 'round');
+      }
+    } else if(modalTag === 'round') closeModal();
+    $('#st').textContent = s;
+  }
+});
+let shownTrick = '', roundKey = '';
+</script>
+</body>
+</html>

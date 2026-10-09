@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<title>Stop (Adedonha)</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:6px 8px 8px}
+.sp{display:flex;flex-direction:column;gap:8px;height:100%;width:100%;max-width:860px;margin:0 auto;min-height:0}
+.hd{display:flex;align-items:center;justify-content:center;gap:12px;flex:none}
+.letra{width:62px;height:62px;border-radius:14px;background:linear-gradient(180deg,#fff3cf,#e7b43a);color:#3a2600;font-size:42px;font-weight:900;display:grid;place-items:center;
+  box-shadow:0 5px 0 #6b4a00,0 10px 20px rgba(0,0,0,.4);flex:none}
+.letra.roll{animation:pop .4s}
+.hinfo{display:flex;flex-direction:column;gap:2px;font-weight:800;color:#ffe6a6;font-size:13px}
+.tm{font-size:26px;color:#fff;font-variant-numeric:tabular-nums}
+.tm.low{color:#ff8f7f;animation:pulse 1s infinite}
+.opps{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:none}
+.opp{background:rgba(0,0,0,.35);border-radius:12px;padding:3px 8px;font-size:12px;font-weight:700;white-space:nowrap;border:2px solid transparent}
+.opp.me{color:#bff5d4}.opp.full{border-color:var(--gold)}.opp.ok{border-color:var(--nos)}
+.scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 6px}
+.form{display:grid;grid-template-columns:repeat(var(--fc),1fr);gap:8px}
+.fi{display:flex;flex-direction:column;gap:3px}
+.fi label{font-size:12px;font-weight:800;color:#ffe6a6;text-transform:uppercase;letter-spacing:.5px}
+.fi input{padding:10px 12px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font-size:17px;outline:none;width:100%;font-weight:700}
+.fi input:focus{border-color:var(--gold)}
+.fi input.okl{border-color:rgba(62,207,122,.7)} .fi input.bad{border-color:#ff8f7f}
+.bar{display:flex;gap:8px;justify-content:center;flex:none}
+.stopb{background:linear-gradient(180deg,#ff6b5b,#c0182b);color:#fff;border:none;border-radius:14px;font-size:24px;font-weight:900;letter-spacing:3px;padding:10px 36px;
+  box-shadow:0 5px 0 #6e0d18,0 10px 18px rgba(0,0,0,.4);cursor:pointer}
+.stopb:disabled{filter:grayscale(.8);opacity:.5;cursor:not-allowed}
+.stopb:not(:disabled):active{transform:translateY(3px);box-shadow:0 2px 0 #6e0d18}
+.go{background:var(--nos);color:#06301a;border:none;border-radius:12px;font-size:16px;font-weight:900;padding:10px 22px;cursor:pointer}
+.go:disabled{opacity:.5}
+.msgl{font-size:13px;font-weight:700;color:#ffe9c4;text-align:center}
+/* conferência */
+.cc{background:rgba(0,0,0,.28);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+.cc h4{color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.ar{display:grid;grid-template-columns:minmax(60px,110px) 1fr auto auto;gap:8px;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,.07);font-size:14px}
+.ar:first-of-type{border-top:none}
+.ar .nm{font-size:12px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ar .an{font-weight:800;overflow-wrap:anywhere}
+.ar .an.inv{text-decoration:line-through;color:#ff9b8c}
+.ar .an.vz{opacity:.45;font-weight:600}
+.ar .vt{font-size:12px;color:#ffb4a8;min-width:34px;text-align:right}
+.ar .pt{font-weight:900;color:var(--gold);min-width:30px;text-align:right}
+.vb{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;border-radius:8px;padding:5px 8px;font-size:13px;cursor:pointer;white-space:nowrap}
+.vb.on{background:#c0182b;border-color:#ff8f7f}
+.tot{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tot div{background:rgba(0,0,0,.35);border-radius:10px;padding:5px 10px;font-weight:800;font-size:13px}
+.tot b{color:var(--gold)}
+@media (max-width:520px){ .letra{width:52px;height:52px;font-size:34px} .tm{font-size:22px} .stopb{font-size:20px;padding:9px 28px} .fi input{padding:9px 10px;font-size:16px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="palavras-cat.js"></script>
+<script>
+"use strict";
+/* ========================= STOP (ADEDONHA) ========================= */
+const semAcento = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const chave = s => semAcento(s).replace(/[^a-z0-9]/g, '');
+const CATS = {nome:'Nome', cep:'CEP (cidade/estado/país)', animal:'Animal', cor:'Cor', fruta:'Fruta', objeto:'Objeto', profissao:'Profissão',
+  marca:'Marca', filme:'Filme/Série', comida:'Comida', esporte:'Esporte', corpo:'Parte do corpo', instrumento:'Instrumento musical', transporte:'Meio de transporte'};
+const CURTO = {cep:'CEP', filme:'Filme/Série', instrumento:'Instrumento', transporte:'Transporte', corpo:'Corpo'};
+const PADRAO = ['nome','cep','animal','cor','fruta','objeto','profissao','marca','filme','comida'];
+const PRESETS = {
+  c5:['nome','cep','animal','cor','fruta'],
+  c6:['nome','cep','animal','cor','fruta','objeto'],
+  c8:['nome','cep','animal','cor','fruta','objeto','profissao','comida'],
+  c10:PADRAO,
+  s6:null, s8:null                                           // sorteadas a cada rodada
+};
+const LETRAS = {normais:'ABCDEFGHIJLMNOPQRSTUVXZ', faceis:'ABCDEFGILMNPRST', todas:'ABCDEFGHIJKLMNOPQRSTUVWXYZ'};
+const DIFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+
+/* base de respostas: comuns (bots) e extras (só para conferir) */
+const BASE = {}, CONHECE = {};
+for(const k in CATS){
+  const src = k === 'cep' ? [PALAVRAS_CAT.cep, PALAVRAS_CAT.pais] : [PALAVRAS_CAT[k]];
+  BASE[k] = src.flatMap(c => c.b.split('|'));
+  const ext = src.flatMap(c => c.x ? c.x.split('|') : []);
+  BASE[k + '_x'] = ext;
+  CONHECE[k] = new Set([...BASE[k], ...ext].map(chave));
+}
+const porLetra = (lista, L) => lista.filter(w => semAcento(w)[0] === L.toLowerCase());
+const emOutra = (k, a) => Object.keys(CATS).some(o => o !== k && CONHECE[o].has(chave(a)));
+const comecaCom = (a, L) => { const t = semAcento(a).replace(/^[^a-z0-9]+/, ''); return t[0] === L.toLowerCase(); };
+const autoOk = (a, L) => !!a && chave(a).length >= 2 && comecaCom(a, L);
+const fmtS = ms => { const s = Math.max(0, Math.ceil(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+function rng(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------------------- MOTOR ---------------------------- */
+function novaRodada(st, agora){
+  st.r++; st.fase = 'jogo';
+  const pool = LETRAS[st.letras].split('').filter(l => !st.usadas.includes(l));
+  st.letra = pick(pool.length ? pool : LETRAS[st.letras].split('')); st.usadas.push(st.letra);
+  if(st.sorteio){ const all = Object.keys(CATS); shuffle(all); st.cats = all.slice(0, st.sorteio); }
+  st.ans = st.p.map(() => st.cats.map(() => ''));
+  st.t0 = agora; st.fim = agora + st.tempo * 1000; st.stopBy = -1; st.v = {};
+  st.p.forEach(p => { p.ent = false; p.pronto = false; p.pts = st.cats.map(() => 0); });
+  st.seed = Math.floor(Math.random() * 1e9);
+}
+function irConferencia(st, agora){
+  st.fase = 'conf'; st.fim = agora + st.tConf * 1000;
+  st.p.forEach(p => p.pronto = false);
+}
+function invalida(st, s, c){
+  if(!autoOk(st.ans[s][c], st.letra)) return true;
+  return (st.v[s + ',' + c] || []).length > (st.n - 1) / 2;   // maioria dos outros jogadores
+}
+function pontua(st, agora){
+  st.cats.forEach((k, c) => {
+    const cont = {};
+    st.p.forEach((p, s) => { if(!invalida(st, s, c)){ const kk = chave(st.ans[s][c]); cont[kk] = (cont[kk] || 0) + 1; } });
+    st.p.forEach((p, s) => { p.pts[c] = invalida(st, s, c) ? 0 : (cont[chave(st.ans[s][c])] > 1 ? 5 : 10); });
+  });
+  st.p.forEach((p, s) => st.tot[s] += p.pts.reduce((a, b) => a + b, 0));
+  st.fase = 'res'; st.fim = agora + 20000;
+  st.p.forEach(p => p.pronto = false);
+}
+function proxima(st, agora){ if(st.r >= st.R) st.fase = 'acabou'; else novaRodada(st, agora); }
+const cheio = (st, s) => st.ans[s].every(a => autoOk(a, st.letra));
+
+/* ---------------------------- BOTS ---------------------------- */
+// plano do bot para a rodada (determinístico): ordem, momento e resposta de cada categoria
+function plano(st, seat, dif){
+  const r = rng(st.seed + seat * 7919), L = st.letra;
+  const passo = {facil:[7000, 5000], normal:[5000, 3500], dificil:[3500, 2500]}[dif];
+  const branco = {facil:0.28, normal:0.12, dificil:0.04}[dif];
+  const ordem = st.cats.map((_, i) => i).sort(() => r() - 0.5);
+  let t = 1500 + r() * 1500; const out = [];
+  for(const c of ordem){
+    t += passo[0] + r() * passo[1];
+    const k = st.cats[c]; let lista = porLetra(BASE[k], L);
+    if(dif === 'dificil' && r() < 0.45){ const x = porLetra(BASE[k + '_x'], L); if(x.length) lista = x; }   // foge das respostas óbvias
+    let w = '';
+    if(lista.length && r() >= branco) w = lista[Math.floor(r() * lista.length)];
+    if(dif === 'facil' && w && r() < 0.06){                     // engano plausível: palavra de outra categoria
+      const ok = Object.keys(CATS).filter(o => o !== k && porLetra(BASE[o], L).length); if(ok.length){ const o = ok[Math.floor(r() * ok.length)], l2 = porLetra(BASE[o], L); w = l2[Math.floor(r() * l2.length)]; }
+    }
+    out.push({c, t, w});
+  }
+  return out;
+}
+function botJogo(st, seat, dif){
+  const pl = plano(st, seat, dif), dt = (Date.now() - st.t0) / CFG.speed, a = {};
+  for(const x of pl) if(x.t <= dt && x.w && !st.ans[seat][x.c]) a[x.c] = x.w;
+  const fica = st.ans[seat].map((v, i) => a[i] != null ? a[i] : v);
+  const pronto = pl.every(x => x.t <= dt) && fica.every(v => autoOk(v, st.letra));
+  return {t: pronto ? 'stop' : 'r', a};
+}
+function botVotos(st, seat, dif){
+  const vs = [];
+  st.cats.forEach((k, c) => st.p.forEach((p, s) => {
+    if(s === seat) return;
+    const a = st.ans[s][c]; if(!autoOk(a, st.letra) || CONHECE[k].has(chave(a))) return;
+    const t = chave(a), lixo = !/[aeiou]/.test(t) || /(.)\1\1/.test(t) || /\d/.test(t) || t.length < 3;
+    // o Difícil também desconfia de nomes, lugares e animais que ele não conhece (bases grandes)
+    const desconhecido = dif === 'dificil' && ['nome','cep','animal'].includes(k) && !emOutra(k, a);
+    if(lixo || desconhecido || (emOutra(k, a) && (dif !== 'facil' || Math.random() < 0.5))) vs.push([s, c]);
+  }));
+  return vs;
+}
+
+Mesa.run({
+  id:'stop', name:'Stop', icon:'✋', tagline:'Adedonha: uma letra, várias categorias',
+  seats: o => +o.jogadores || 4,
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']]},
+    {key:'cats', label:'Categorias', default:'c8', choices:[['c5','5: Nome, CEP, Animal, Cor, Fruta'],['c6','6: + Objeto'],['c8','8: + Profissão, Comida'],['c10','10: + Marca, Filme/Série'],['s6','6 sorteadas por rodada'],['s8','8 sorteadas por rodada']]},
+    {key:'tempo', label:'Tempo por rodada', default:'90', choices:[['60','60 s'],['90','90 s'],['120','120 s']]},
+    {key:'rodadas', label:'Rodadas', default:'5', choices:[['3','3'],['5','5'],['7','7'],['10','10']]},
+    {key:'letras', label:'Letras', default:'normais', choices:[['normais','Sem K, W, Y'],['faceis','Só as fáceis'],['todas','Todas']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => (`${o.rodadas || 5} rodadas · ${o.tempo || 90}s · bot ` + DIFS[o.diff || 'normal']).toUpperCase(),
+  seatLabel: s => 'Jogador ' + (s+1),
+  tickMs: 400,
+
+  setup(players, o){
+    const n = players.length, pre = PRESETS[o.cats] !== undefined ? o.cats : 'c8';
+    const st = {n, names:players.map(p => p.name), human:players.map(p => !!p.human), R:+o.rodadas || 5, r:0, tempo:+o.tempo || 90, tConf:Math.max(30, 18 + 4*n),
+      letras:LETRAS[o.letras] ? o.letras : 'normais', sorteio: pre[0] === 's' ? +pre.slice(1) : 0, cats: PRESETS[pre] ? PRESETS[pre].slice() : [],
+      usadas:[], tot:Array(n).fill(0), hist:[], p:players.map(() => ({}))};
+    novaRodada(st, Date.now());
+    return st;
+  },
+  startEvents(st){ return [{k:'banner', text:'Letra ' + st.letra}, {k:'snd', s:'deal', n:6}]; },
+  waiting(st){
+    if(st.fase === 'jogo') return st.p.map((p, i) => i);
+    if(st.fase === 'recolher') return st.p.map((p, i) => p.ent ? -1 : i).filter(i => i >= 0);
+    if(st.fase === 'conf' || st.fase === 'res') return st.p.map((p, i) => p.pronto ? -1 : i).filter(i => i >= 0);
+    return [];
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || !st.p[seat]) return {ok:false, err:'Jogada inválida.'};
+    const p = st.p[seat], agora = Date.now();
+    if(st.fase === 'jogo' || st.fase === 'recolher'){
+      if(a.t !== 'r' && a.t !== 'stop') return {ok:false, err:'Aguarde.'};
+      if(st.fase === 'recolher' && p.ent) return {ok:false, err:'Respostas já entregues.'};
+      if(a.a && typeof a.a === 'object') for(const i in a.a){ const c = +i; if(c >= 0 && c < st.cats.length && Number.isInteger(c)) st.ans[seat][c] = String(a.a[i] == null ? '' : a.a[i]).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40); }
+      if(st.fase === 'recolher'){ if(a.fim) p.ent = true; if(st.p.every(q => q.ent)) irConferencia(st, agora); return {events:[]}; }
+      if(a.t === 'stop'){
+        if(!cheio(st, seat)) return {ok:false, err:`Para pedir STOP, preencha tudo com palavras começando com ${st.letra}.`};
+        st.fase = 'recolher'; st.stopBy = seat; st.fim = agora + 2500; p.ent = true;
+        return {events:[{k:'banner', text:`STOP! — ${st.names[seat]}`}, {k:'snd', s:'alert'}, {k:'log', text:`<b>${esc(st.names[seat])}</b> pediu STOP na letra ${st.letra}`}]};
+      }
+      return {events:[]};
+    }
+    if(st.fase === 'conf'){
+      if(a.t === 'voto'){
+        const s = a.s|0, c = a.c|0, kk = s + ',' + c;
+        if(s === seat || s < 0 || s >= st.n || c < 0 || c >= st.cats.length) return {ok:false, err:'Não dá para votar nessa resposta.'};
+        if(!autoOk(st.ans[s][c], st.letra)) return {ok:false, err:'Essa resposta já está anulada.'};
+        const l = st.v[kk] = (st.v[kk] || []).filter(x => x !== seat);
+        if(a.v) l.push(seat);
+        return {events:[]};
+      }
+      if(a.t === 'pronto'){
+        if(Array.isArray(a.votos)) for(const x of a.votos.slice(0, 200)){ if(!Array.isArray(x)) continue; const s = x[0]|0, c = x[1]|0;
+          if(s !== seat && s >= 0 && s < st.n && c >= 0 && c < st.cats.length && autoOk(st.ans[s][c], st.letra)){ const l = st.v[s + ',' + c] = st.v[s + ',' + c] || []; if(!l.includes(seat)) l.push(seat); } }
+        p.pronto = true;
+        if(st.p.every(q => q.pronto)){ pontua(st, agora); return {events:[{k:'snd', s:'deal', n:3}]}; }
+        return {events:[]};
+      }
+      return {ok:false, err:'Aguarde a conferência.'};
+    }
+    if(st.fase === 'res'){
+      if(a.t !== 'ok') return {ok:false, err:'Aguarde.'};
+      p.pronto = true;
+      if(st.p.every(q => q.pronto)){ proxima(st, agora); return {events: st.fase === 'jogo' ? [{k:'banner', text:'Letra ' + st.letra}, {k:'snd', s:'deal', n:6}] : []}; }
+      return {events:[]};
+    }
+    return {ok:false, err:'A partida acabou.'};
+  },
+  tick(st, o, agora){
+    if(agora < st.fim) return null;
+    if(st.fase === 'jogo'){ st.fase = 'recolher'; st.fim = agora + 2500; return {changed:true, events:[{k:'banner', text:'Tempo esgotado!', bad:true}, {k:'snd', s:'alert'}]}; }
+    if(st.fase === 'recolher'){ irConferencia(st, agora); return {changed:true}; }
+    if(st.fase === 'conf'){ pontua(st, agora); return {changed:true}; }
+    if(st.fase === 'res'){ proxima(st, agora); return {changed:true, events: st.fase === 'jogo' ? [{k:'banner', text:'Letra ' + st.letra}] : []}; }
+    return null;
+  },
+  over(st){
+    if(st.fase !== 'acabou') return null;
+    const mx = Math.max(...st.tot), ord = st.tot.map((t, i) => i).sort((a, b) => st.tot[b] - st.tot[a]);
+    return {winners:st.tot.map((t, i) => t === mx ? i : -1).filter(i => i >= 0), text:ord.map((i, k) => `${k+1}º <b>${esc(st.names[i])}</b>: ${st.tot[i]} pontos`).join('<br>')};
+  },
+  bot(st, seat, o){
+    const dif = o.diff || 'normal';
+    if(st.fase === 'jogo') return botJogo(st, seat, dif);
+    if(st.fase === 'recolher') return {t:'r', a:{}, fim:true};
+    if(st.fase === 'conf') return {t:'pronto', votos:botVotos(st, seat, dif)};
+    return {t:'ok'};
+  },
+  botFallback(st){ return st.fase === 'jogo' || st.fase === 'recolher' ? {t:'r', a:{}, fim:true} : (st.fase === 'conf' ? {t:'pronto'} : {t:'ok'}); },
+  botDelay(st, seat, o){
+    const k = Math.max(1, st.p.filter((p, i) => !st.human[i]).length);
+    if(st.fase === 'recolher') return 150;
+    if(st.fase === 'conf') return (3500 + (seat * 1300) % 4000) / k;
+    if(st.fase === 'res') return 2500 / k;
+    const pl = plano(st, seat, o.diff || 'normal'), dt = (Date.now() - st.t0) / CFG.speed;
+    const prox = pl.map(x => x.t).filter(t => t > dt).sort((a, b) => a - b)[0];
+    return Math.max(300, Math.min(3000, prox == null ? 3000 : prox - dt)) / k;
+  },
+  view(st, seat){
+    const aberto = st.fase === 'conf' || st.fase === 'res' || st.fase === 'acabou';
+    return {
+      fase:st.fase, r:st.r, R:st.R, letra:st.letra, cats:st.cats, fim:st.fim, stopBy:st.stopBy, n:st.n, tConf:st.tConf,
+      minhas: st.ans[seat] ? st.ans[seat].slice() : [],
+      outros: st.p.map((p, i) => ({i, name:st.names[i], tot:st.tot[i], pronto:p.pronto, n:st.ans[i].filter(a => autoOk(a, st.letra)).length})),
+      // as respostas dos outros só aparecem na conferência
+      ans: aberto ? st.ans : null,
+      votos: aberto ? st.cats.map((k, c) => st.p.map((p, s) => { const l = st.v[s + ',' + c] || []; return [l.length, l.includes(seat) ? 1 : 0]; })) : null,
+      inv: aberto ? st.cats.map((k, c) => st.p.map((p, s) => invalida(st, s, c) ? 1 : 0)) : null,
+      auto: aberto ? st.cats.map((k, c) => st.p.map((p, s) => autoOk(st.ans[s][c], st.letra) ? 1 : 0)) : null,
+      pts: st.fase === 'res' || st.fase === 'acabou' ? st.p.map(p => p.pts) : null
+    };
+  },
+  topInfo(g){ return `<div class="status">Rodada ${g.r}/${g.R} · Letra ${g.letra}</div>`; },
+  render(g, v, ui){ desenha(g, v, ui); },
+  rules:`<h3>Objetivo</h3><p>Fazer mais pontos escrevendo, para cada categoria, uma palavra que comece com a <b>letra sorteada</b>.</p>
+<h3>Como jogar</h3><ul>
+<li>A cada rodada sai uma letra. Todos preenchem as categorias ao mesmo tempo (Nome, CEP — cidade, estado ou país —, Animal, Cor, Fruta...).</li>
+<li>A rodada termina quando alguém aperta <b>STOP</b> (só dá para apertar com <b>tudo preenchido</b> e começando com a letra) ou quando o <b>tempo</b> acaba. O que estiver escrito na hora vale.</li>
+<li><b>Conferência</b>: todas as respostas aparecem. Se achar que uma resposta de outro jogador não vale, toque em 👎. Se a <b>maioria dos outros jogadores</b> votar contra, ela é anulada. Respostas vazias ou que não começam com a letra já são anuladas automaticamente. Aperte <b>Pronto</b> quando terminar (ou espere o tempo).</li>
+<li>Acentos e maiúsculas não importam na comparação (Ágata = agata).</li></ul>
+<h3>Pontuação</h3><ul><li><b>10</b> pontos: resposta válida que só você deu.</li><li><b>5</b> pontos: resposta válida repetida por outro jogador.</li><li><b>0</b>: vazia ou anulada.</li></ul>
+<p>Vence quem somar mais pontos ao fim das rodadas. As letras não se repetem na mesma partida.</p>
+<h3>Bots</h3><p>Escrevem em ritmo de gente, a partir de uma base de palavras por categoria. O Fácil é mais lento, às vezes deixa em branco e pode se confundir de categoria; o Difícil é rápido e prefere respostas menos óbvias (para não repetir). Na conferência, os bots aceitam o que conhecem e votam contra palavras de outra categoria ou sem sentido (o Difícil também desconfia de nomes, lugares e animais que não conhece).</p>`
+});
+
+/* ---------------------------- TELA ---------------------------- */
+const LOC = {key:'', vals:[], dirty:{}, timer:null, sentFim:'', votoLocal:{}};
+function envia(ui, fim){
+  const a = {}; for(const i in LOC.dirty) a[i] = LOC.vals[i];
+  LOC.dirty = {};
+  ui.act(fim ? {t:'r', a:Object.assign({}, LOC.vals.reduce((o, v, i) => (o[i] = v, o), {})), fim:true} : {t:'r', a});
+}
+function relogio(){
+  const v = Mesa.ui.view, g = v && v.game, el = $('#tm');
+  if(!g || !el) return;
+  const rest = g.fim - Date.now();
+  el.textContent = fmtS(rest); el.classList.toggle('low', g.fase === 'jogo' && rest < 10500);
+}
+setInterval(relogio, 250);
+function oppsHtml(g, v, modo){
+  return `<div class="opps">${g.outros.map(o => `<div class="opp ${o.i === v.me ? 'me' : ''} ${modo === 'jogo' && o.n === g.cats.length ? 'full' : ''} ${modo !== 'jogo' && o.pronto ? 'ok' : ''}" data-seat="${o.i}">${esc(o.name)}${o.i === v.me ? ' (você)' : ''} · ${modo === 'jogo' ? o.n + '/' + g.cats.length : o.tot + ' pts' + (o.pronto ? ' ✓' : '')}</div>`).join('')}</div>`;
+}
+function hdHtml(g, txt){
+  return `<div class="hd"><div class="letra">${g.letra}</div><div class="hinfo"><span>Rodada ${g.r} de ${g.R}</span>${g.fase === 'acabou' ? '' : `<span class="tm" id="tm">${fmtS(g.fim - Date.now())}</span>`}<span>${txt}</span></div></div>`;
+}
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me;
+  if(g.fase === 'jogo' || g.fase === 'recolher'){
+    const key = v.gameNo + '-' + g.r;
+    if(LOC.key !== key){                                       // rodada nova: monta o formulário uma vez
+      LOC.key = key; LOC.vals = g.minhas.slice(); LOC.dirty = {}; LOC.sentFim = '';
+      const cols = S.clientWidth > 620 ? 2 : 1;
+      S.innerHTML = `<div class="sp"><div id="hdBox"></div><div id="oppBox"></div><div class="scroll"><form class="form" id="fStop" style="--fc:${cols}" autocomplete="off" onsubmit="return false">
+        ${g.cats.map((k, i) => `<div class="fi"><label for="in${i}">${esc(CATS[k])}</label><input id="in${i}" data-i="${i}" maxlength="40" autocapitalize="words" spellcheck="false" placeholder="${g.letra}..."></div>`).join('')}
+        </form></div><div class="bar"><button class="stopb" id="bStop">STOP!</button></div><div class="msgl" id="sMsg"></div></div>`;
+      $$('#fStop input', S).forEach(inp => {
+        const i = +inp.dataset.i; inp.value = LOC.vals[i] || '';
+        inp.oninput = () => { LOC.vals[i] = inp.value; LOC.dirty[i] = 1; marca(inp, g); botaoStop(g);
+          clearTimeout(LOC.timer); LOC.timer = setTimeout(() => { if(Object.keys(LOC.dirty).length) envia(ui); }, 1200); };
+        inp.onchange = () => { if(LOC.dirty[i]) envia(ui); };
+        inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); const nx = $('#in' + (i+1), S); if(nx) nx.focus(); else inp.blur(); } };
+        marca(inp, g);
+      });
+      $('#bStop', S).onclick = () => { clearTimeout(LOC.timer); ui.act({t:'stop', a:Object.assign({}, LOC.vals.map(x => x || ''))}); LOC.dirty = {}; };
+      const l = $('.letra', S); if(l) l.classList.add('roll');
+    }
+    $('#hdBox', S).innerHTML = hdHtml(g, g.fase === 'recolher' ? 'STOP! Recolhendo...' : 'Preencha tudo e peça STOP');
+    $('#oppBox', S).innerHTML = oppsHtml(g, v, 'jogo');
+    botaoStop(g);
+    if(g.fase === 'recolher'){
+      $$('#fStop input', S).forEach(x => x.disabled = true);
+      $('#sMsg', S).textContent = g.stopBy >= 0 ? `${g.outros[g.stopBy].name} pediu STOP!` : 'Tempo esgotado!';
+      if(LOC.sentFim !== key && v.waiting.includes(me)){ LOC.sentFim = key; clearTimeout(LOC.timer); setTimeout(() => envia(ui, true), 0); }
+    }
+    relogio();
+    return;
+  }
+  LOC.key = '';
+  if(g.fase === 'conf' || g.fase === 'res' || g.fase === 'acabou'){
+    const res = g.fase !== 'conf', meuPronto = g.outros[me] && g.outros[me].pronto;
+    const sc = $('.scroll', S), top = sc ? sc.scrollTop : 0;
+    const cards = g.cats.map((k, c) => `<div class="cc"><h4>${esc(CATS[k])}</h4>${g.outros.map(o => {
+        const a = g.ans[o.i][c], inv = g.inv[c][o.i], au = g.auto[c][o.i], [nv, euVotei] = g.votos[c][o.i];
+        const btn = !res && o.i !== me && au ? `<button class="vb ${euVotei ? 'on' : ''}" data-s="${o.i}" data-c="${c}" data-v="${euVotei ? 0 : 1}" title="Votar para anular">👎${euVotei ? ' anulando' : ''}</button>` : '<span></span>';
+        return `<div class="ar"><span class="nm">${esc(o.name)}${o.i === me ? ' (você)' : ''}</span><span class="an ${!a ? 'vz' : (inv && (res || !au) ? 'inv' : '')}">${a ? esc(a) : '(vazio)'}</span>
+          <span class="vt">${au && nv ? nv + '👎' : ''}</span>${res ? `<span class="pt">${g.pts[o.i][c]}</span>` : btn}</div>`; }).join('')}</div>`).join('');
+    const totRodada = res ? g.outros.map(o => `<div>${esc(o.name)}: <b>+${g.pts[o.i].reduce((a, b) => a + b, 0)}</b> · ${o.tot}</div>`).join('') : '';
+    const txt = g.fase === 'conf' ? 'Conferência: anule o que não vale' : (g.fase === 'res' ? 'Pontos da rodada' : 'Fim de jogo');
+    const btn = g.fase === 'conf' ? (meuPronto ? '<div class="msgl">Aguardando os outros...</div>' : '<button class="go" id="bPronto">Pronto ✓</button>')
+              : g.fase === 'res' ? (meuPronto ? '<div class="msgl">Aguardando os outros...</div>' : `<button class="go" id="bOk">${g.r >= g.R ? 'Ver resultado' : 'Próxima rodada'}</button>`) : '';
+    S.innerHTML = `<div class="sp">${hdHtml(g, txt)}${res ? '' : oppsHtml(g, v, 'conf')}${res ? `<div class="tot">${totRodada}</div>` : ''}<div class="scroll">${cards}</div><div class="bar">${btn}</div></div>`;
+    const sc2 = $('.scroll', S); if(sc2) sc2.scrollTop = top;
+    $$('.vb', S).forEach(b => b.onclick = () => ui.act({t:'voto', s:+b.dataset.s, c:+b.dataset.c, v:b.dataset.v === '1'}));
+    if($('#bPronto', S)) $('#bPronto', S).onclick = () => ui.act({t:'pronto'});
+    if($('#bOk', S)) $('#bOk', S).onclick = () => ui.act({t:'ok'});
+    relogio();
+  }
+}
+function marca(inp, g){ const v = inp.value.trim(); inp.classList.toggle('okl', !!v && autoOk(v, g.letra)); inp.classList.toggle('bad', !!v && !comecaCom(v, g.letra)); }
+function botaoStop(g){
+  const b = $('#bStop'); if(!b) return;
+  const ok = g.fase === 'jogo' && g.cats.every((k, i) => autoOk((LOC.vals[i] || '').trim(), g.letra));
+  b.disabled = !ok; b.title = ok ? 'Encerrar a rodada' : `Preencha tudo com ${g.letra}`;
+}
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const v = Mesa.ui.view; if(v && v.game && v.game.fase !== 'jogo') Mesa.ui.rerender(); }, 120); });
+</script>
+</body>
+</html>

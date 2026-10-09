@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Tranca</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;gap:6px;padding:6px 8px;overflow:auto}
+.opps{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.opp{background:rgba(0,0,0,.3);border:2px solid transparent;border-radius:12px;padding:4px 10px;font-weight:800;font-size:12.5px;text-align:center}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.opp.t0{color:#bff5d4} .opp.t1{color:#ffd0d0}
+.area{background:rgba(0,0,0,.22);border-radius:12px;padding:6px 8px;min-height:56px}
+.area h4{font-size:12px;letter-spacing:1px;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.area.nos h4{color:var(--nos)} .area.eles h4{color:var(--eles)}
+.area h4 .r3{color:#ffb3bd;letter-spacing:0}
+.mrow{display:flex;gap:10px 12px;flex-wrap:wrap}
+.meld{display:flex;align-items:flex-end;position:relative;padding:3px;border-radius:8px;border:2px solid transparent}
+.meld .card{--cw:30px;--ch:43px;margin-left:-16px} .meld .card:first-child{margin-left:0}
+.meld .card .mid{display:none}
+.meld.can{border-color:var(--blue);cursor:pointer;background:rgba(90,176,255,.12)}
+.meld.new .card{animation:pop .35s}
+.meld .tagc{position:absolute;top:-8px;right:-4px;font-size:9px;font-weight:900;border-radius:6px;padding:1px 4px;background:#555}
+.meld .tagc.limpa{background:var(--gold);color:#3a2600} .meld .tagc.suja{background:#8a6a10}
+.mid{display:flex;gap:18px;justify-content:center;align-items:flex-end}
+.pilebox{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:#cfe;font-weight:700;position:relative}
+.pilebox .card{--cw:48px;--ch:69px}
+.pilebox .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.lixofan{display:flex}.lixofan .card{margin-left:-30px}.lixofan .card:first-child{margin-left:0}
+.lock{display:inline-block;margin-left:5px;vertical-align:middle;background:#2a2a2a;border:2px solid var(--gold);border-radius:10px;padding:1px 5px;font-size:10.5px;font-weight:900;color:#ffe6a6;z-index:2}
+.myhand{display:flex;overflow-x:auto;padding:16px 4px 4px;justify-content:safe center;min-height:calc(var(--ch) + 22px);flex:none}
+.myhand .card{margin-left:calc(var(--cw)*-.42);cursor:pointer} .myhand .card:first-child{margin-left:0}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.ctl button{padding:10px 14px;border-radius:12px;border:none;font-weight:900;font-size:14.5px;cursor:pointer}
+.ctl button:disabled{opacity:.4}
+.sc{font-weight:800;font-size:13px;color:#ffe6a6;text-align:center}
+.status{min-height:20px}
+.box table td,.box table th{text-align:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =============================== TRANCA ===============================
+   Tranca brasileira: 2 baralhos + 4 coringas (108 cartas); o 2 também é
+   curinga. Jogos = sequências do mesmo naipe ou trincas do mesmo valor
+   (no máximo 1 curinga por jogo). 3 vermelho = +100 automático; 3 preto
+   tranca o lixo. Lixo sempre "fechado": para pegar, a carta de cima tem de
+   ir para um jogo na hora. Canastra limpa 500, suja 300, batida 100.
+   ===================================================================== */
+const teamOfN = (seat, n) => n === 4 ? seat % 2 : seat;
+const isWild = c => c.r === '2' || c.r === 'JK';
+const isRed3 = c => c.r === '3' && isRed(c);
+const isBlack3 = c => c.r === '3' && !isRed(c);
+const TV = r => r === 'A' ? 14 : r === 'J' ? 11 : r === 'Q' ? 12 : r === 'K' ? 13 : +r;
+const tPts = c => c.r === 'JK' ? 50 : (c.r === '2' || c.r === 'A') ? 20 : c.r === '3' ? (isRed(c) ? 100 : 5) : TV(c.r) >= 8 ? 10 : 5;
+const SO = {'♣':0,'♥':1,'♠':2,'♦':3};
+const DIFF = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const RNAME = {A:'Ases', J:'valetes', Q:'damas', K:'reis'};
+const rankName = r => RNAME[r] || r;
+
+// jogo válido? devolve {type:'t'|'s', wild, order, rank|suit} ou null
+function tMeld(cards){
+  if(!cards || cards.length < 3) return null;
+  for(const c of cards) if(!c || c.r === '3') return null;
+  const wild = cards.filter(isWild), nat = cards.filter(c => !isWild(c));
+  if(wild.length > 1 || nat.length < 2) return null;
+  const w = wild.length > 0;
+  if(nat.every(c => c.r === nat[0].r))
+    return {type:'t', rank:nat[0].r, wild:w, order:nat.slice().sort((a,b) => SO[a.s] - SO[b.s]).concat(wild)};
+  const suit = nat[0].s; if(nat.some(c => c.s !== suit)) return null;
+  const vals = nat.map(c => TV(c.r)); if(new Set(vals).size !== vals.length) return null;
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  if(mx - mn + 1 - nat.length > wild.length) return null;
+  const sorted = nat.slice().sort((a,b) => TV(a.r) - TV(b.r)), ww = wild.slice(), order = [];
+  sorted.forEach((c,i) => { if(i && TV(c.r) - TV(sorted[i-1].r) === 2) order.push(ww.shift()); order.push(c); });
+  let lo = mn, hi = mx;
+  if(ww.length){ if(mx < 14){ order.push(ww.shift()); hi++; } else if(mn > 4){ order.unshift(ww.shift()); lo--; } else return null; }
+  return {type:'s', suit, wild:w, order, lo, hi};
+}
+const isCanastra = m => m.length >= 7;
+const hasLimpa = melds => melds.some(m => m.length >= 7 && !tMeld(m).wild);
+const trincaOf = (melds, r) => melds.findIndex(m => { const x = tMeld(m); return x && x.type === 't' && x.rank === r; });
+const lixoLocked = st => { const top = st.lixo[st.lixo.length-1]; return !top || isWild(top) || isBlack3(top); };
+
+/* ------------------------------ rodada ------------------------------ */
+function newRound(st){
+  st.monte = shuffle(makeDeck({ranks:RANKS13, decks:2, jokers:4}));
+  st.hands = st.names.map(() => st.monte.splice(0, 11));
+  st.mortos = [st.monte.splice(0, 11), st.monte.splice(0, 11)];
+  st.mortoTaken = [false, false];
+  st.melds = [[], []]; st.tres = [[], []];
+  // abre o lixo com uma carta comum (3 vermelho e curinga voltam para o fundo do monte)
+  let c = st.monte.pop(); while(isRed3(c) || isWild(c)){ st.monte.unshift(c); c = st.monte.pop(); }
+  st.lixo = [c];
+  st.phase = 'draw'; st.turn = st.starter % st.n; st.batida = -1; st.breakdown = null; st.lastDraw = null; st.lastMeld = null;
+  st.pub = st.names.map(() => []);      // cartas que cada um pegou do lixo (todo mundo viu)
+  st.disc = st.names.map(() => []);     // valores que cada um descartou
+  st.names.forEach((_, s) => layRed3(st, s, null));
+}
+// 3 vermelho na mão: baixa sozinho e repõe do monte
+function layRed3(st, seat, ev){
+  const h = st.hands[seat], t = teamOfN(seat, st.n); let n = 0;
+  for(;;){
+    const i = h.findIndex(isRed3); if(i < 0) break;
+    st.tres[t].push(h.splice(i, 1)[0]); n++;
+    if(st.monte.length){ const nc = st.monte.pop(); h.push(nc); if(st.lastDraw && st.turn === seat) st.lastDraw.push(nc.id); }
+  }
+  if(n && ev) ev.push({k:'banner', text: n > 1 ? `${n} TRÊS VERMELHOS!` : '3 VERMELHO! +100'}, {k:'log', text:`${esc(st.names[seat])} baixou ${n > 1 ? n + ' três vermelhos' : 'um 3 vermelho'}.`}, {k:'snd', s:'win'});
+  return n;
+}
+function sortH(h){ return h.slice().sort((a,b) => (isWild(a) - isWild(b)) || (isBlack3(a) - isBlack3(b)) || SO[a.s] - SO[b.s] || TV(a.r) - TV(b.r)); }
+function teamRound(st, t){
+  const melds = st.melds[t];
+  const meldPts = melds.reduce((s,m) => s + m.reduce((x,c) => x + tPts(c), 0), 0);
+  let bonus = 0; melds.forEach(m => { if(isCanastra(m)) bonus += tMeld(m).wild ? 300 : 500; });
+  const handPts = st.hands.reduce((s,h,i) => s + (teamOfN(i, st.n) === t ? h.reduce((x,c) => x + tPts(c), 0) : 0), 0);
+  const tres = st.tres[t].length * (melds.length ? 100 : -100);
+  const bat = st.batida === t ? 100 : 0, morto = st.mortoTaken[t] ? 0 : -100;
+  return {meldPts, bonus, handPts, tres, bat, morto, total: meldPts + bonus + tres + bat - handPts + morto};
+}
+function endRound(st, ev){
+  const bd = [0,1].map(t => teamRound(st, t));
+  bd.forEach((b,t) => st.scores[t] += b.total);
+  st.breakdown = bd; st.phase = 'roundEnd';
+  ev.push({k:'log', text:`Fim da rodada ${st.round}: ${bd.map(b => (b.total >= 0 ? '+' : '') + b.total).join(' × ')}`});
+}
+// mão vazia: pega o morto ou bate
+function onEmpty(st, seat, ev){
+  const t = teamOfN(seat, st.n);
+  if(!st.mortoTaken[t] && st.mortos.length){
+    st.hands[seat] = st.mortos.shift(); st.mortoTaken[t] = true;
+    ev.push({k:'banner', text:'PEGOU O MORTO!'}, {k:'log', text:`${esc(st.names[seat])} pegou o morto.`});
+    layRed3(st, seat, ev);
+    return 'morto';
+  }
+  st.batida = t;
+  ev.push({k:'banner', text:`${st.names[seat]} BATEU!`}, {k:'snd', s:'win'}, {k:'log', text:`${esc(st.names[seat])} bateu.`});
+  endRound(st, ev);
+  return 'bateu';
+}
+function canEmpty(st, seat, meldsAfter){
+  const t = teamOfN(seat, st.n);
+  if(!st.mortoTaken[t] && st.mortos.length) return true;
+  return hasLimpa(meldsAfter || st.melds[t]);
+}
+function takeIds(hand, ids){
+  if(!Array.isArray(ids) || ids.length > 40) return null;
+  const out = [];
+  for(const id of ids){ const c = hand.find(x => x.id === id); if(!c || out.includes(c)) return null; out.push(c); }
+  return out;
+}
+// valida pegar o lixo: devolve {after, meldIdx, cards} ou {err}
+function checkLixo(st, seat, a){
+  const t = teamOfN(seat, st.n), h = st.hands[seat], top = st.lixo[st.lixo.length-1];
+  if(!top) return {err:'O lixo está vazio.'};
+  if(isBlack3(top)) return {err:'O lixo está trancado por um 3 preto: compre do monte.'};
+  if(isWild(top)) return {err:'Com um curinga em cima, o lixo fica trancado: compre do monte.'};
+  const cards = takeIds(h, a.ids || []); if(!cards) return {err:'Cartas inválidas.'};
+  let after, mi;
+  if(a.m != null){
+    mi = a.m | 0; const m = st.melds[t][mi]; if(!m || mi !== a.m) return {err:'Jogo inválido.'};
+    if(!tMeld(m.concat([top], cards))) return {err:'A carta de cima do lixo não encaixa nesse jogo.'};
+    after = st.melds[t].map((x,i) => i === mi ? x.concat([top], cards) : x);
+  } else {
+    if(cards.length < 2) return {err:'Para pegar o lixo, a carta de cima tem de formar um jogo com pelo menos 2 cartas da sua mão (ou encaixar num jogo da sua dupla).'};
+    const md = tMeld([top].concat(cards));
+    if(!md) return {err:'Essas cartas não formam jogo com a carta de cima do lixo.'};
+    if(md.type === 't' && trincaOf(st.melds[t], md.rank) >= 0) return {err:`Sua dupla já tem uma trinca de ${rankName(md.rank)}: encaixe nela.`};
+    after = st.melds[t].concat([[top].concat(cards)]); mi = after.length - 1;
+  }
+  const rest = h.length - cards.length + st.lixo.length - 1;
+  if(rest < 2 && !canEmpty(st, seat, after)) return {err:'Você ficaria com menos de 2 cartas: para bater a dupla precisa ter pego o morto e ter uma canastra limpa.'};
+  return {after, mi, cards};
+}
+
+/* ------------------------------- bot ------------------------------- */
+// opções para pegar o lixo (com a carta de cima)
+function lixoOptions(st, seat){
+  const top = st.lixo[st.lixo.length-1];
+  if(!top || isWild(top) || top.r === '3') return [];
+  const t = teamOfN(seat, st.n), h = st.hands[seat], melds = st.melds[t], out = [];
+  melds.forEach((m,mi) => { if(tMeld(m.concat([top]))) out.push({m:mi, ids:[], wild:false, n:1, len:m.length}); });
+  const wild = h.find(isWild);
+  if(trincaOf(melds, top.r) < 0){
+    const same = h.filter(c => c.r === top.r);
+    if(same.length >= 2) out.push({ids:same.map(c => c.id), wild:false, n:same.length + 1});
+    else if(same.length === 1 && wild) out.push({ids:[same[0].id, wild.id], wild:true, n:3});
+  }
+  // sequência natural mais longa com a carta de cima
+  const bys = {}; h.forEach(c => { if(c.s === top.s && !isWild(c) && c.r !== '3' && c.r !== top.r && !bys[TV(c.r)]) bys[TV(c.r)] = c; });
+  const v0 = TV(top.r); let lo = v0, hi = v0;
+  while(bys[lo-1]) lo--; while(bys[hi+1]) hi++;
+  if(hi - lo >= 2){ const ids = []; for(let v=lo; v<=hi; v++) if(v !== v0) ids.push(bys[v].id); out.push({ids, wild:false, n:ids.length + 1}); }
+  else if(wild){
+    for(const d of [-2,-1,1,2]) if(bys[v0+d]){ const ids = [bys[v0+d].id, wild.id]; if(tMeld([top, bys[v0+d], wild])){ out.push({ids, wild:true, n:3}); break; } }
+  }
+  return out.filter(o => !checkLixo(st, seat, o).err);
+}
+// adversários perto de bater?
+function oppDanger(st, seat){
+  const t = teamOfN(seat, st.n), o = 1 - t;
+  const oh = st.hands.filter((h,i) => teamOfN(i, st.n) === o).map(h => h.length);
+  const minH = Math.min(...oh);
+  let d = 0;
+  if(st.mortoTaken[o] && hasLimpa(st.melds[o])) d = minH <= 3 ? 3 : minH <= 6 ? 2 : 1;
+  else if(st.mortoTaken[o] && st.melds[o].some(m => m.length >= 5)) d = minH <= 3 ? 2 : 0;
+  else if(!st.mortoTaken[o] && st.mortos.length && minH <= 2) d = 1;
+  if(!st.mortos.length && st.monte.length < 10) d = Math.max(d, 2);
+  return d;
+}
+// sequências naturais de 3+ na mão (uma carta por valor)
+function runsIn(cards){
+  const res = [];
+  for(const s of SUITS){
+    const bys = {}; cards.forEach(c => { if(c.s === s && !isWild(c) && c.r !== '3' && !bys[TV(c.r)]) bys[TV(c.r)] = c; });
+    let run = [];
+    for(let v=4; v<=15; v++){
+      if(bys[v]) run.push(bys[v]);
+      else { if(run.length >= 3) res.push(run); run = []; }
+    }
+  }
+  return res;
+}
+function trincasIn(cards, melds){
+  const by = {}; cards.forEach(c => { if(!isWild(c) && c.r !== '3') (by[c.r] = by[c.r] || []).push(c); });
+  return Object.keys(by).filter(r => by[r].length >= 3 && trincaOf(melds, r) < 0).map(r => by[r]);
+}
+const fitsAny = (c, melds) => !isWild(c) && c.r !== '3' && melds.some(m => tMeld(m.concat([c])));
+const TF = {bat:1, batM:300, hyp:1, wl:2, hk:99, cw:1, ap:0, lk:3, lb:22, dh:1};
+function botPlay(st, seat, lvl){
+  if(st.phase === 'roundEnd') return {t:'next'};
+  const h = st.hands[seat], t = teamOfN(seat, st.n), melds = st.melds[t], opp = st.melds[1-t];
+  const danger = oppDanger(st, seat), R = Math.random;
+  if(st.phase === 'draw'){
+    const opts = lixoOptions(st, seat);
+    if(opts.length){
+      opts.sort((a,b) => (a.wild - b.wild) || ((b.len === 6) - (a.len === 6)) || b.n - a.n);
+      const o = opts[0], L = st.lixo.length;
+      let take;
+      if(!o.wild) take = true;
+      else take = L >= (lvl === 'facil' ? 4 : 3) || (lvl === 'dificil' && L >= TF.wl && danger < 2);
+      if(lvl === 'facil' && L <= 2 && R() < 0.35) take = false;   // às vezes nem repara no lixo
+      if(take) return o.m != null ? {t:'lixo', m:o.m, ids:o.ids} : {t:'lixo', ids:o.ids};
+    }
+    return {t:'monte'};
+  }
+  // Difícil: só bate se a rodada estiver boa para nós (senão segue montando canastras)
+  let mayBat = true;
+  if(lvl === 'dificil' && (st.mortoTaken[t] || !st.mortos.length) && TF.bat){
+    const us = teamRound(st, t).total + 100, them = teamRound(st, 1-t).total;
+    mayBat = us >= them + TF.batM || danger >= 2 || st.monte.length < 12;
+  }
+  const okLeave = (k, after) => h.length - k >= 2 || (mayBat && canEmpty(st, seat, after));
+  // 1) encaixar cartas naturais nos nossos jogos (fechar canastra primeiro)
+  const adds = [];
+  for(let mi=0; mi<melds.length; mi++){
+    const md = tMeld(melds[mi]);
+    for(const c of h){ if(isWild(c) || c.r === '3') continue;
+      if(!tMeld(melds[mi].concat([c]))) continue;
+      const after = melds.map((x,i) => i === mi ? x.concat([c]) : x);
+      if(!okLeave(1, after)) continue;
+      adds.push({mi, c, pr: (melds[mi].length === 6 ? (md.wild ? 2 : 3) : 1) + (lvl === 'dificil' && TF.ap ? melds[mi].length / 10 - (fitsAny(c, st.melds[1-t]) ? 0.5 : 0) : 0)}); }
+  }
+  if(adds.length){ adds.sort((x,y) => y.pr - x.pr); return {t:'add', m:adds[0].mi, ids:[adds[0].c.id]}; }
+  // 2) jogos novos com cartas naturais (o maior primeiro)
+  const news = runsIn(h).concat(trincasIn(h, melds)).sort((a,b) => b.length - a.length);
+  for(const r of news){ if(okLeave(r.length, melds.concat([r]))) return {t:'meld', ids:r.map(c => c.id)}; }
+  // 3) curinga: fecha canastra (6 → 7), estica jogo grande ou, com perigo, baixa pontos
+  const wild = h.find(isWild);
+  const partnerLow = st.n === 4 && h.length > 2 && st.hands[(seat + 2) % 4].length <= 3;
+  if(wild && h.length > 2 && lvl !== 'facil'){
+    const cand = [];
+    for(let mi=0; mi<melds.length; mi++){ const m = melds[mi]; if(tMeld(m).wild) continue;
+      if(!tMeld(m.concat([wild]))) continue;
+      const after = melds.map((x,i) => i === mi ? x.concat([wild]) : x);
+      if(!okLeave(1, after)) continue;
+      const lim = hasLimpa(melds);
+      if(m.length === 6 && (lim || danger >= 2 || (lvl === 'dificil' && TF.cw) || melds.filter(x => x.length >= 5 && !tMeld(x).wild).length >= 2)) cand.push({mi, pr:3});
+      else if(m.length >= 5 && (lim || (lvl === 'dificil' && TF.cw > 1 && hasLimpa(st.melds[1-t])))) cand.push({mi, pr:2});
+      else if(danger >= 3 && m.length >= 3) cand.push({mi, pr:1});
+    }
+    if(cand.length){ cand.sort((a,b) => b.pr - a.pr); return {t:'add', m:cand[0].mi, ids:[wild.id]}; }
+    // par/vizinhos + curinga
+    if(h.length > 7 || danger >= 2 || partnerLow || (lvl === 'dificil' && h.length > TF.hk)){
+      const by = {}; h.forEach(c => { if(!isWild(c) && c.r !== '3') (by[c.r] = by[c.r] || []).push(c); });
+      for(const r in by) if(by[r].length === 2 && trincaOf(melds, r) < 0){ const g = by[r].concat([wild]); if(okLeave(3, melds.concat([g]))) return {t:'meld', ids:g.map(c => c.id)}; }
+      for(const s of SUITS){ const cs = h.filter(c => c.s === s && !isWild(c) && c.r !== '3');
+        for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++){ const g = [cs[i], cs[j], wild];
+          if(cs[i].r !== cs[j].r && tMeld(g) && okLeave(3, melds.concat([g]))) return {t:'meld', ids:g.map(c => c.id)}; } }
+    }
+  }
+  if(wild && lvl === 'facil' && h.length > 2){
+    for(let mi=0; mi<melds.length; mi++){ const m = melds[mi];
+      if(m.length === 6 && !tMeld(m).wild && tMeld(m.concat([wild])) && okLeave(1, melds.map((x,i) => i === mi ? x.concat([wild]) : x))) return {t:'add', m:mi, ids:[wild.id]}; }
+  }
+  // 4) descartar
+  return {t:'discard', id:pickDiscard(st, seat, lvl, danger).id};
+}
+// Difícil: chance de o próximo adversário conseguir usar a carta c (para pegar o lixo), contando as cartas que não vi
+function feedProb(st, seat, c, h){
+  const nx = (seat + 1) % st.n, nh = st.hands[nx].length, pub = st.pub[nx] || [];
+  const known = new Map(); const add = x => known.set(x.id, 1);
+  st.melds.forEach(ms => ms.forEach(m => m.forEach(add))); st.tres.forEach(ts => ts.forEach(add)); st.lixo.forEach(add); h.forEach(add); st.pub.forEach(p => p.forEach(add));
+  const U = Math.max(1, 108 - known.size), k = Math.max(0, nh - pub.length);
+  const seenOf = f => { let n = 0; for(const ms of st.melds) for(const m of ms) for(const x of m) if(f(x)) n++;
+    for(const x of st.lixo) if(f(x)) n++; for(const x of h) if(f(x)) n++; for(const p of st.pub) for(const x of p) if(f(x)) n++; return n; };
+  const pHas = (copies) => 1 - Math.pow(1 - Math.max(0, copies) / U, k);     // pelo menos uma
+  const pAtLeast2 = (copies) => { const q = Math.max(0, copies) / U; const p0 = Math.pow(1-q, k), p1 = k * q * Math.pow(1-q, k-1); return Math.max(0, 1 - p0 - p1); };
+  // trinca: precisa de 2 do mesmo valor (já conhecidas na mão dele contam)
+  const inPub = pub.filter(x => x.r === c.r).length;
+  const unR = 8 - seenOf(x => x.r === c.r);
+  const pTr = inPub >= 2 ? 1 : inPub === 1 ? pHas(unR) : pAtLeast2(unR);
+  // sequência: dois vizinhos do mesmo naipe
+  const v0 = TV(c.r);
+  const pCard = v => { if(v < 4 || v > 14) return 0; if(pub.some(x => x.s === c.s && TV(x.r) === v && !isWild(x) && x.r !== '3')) return 1;
+    return pHas(2 - seenOf(x => x.s === c.s && !isWild(x) && x.r !== '3' && TV(x.r) === v)); };
+  const pairs = [[v0-2, v0-1], [v0-1, v0+1], [v0+1, v0+2]];
+  let noSq = 1; for(const [a, b] of pairs) noSq *= 1 - pCard(a) * pCard(b);
+  // natural + curinga (só vale a pena para lixo grande)
+  const pW = st.lixo.length >= 3 ? pHas(12 - seenOf(isWild)) * (pHas(unR) + (1 - noSq)) * 0.5 : 0;
+  return Math.min(1, 1 - (1 - pTr) * noSq * (1 - pW));
+}
+// escolhe o descarte: guarda o que serve, não alimenta o próximo adversário, tranca o lixo na hora certa
+function pickDiscard(st, seat, lvl, danger){
+  const h = st.hands[seat], t = teamOfN(seat, st.n), melds = st.melds[t], opp = st.melds[1-t];
+  const nx = (seat + 1) % st.n, L = st.lixo.length;
+  const nxPub = st.pub[nx] || [], nxDisc = st.disc[nx] || [];
+  // cópias visíveis de cada valor (mesa + lixo + minha mão)
+  const vis = {}; const see = c => { vis[c.r] = (vis[c.r] || 0) + 1; };
+  st.melds[0].forEach(m => m.forEach(see)); st.melds[1].forEach(m => m.forEach(see)); st.lixo.forEach(see); h.forEach(see);
+  const scored = [];
+  for(const c of h){
+    let v = 0;
+    if(isWild(c)) v = 500;
+    else if(isBlack3(c)) v = null;          // decidido depois
+    else {
+      h.forEach(o => { if(o === c || isWild(o) || o.r === '3') return;
+        if(o.r === c.r) v += 16;
+        else if(o.s === c.s){ const d = Math.abs(TV(o.r) - TV(c.r)); if(d === 1) v += 12; else if(d === 2) v += 6; } });
+      if(fitsAny(c, melds)) v += 30;
+      let feed;
+      if(fitsAny(c, opp)) feed = 1;
+      else {
+        if(lvl === 'dificil' && TF.hyp){ feed = feedProb(st, seat, c, h); v += feed * (8 + 6 * L); v -= tPts(c) * (danger >= 2 ? 0.6 : 0.05); v += Math.random() * 0.5; scored.push({c, v}); continue; }
+        let pr = Math.max(0.03, 0.28 - 0.035 * (vis[c.r] || 0)), sq = 0.16;
+        if(lvl !== 'facil'){
+          if(nxPub.some(o => o.r === c.r)) pr += 0.6;
+          if(nxPub.some(o => o.s === c.s && !isWild(o) && Math.abs(TV(o.r) - TV(c.r)) <= 2 && o.r !== c.r)) sq += 0.35;
+        }
+        if(lvl === 'dificil' && TF.dh && nxDisc.includes(c.r)) pr *= 0.4;
+        feed = Math.min(1, pr + sq);
+      }
+      v += feed * (lvl === 'facil' ? 10 : 8 + 6 * L);
+      v -= tPts(c) * (danger >= 2 ? 0.6 : 0.05);
+      if(lvl === 'facil') v += (Math.random() - .5) * 18;
+      else if(lvl === 'normal') v += Math.random() * 2;
+      else v += Math.random() * 0.5;
+    }
+    scored.push({c, v});
+  }
+  const others = scored.filter(x => x.v != null && x.v < 500);
+  const bestOther = others.length ? Math.min(...others.map(x => x.v)) : 600;
+  for(const x of scored) if(x.v == null){
+    // 3 preto: tranca o lixo para o próximo
+    let now;
+    if(lvl === 'facil') now = Math.random() < 0.5;
+    else if(lvl === 'normal') now = L >= 4 || h.length <= 3 || danger >= 2;
+    else now = L >= TF.lk || (TF.lb && bestOther > TF.lb) || h.length <= 3 || danger >= 2;
+    x.v = now ? -1000 : (lvl === 'facil' ? 8 : 40);
+  }
+  scored.sort((a,b) => a.v - b.v);
+  return scored[0].c;
+}
+
+/* ------------------------------- jogo ------------------------------- */
+Mesa.run({
+  id:'tranca', name:'Tranca', icon:'🃏', tagline:'Em duplas ou mano a mano',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['4','4 (duplas)'],['2','2 (mano a mano)']]},
+    {key:'meta', label:'Partida até', default:'3000', choices:[['1500','1.500 pontos'],['3000','3.000 pontos'],['5000','5.000 pontos']]},
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => +o.seats === 2 ? 2 : 4,
+  team: (s, n) => teamOfN(s, n),
+  seatLabel: (s, n) => n === 4 ? 'Dupla ' + (s % 2 + 1) : 'Jogador ' + (s+1),
+  modeLabel: o => 'ATÉ ' + o.meta + ' · BOT ' + (DIFF[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){ const st = {names:players.map(p => p.name), n:players.length, scores:[0,0], meta:+o.meta || 3000, round:1, starter:Math.floor(Math.random()*players.length)}; newRound(st); return st; },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Rodada 1 — começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){ return (st.phase === 'draw' || st.phase === 'play') ? [st.turn] : st.phase === 'roundEnd' ? [0] : []; },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = st.scores[0] === st.scores[1] ? null : (st.scores[0] > st.scores[1] ? 0 : 1);
+    const seats = w == null ? [] : st.names.map((_,i) => i).filter(i => teamOfN(i, st.n) === w);
+    return {winners:seats, draw:w == null, text:`Placar final: <b>${st.scores[0]}</b> × <b>${st.scores[1]}</b>`};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false};
+    const ev = [];
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(st.scores.some(s => s >= st.meta) && st.scores[0] !== st.scores[1]){ st.phase = 'end'; return {events:[]}; }
+      st.round++; st.starter++; newRound(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Rodada ${st.round} — começa ${esc(st.names[st.turn])}.`}]};
+    }
+    if(seat !== st.turn || (st.phase !== 'draw' && st.phase !== 'play')) return {ok:false, err:'Não é a sua vez.'};
+    const h = st.hands[seat], t = teamOfN(seat, st.n);
+    st.lastMeld = null;
+    if(st.phase === 'draw'){
+      if(a.t === 'monte'){
+        st.lastDraw = [];
+        for(;;){
+          if(!st.monte.length){
+            if(st.mortos.length){ st.monte = st.mortos.shift(); ev.push({k:'log', text:'O monte acabou: um morto virou monte.'}); }
+            else { ev.push({k:'log', text:'O monte acabou.'}); endRound(st, ev); return {events:ev}; }
+          }
+          const c = st.monte.pop();
+          if(isRed3(c)){ st.tres[t].push(c); ev.push({k:'banner', text:'3 VERMELHO! +100'}, {k:'snd', s:'win'}, {k:'log', text:`${esc(st.names[seat])} comprou um 3 vermelho e baixou.`}); continue; }
+          h.push(c); st.lastDraw.push(c.id); break;
+        }
+      } else if(a.t === 'lixo'){
+        const r = checkLixo(st, seat, a); if(r.err) return {ok:false, err:r.err};
+        const top = st.lixo.pop();
+        r.cards.forEach(c => h.splice(h.indexOf(c), 1));
+        st.pub[seat] = st.pub[seat].filter(x => !r.cards.includes(x));
+        const before = a.m != null ? st.melds[t][r.mi].length : 0;
+        st.melds[t] = r.after; st.lastMeld = [t, r.mi];
+        st.lastDraw = st.lixo.map(c => c.id);
+        ev.push({k:'log', text:`${esc(st.names[seat])} pegou o lixo (${st.lixo.length + 1} carta${st.lixo.length ? 's' : ''}).`}, {k:'snd', s:'capture'});
+        if(st.lixo.length >= 5) ev.push({k:'say', seat, text:`Lixo de ${st.lixo.length + 1}!`});
+        st.pub[seat].push(...st.lixo); h.push(...st.lixo); st.lixo = [];
+        const now = r.after[r.mi];
+        if(now.length >= 7 && before < 7) ev.push({k:'banner', text: tMeld(now).wild ? 'CANASTRA SUJA!' : 'CANASTRA LIMPA!'}, {k:'snd', s:'win'});
+        st.phase = 'play';
+        if(!h.length){ onEmpty(st, seat, ev); }
+        return {events:ev};
+      } else return {ok:false, err:'Primeiro compre: monte ou lixo.'};
+      st.phase = 'play';
+      return {events:ev.concat([{k:'snd', s:'card'}])};
+    }
+    // fase de jogar
+    if(a.t === 'meld' || a.t === 'add'){
+      const cards = takeIds(h, a.ids || []); if(!cards || !cards.length) return {ok:false, err:'Selecione as cartas.'};
+      let after, mi;
+      if(a.t === 'meld'){
+        const md = tMeld(cards);
+        if(!md) return {ok:false, err:'Jogo inválido: 3+ cartas seguidas do mesmo naipe ou 3+ do mesmo valor, com no máximo 1 curinga (e sem 3).'};
+        if(md.type === 't' && trincaOf(st.melds[t], md.rank) >= 0) return {ok:false, err:`Sua dupla já tem uma trinca de ${rankName(md.rank)}: encaixe nela.`};
+        after = st.melds[t].concat([cards]); mi = after.length - 1;
+      } else {
+        mi = a.m | 0; const m = st.melds[t][mi]; if(!m || mi !== a.m) return {ok:false};
+        if(!tMeld(m.concat(cards))) return {ok:false, err:'Essas cartas não encaixam nesse jogo.'};
+        after = st.melds[t].map((x,i) => i === mi ? x.concat(cards) : x);
+      }
+      if(h.length - cards.length < 2 && !canEmpty(st, seat, after)) return {ok:false, err:'Guarde pelo menos 2 cartas: para bater a dupla precisa ter pego o morto e ter uma canastra limpa.'};
+      cards.forEach(c => h.splice(h.indexOf(c), 1));
+      st.pub[seat] = st.pub[seat].filter(x => !cards.includes(x));
+      const before = a.t === 'add' ? st.melds[t][mi].length : 0;
+      st.melds[t] = after; st.lastMeld = [t, mi];
+      const now = after[mi];
+      ev.push({k:'snd', s:'card'});
+      if(now.length >= 7 && before < 7) ev.push({k:'banner', text: tMeld(now).wild ? 'CANASTRA SUJA!' : 'CANASTRA LIMPA!'}, {k:'snd', s:'win'});
+      if(!h.length) onEmpty(st, seat, ev);
+      return {events:ev};
+    }
+    if(a.t === 'discard'){
+      const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false, err:'Escolha uma carta para descartar.'};
+      if(h.length === 1 && !canEmpty(st, seat)) return {ok:false, err:'Não dá para descartar a última carta: para bater a dupla precisa ter pego o morto e ter uma canastra limpa.'};
+      const [c] = h.splice(i,1); st.lixo.push(c); ev.push({k:'snd', s:'card'});
+      st.pub[seat] = st.pub[seat].filter(x => x !== c);
+      st.disc[seat].push(c.r); if(st.disc[seat].length > 14) st.disc[seat].shift();
+      if(isBlack3(c)) ev.push({k:'banner', text:'LIXO TRANCADO!'}, {k:'say', seat, text:'Tranquei!'});
+      if(!h.length){ const r = onEmpty(st, seat, ev); if(r === 'bateu') return {events:ev}; }
+      st.phase = 'draw'; st.turn = (st.turn + 1) % st.n; st.lastDraw = null;
+      return {events:ev};
+    }
+    return {ok:false};
+  },
+  bot(st, seat, o){ return botPlay(st, seat, (o && o.diff) || 'normal'); },
+  botFallback(st, seat){
+    if(st.phase === 'roundEnd') return {t:'next'};
+    if(st.phase === 'draw') return {t:'monte'};
+    const h = st.hands[seat]; return {t:'discard', id:h[0].id};
+  },
+  botDelay(st){ return st.phase === 'roundEnd' ? 4500 : st.phase === 'draw' ? 750 : 560; },
+  view(st, seat){
+    const t = seat >= 0 ? teamOfN(seat, st.n) : 0;
+    return {names:st.names, n:st.n, team:t, turn:st.turn, phase:st.phase, round:st.round, scores:st.scores, meta:st.meta,
+      hand: seat >= 0 ? st.hands[seat] : [], counts:st.hands.map(h => h.length), monte:st.monte.length, mortos:st.mortos.length, mortoTaken:st.mortoTaken,
+      melds:st.melds, tres:st.tres, lixo:st.lixo.slice(-3), lixoN:st.lixo.length, breakdown:st.breakdown, lastMeld:st.lastMeld,
+      lastDraw: seat === st.turn ? st.lastDraw : null, canEmptyNow: seat >= 0 ? canEmpty(st, seat) : false};
+  },
+  topInfo(g){ return `<div class="sc">Nós <span style="color:var(--nos)">${g.scores[g.team]}</span> × <span style="color:var(--eles)">${g.scores[1-g.team]}</span> Eles · até ${g.meta}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Fazer pontos baixando jogos e <b>canastras</b>. Em duplas (parceiros frente a frente) ou mano a mano. Vence quem passar primeiro da meta (3.000 pontos, por padrão) no fim de uma rodada.</p>
+  <h3>Cartas</h3><p>Dois baralhos com <b>4 coringas</b> (108 cartas). O <b>coringa</b> (🃏) e o <b>2</b> são curingas. Cada jogador recebe 11 cartas, e ficam separados <b>dois mortos</b> de 11 cartas. Uma carta abre o lixo.</p>
+  <h3>Jogos</h3><ul><li><b>Sequência</b>: 3 ou mais cartas seguidas do <b>mesmo naipe</b>, do 4 ao Ás (o Ás só vale no alto: Q-K-A).</li>
+  <li><b>Trinca</b> (lavadeira): 3 ou mais cartas do <b>mesmo valor</b>, de qualquer naipe. Cada dupla só pode ter uma trinca de cada valor (as outras cartas desse valor encaixam nela).</li>
+  <li>No máximo <b>um curinga por jogo</b>, e todo jogo precisa de pelo menos 2 cartas naturais. Os 3 não entram em jogos.</li>
+  <li><b>Canastra</b> = jogo com 7 cartas ou mais: <b>limpa</b> (sem curinga) vale +500; <b>suja</b> (com curinga) +300.</li></ul>
+  <h3>Os 3</h3><ul><li><b>3 vermelho</b> (♥ ♦): é baixado <b>sozinho</b> assim que chega à sua mão (na distribuição, no monte ou no morto) e você recebe outra carta do monte. Vale <b>+100</b> para a dupla — mas, se a dupla terminar a rodada <b>sem nenhum jogo baixado</b>, cada 3 vermelho vale <b>−100</b>.</li>
+  <li><b>3 preto</b> (♣ ♠): não forma jogo. Serve para <b>trancar o lixo</b>: quem o descarta impede o próximo jogador de pegar o lixo (ele tem de comprar do monte). Na mão, no fim, vale −5.</li></ul>
+  <h3>Sua vez</h3><ol><li>Compre <b>uma carta do monte</b> ou pegue <b>o lixo inteiro</b>.</li><li>Baixe jogos novos e/ou encaixe cartas nos jogos da sua dupla (toque nas cartas e depois no jogo azul).</li><li>Descarte uma carta.</li></ol>
+  <h3>Lixo fechado</h3><p>O lixo é sempre <b>fechado</b>: só pode pegar quem usar <b>a carta de cima na hora</b>, de um destes jeitos:</p>
+  <ul><li>formando um <b>jogo novo</b> com pelo menos 2 cartas da sua mão (selecione-as e toque no lixo); ou</li><li><b>encaixando</b> a carta de cima num jogo da sua dupla (toque direto no lixo).</li></ul>
+  <p>As outras cartas do lixo vão para a sua mão. O lixo fica <b>trancado</b> 🔒 quando há um <b>3 preto</b> ou um <b>curinga</b> em cima — aí só resta o monte, até alguém descartar por cima.</p>
+  <h3>Morto e batida</h3><ul><li>Quem acabar com as cartas primeiro pega o <b>morto</b> da dupla e continua jogando com ele.</li>
+  <li>Para <b>bater</b> (acabar as cartas de vez), a dupla precisa ter pego o morto e ter pelo menos <b>uma canastra limpa</b>. Batida vale +100. Enquanto não pode bater, guarde pelo menos 2 cartas na mão.</li>
+  <li>A rodada também acaba se o monte terminar (antes, os mortos que sobrarem viram monte).</li></ul>
+  <h3>Pontos das cartas</h3><table><tr><td>Coringa 🃏</td><td>50</td></tr><tr><td>Ás e 2</td><td>20</td></tr><tr><td>8, 9, 10, J, Q, K</td><td>10</td></tr><tr><td>4, 5, 6, 7 e 3 preto</td><td>5</td></tr></table>
+  <p>No fim da rodada cada dupla soma: cartas baixadas + canastras + 3 vermelhos + batida; e diminui as cartas que ficaram na mão. A dupla que não pegou o morto perde 100.</p>
+  <h3>Bots</h3><p><b>Fácil</b>: baixa o que vê, mas descarta sem muito cuidado. <b>Normal</b>: avalia o lixo, guarda curingas para fechar canastra, evita dar carta que encaixa nos jogos do adversário e tranca o lixo grande. <b>Difícil</b>: além disso, lembra o que o próximo adversário pegou e descartou, tranca o lixo na hora em que qualquer descarte seria perigoso e ajuda o parceiro a chegar à canastra limpa.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me < 0 ? 0 : v.me, myT = g.team;
+    const W = st.clientWidth;
+    const cw = Math.floor(clamp((W - 24) / (Math.max(g.hand.length, 8) * 0.58 + 0.5), 38, 70)); st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.opps')){
+      st.innerHTML = `<div class="opps" id="opps"></div>
+        <div class="area eles"><h4><span>JOGOS DELES</span><span id="mtE"></span></h4><div class="mrow" id="mE"></div></div>
+        <div class="mid"><div class="pilebox"><div id="pM"></div><span id="nM"></span></div><div class="pilebox"><div class="lixofan" id="pL"></div><span id="nL"></span></div></div>
+        <div class="area nos"><h4><span>NOSSOS JOGOS</span><span id="mtN"></span></h4><div class="mrow" id="mN"></div></div>
+        <div class="status" id="st"></div><div class="myhand" id="mh" data-seat="${me}"></div><div class="ctl" id="ctl"></div>`;
+      csel = new Set();
+    }
+    const myTurn = v.waiting.includes(me) && (g.phase === 'draw' || g.phase === 'play');
+    csel = new Set([...csel].filter(id => g.hand.some(c => c.id === id)));
+    if(!myTurn) csel.clear();
+    let oh = '';
+    for(let k=1;k<g.n;k++){ const i = (me + k) % g.n; const ti = teamOfN(i, g.n);
+      oh += `<div class="opp t${ti === myT ? 0 : 1} ${g.turn === i && v.waiting.length ? 'vez' : ''}" data-seat="${i}">${esc(g.names[i])}${g.n === 4 && ti === myT ? ' (parceiro)' : ''} · 🂠 ${g.counts[i]}</div>`; }
+    $('#opps').innerHTML = oh;
+    const meldHTML = (melds, mine, tt) => melds.map((m,mi) => { const r = tMeld(m) || {order:m, wild:false};
+      const tag = m.length >= 7 ? `<span class="tagc ${r.wild ? 'suja' : 'limpa'}">${r.wild ? 'SUJA' : 'LIMPA'}</span>` : `<span class="tagc">${m.length}</span>`;
+      const isNew = g.lastMeld && g.lastMeld[0] === tt && g.lastMeld[1] === mi;
+      return `<div class="meld ${isNew ? 'new' : ''}" data-m="${mi}" data-mine="${mine?1:0}">${r.order.map(c => cardEl(c).outerHTML).join('')}${tag}</div>`; }).join('') || '<span style="font-size:12px;opacity:.5">nenhum jogo ainda</span>';
+    $('#mN').innerHTML = meldHTML(g.melds[myT], true, myT); $('#mE').innerHTML = meldHTML(g.melds[1-myT], false, 1-myT);
+    const tresTxt = tt => g.tres[tt].length ? `<span class="r3">${g.tres[tt].map(c => '3' + c.s).join(' ')} (${g.melds[tt].length ? '+' : '−'}${g.tres[tt].length * 100})</span>` : '';
+    $('#mtN').innerHTML = [tresTxt(myT), g.mortoTaken[myT] ? '✓ pegou o morto' : (g.mortos ? 'morto disponível' : '')].filter(Boolean).join(' · ');
+    $('#mtE').innerHTML = [tresTxt(1-myT), g.mortoTaken[1-myT] ? '✓ pegou o morto' : ''].filter(Boolean).join(' · ');
+    const selCards = g.hand.filter(c => csel.has(c.id));
+    const top = g.lixo[g.lixo.length-1];
+    const locked = !top || isWild(top) || isBlack3(top);
+    // jogo azul: onde as selecionadas encaixam
+    $$('#mN .meld').forEach(el => { const mi = +el.dataset.m, m = g.melds[myT][mi];
+      if(myTurn && g.phase === 'play' && selCards.length && tMeld(m.concat(selCards))){ el.classList.add('can'); el.onclick = () => { ui.act({t:'add', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); }; }
+      else if(myTurn && g.phase === 'draw' && top && !locked && tMeld(m.concat([top], selCards))){ el.classList.add('can'); el.onclick = () => { ui.act({t:'lixo', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); }; } });
+    // monte e lixo
+    const pm = $('#pM'); pm.innerHTML = ''; const mc = cardEl(null, {back:true}); if(myTurn && g.phase === 'draw'){ mc.classList.add('go'); mc.onclick = () => { csel.clear(); ui.act({t:'monte'}); }; } pm.appendChild(mc);
+    $('#nM').textContent = `Monte ${g.monte} · Mortos ${g.mortos}`;
+    const pl = $('#pL'); pl.innerHTML = '';
+    const takeLixo = () => {
+      if(locked){ toast(top && isWild(top) ? 'Lixo trancado: tem um curinga em cima.' : 'Lixo trancado pelo 3 preto: compre do monte.'); return; }
+      const t = myT, melds = g.melds[t];
+      if(selCards.length){
+        const md = tMeld([top].concat(selCards));
+        if(md && !(md.type === 't' && trincaOf(melds, md.rank) >= 0)){ ui.act({t:'lixo', ids:selCards.map(c => c.id)}); csel.clear(); return; }
+        const mi = melds.findIndex(m => tMeld(m.concat([top], selCards)));
+        if(mi >= 0){ ui.act({t:'lixo', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); return; }
+        toast('Essas cartas não fazem jogo com a carta de cima do lixo.'); return;
+      }
+      const mi = melds.findIndex(m => tMeld(m.concat([top])));
+      if(mi >= 0){ ui.act({t:'lixo', m:mi, ids:[]}); return; }
+      toast('Para pegar o lixo, selecione na mão as cartas que fazem jogo com a carta de cima e toque no lixo.');
+    };
+    if(g.lixo.length) g.lixo.forEach((c,i) => { const el = cardEl(c); if(i === g.lixo.length-1 && myTurn && g.phase === 'draw'){ if(!locked) el.classList.add('go'); el.onclick = takeLixo; } pl.appendChild(el); });
+    else pl.appendChild(Object.assign(document.createElement('div'), {className:'card slot'}));
+    $('#nL').innerHTML = `Lixo (${g.lixoN})` + (top && locked ? '<span class="lock">🔒 TRANCADO</span>' : '');
+    // mão
+    const mh = $('#mh'); const prev = new Set($$('.card', mh).map(e => e.dataset.id)); mh.innerHTML = '';
+    sortH(g.hand).forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      if(csel.has(c.id)) el.classList.add('sel');
+      if(g.lastDraw && g.lastDraw.includes(c.id)) el.classList.add('hl');
+      el.onclick = () => { if(!myTurn) return; csel.has(c.id) ? csel.delete(c.id) : csel.add(c.id); ui.rerender(); };
+      mh.appendChild(el);
+      if(prev.size && !prev.has(c.id)) flyFrom(el, $('#pM').getBoundingClientRect());
+    });
+    // status e botões
+    let s = '';
+    if(g.phase === 'roundEnd'){
+      const b = g.breakdown; const row = (lbl, k) => `<tr><td>${lbl}</td><td>${b[myT][k]}</td><td>${b[1-myT][k]}</td></tr>`;
+      s = 'Fim da rodada';
+      const rk = g.round + (v.waiting.includes(me) ? 'w' : '');
+      if(roundKey !== rk && b){ roundKey = rk; modal(`<h2>Fim da rodada ${g.round}</h2><table><tr><th></th><th>Nós</th><th>Eles</th></tr>${row('Cartas baixadas','meldPts')}${row('Canastras','bonus')}${row('3 vermelhos','tres')}${row('Batida','bat')}${row('Cartas na mão (−)','handPts')}${row('Morto','morto')}
+        <tr><th>Rodada</th><th>${b[myT].total}</th><th>${b[1-myT].total}</th></tr><tr><th>Placar</th><th>${g.scores[myT]}</th><th>${g.scores[1-myT]}</th></tr></table>`,
+        v.waiting.includes(me) ? [{label:'Próxima rodada ▶', fn:() => ui.act({t:'next'})}] : [{label:'OK'}], 'round'); }
+    } else if(modalTag === 'round') closeModal();
+    if(g.phase === 'draw') s = myTurn ? (locked ? 'Sua vez: lixo trancado — compre do monte' : csel.size ? 'Toque no lixo para pegá-lo usando as cartas selecionadas' : 'Sua vez: compre do monte ou pegue o lixo') : 'Vez de ' + g.names[g.turn];
+    if(g.phase === 'play') s = myTurn ? (csel.size ? `${csel.size} selecionada(s): baixe um jogo, toque num jogo azul ou descarte` : 'Selecione cartas para baixar, encaixar ou descartar') : 'Vez de ' + g.names[g.turn];
+    $('#st').textContent = s;
+    let ch = '';
+    if(myTurn && g.phase === 'play'){
+      const valid = selCards.length >= 3 && !!tMeld(selCards);
+      ch += `<button class="b-ok" id="bMeld" ${valid ? '' : 'disabled'}>Baixar jogo</button>`;
+      ch += `<button class="b-no" id="bDisc" ${selCards.length === 1 ? '' : 'disabled'}>Descartar</button>`;
+      if(csel.size) ch += `<button class="tbtn" id="bClr">Limpar</button>`;
+    } else if(myTurn && g.phase === 'draw' && csel.size) ch += `<button class="tbtn" id="bClr">Limpar seleção</button>`;
+    $('#ctl').innerHTML = ch;
+    if($('#bMeld')) $('#bMeld').onclick = () => { ui.act({t:'meld', ids:selCards.map(c => c.id)}); csel.clear(); };
+    if($('#bDisc')) $('#bDisc').onclick = () => { ui.act({t:'discard', id:selCards[0].id}); csel.clear(); };
+    if($('#bClr')) $('#bClr').onclick = () => { csel.clear(); ui.rerender(); };
+  }
+});
+let csel = new Set(), roundKey = '';
+</script>
+</body>
+</html>

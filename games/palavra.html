@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<title>Palavra do Dia</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6px 8px 8px}
+.pw{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;height:100%;justify-content:space-between}
+/* painel dos adversários */
+.opps{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.opp{background:rgba(0,0,0,.35);border-radius:12px;padding:4px 8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;border:2px solid transparent;white-space:nowrap}
+.opp.ok{border-color:var(--nos)} .opp.fail{opacity:.7}
+.opp .bars{display:flex;gap:2px}
+.opp .bars i{width:6px;height:12px;border-radius:2px;background:rgba(255,255,255,.18)}
+.opp .bars i.u{background:#ffe6a6}
+.opp .bars i.g{background:#2fb36b}
+.opp .mini{display:grid;grid-template-columns:repeat(5,7px);gap:1px}
+.opp .mini i{width:7px;height:7px;border-radius:1px;background:rgba(255,255,255,.15)}
+.opp .mini i.v{background:#2fb36b}.opp .mini i.a{background:var(--gold)}.opp .mini i.c{background:#555}
+/* grade */
+.grid{display:grid;grid-template-rows:repeat(6,var(--s));gap:var(--gap)}
+.row{display:grid;grid-template-columns:repeat(5,var(--s));gap:var(--gap)}
+.tile{width:var(--s);height:var(--s);border-radius:calc(var(--s)*.14);display:grid;place-items:center;font-weight:900;font-size:calc(var(--s)*.55);
+  text-transform:uppercase;background:rgba(0,0,0,.28);border:2px solid rgba(255,255,255,.14);color:#fff;line-height:1}
+.row.cur .tile{border-color:rgba(255,230,166,.45)}
+.row.cur .tile.fill{border-color:#ffe6a6;animation:pop .12s ease-out}
+.row.cur .tile.at{box-shadow:0 0 0 2px var(--gold) inset}
+.tile.v{background:#2fb36b;border-color:#2fb36b}
+.tile.a{background:var(--gold);border-color:var(--gold);color:#2b1d00}
+.tile.c{background:#3b3f3d;border-color:#3b3f3d;color:#ddd}
+.row.new .tile{animation:flip .5s ease backwards}
+.row.new .tile:nth-child(2){animation-delay:.08s}.row.new .tile:nth-child(3){animation-delay:.16s}.row.new .tile:nth-child(4){animation-delay:.24s}.row.new .tile:nth-child(5){animation-delay:.32s}
+@keyframes flip{0%{transform:rotateX(90deg)}100%{transform:none}}
+.row.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.msgl{font-size:14px;font-weight:800;color:#ffe6a6;text-align:center;min-height:20px;text-shadow:0 1px 3px #000}
+.msgl b{color:#fff;letter-spacing:2px}
+/* teclado */
+.kb{display:flex;flex-direction:column;gap:6px;width:100%;max-width:560px}
+.kr{display:flex;gap:5px;justify-content:center}
+.kb button{flex:1;min-width:0;height:var(--kh);border:none;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;font-weight:800;font-size:clamp(14px,calc(var(--kh)*.36),20px);cursor:pointer;padding:0;text-transform:uppercase}
+.kb button.wide{flex:1.6;font-size:clamp(11px,calc(var(--kh)*.26),15px)}
+.kb button:active{transform:scale(.95)}
+.kb button.v{background:#2fb36b}.kb button.a{background:var(--gold);color:#2b1d00}.kb button.c{background:rgba(0,0,0,.45);color:#999}
+.kb.off button{opacity:.45}
+.acts{display:flex;gap:8px;justify-content:center}
+.acts .tbtn{font-size:13px}
+.est{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin:8px 0}
+.est b{display:block;font-size:24px;color:var(--gold)}
+.est span{font-size:11px;opacity:.85}
+.dist{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.dist div{display:flex;align-items:center;gap:6px;font-size:13px}
+.dist i{display:inline-block;height:16px;background:#3b3f3d;border-radius:3px;min-width:18px;text-align:right;padding:0 4px;font-style:normal;font-weight:800;font-size:11px;line-height:16px}
+.dist i.hl{background:#2fb36b}
+.box .ex{display:inline-flex;gap:3px;vertical-align:middle}
+.box .ex .tile{--s:28px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="palavra-lista.js"></script>
+<script>
+"use strict";
+/* ============ PALAVRA DO DIA — adivinhe a palavra de 5 letras em 6 tentativas ============ */
+const semAcento = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const RESP = PALAVRA_LISTA.R.split(' ');                    // respostas possíveis (com acento)
+const RN = RESP.map(semAcento);
+const FORMAS = new Map();                                   // sem acento -> grafia com acento
+[...RESP, ...PALAVRA_LISTA.V.split(' ')].forEach(w => { const k = semAcento(w); if(!FORMAS.has(k)) FORMAS.set(k, w); });
+const VALIDAS = [...FORMAS.keys()];
+const MAXT = 6;
+const DIFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+
+/* ---------- cores: 2 = lugar certo, 1 = existe em outro lugar, 0 = não existe ---------- */
+function cores(g, ans){
+  const r = [0,0,0,0,0], resto = {};
+  for(let i=0;i<5;i++){ if(g[i] === ans[i]) r[i] = 2; else resto[ans[i]] = (resto[ans[i]] || 0) + 1; }
+  for(let i=0;i<5;i++) if(r[i] !== 2 && resto[g[i]] > 0){ r[i] = 1; resto[g[i]]--; }
+  return r;
+}
+const codigo = (g, ans) => { const c = cores(g, ans); return c[0] + 3*c[1] + 9*c[2] + 27*c[3] + 81*c[4]; };
+
+/* ---------- palavra do dia (pela data local do anfitrião) ---------- */
+function mulberry(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const ORDEM = (() => { const r = mulberry(20260101), a = RESP.map((_, i) => i); for(let i=a.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; })();
+function diaNum(d = new Date()){ return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2026,0,1)) / 864e5); }
+const palavraDoDia = n => RESP[ORDEM[((n % RESP.length) + RESP.length) % RESP.length]];
+
+/* ---------- bot: busca por entropia sobre a lista de respostas ---------- */
+const CNT = new Int32Array(243);
+function entropia(g, cands){
+  CNT.fill(0); for(const c of cands) CNT[codigo(g, c)]++;
+  let h = 0; const n = cands.length;
+  for(let i=0;i<243;i++) if(CNT[i]){ const p = CNT[i]/n; h -= p*Math.log2(p); }
+  return h;
+}
+let ABERT = null;                                           // melhores primeiras tentativas (calculadas uma vez)
+function aberturas(){
+  if(!ABERT) ABERT = RN.map(w => [w, entropia(w, RN)]).sort((a,b) => b[1]-a[1]).slice(0, 12).map(x => x[0]);
+  return ABERT;
+}
+function botPalpite(st, seat, dif){
+  // Fácil: chuta qualquer palavra conhecida que ainda combine com as cores (como uma pessoa);
+  // Normal: chuta uma resposta possível; Difícil: escolhe entre as tentativas de maior entropia.
+  const p = st.p[seat], ok = w => p.g.every((g, i) => codigo(g, w) === p.cod[i]);
+  const cands = RN.filter(ok);
+  if(!cands.length) return pick(RN);
+  if(dif === 'facil'){ const c = VALIDAS.filter(ok); return c.length && Math.random() < 0.8 ? pick(c) : pick(cands); }
+  if(dif === 'normal' || cands.length <= 2) return p.g.length || dif === 'normal' ? pick(cands) : pick(aberturas());
+  if(!p.g.length) return pick(aberturas().slice(0, 8));
+  const pool = cands.length > 3 ? RN : cands;
+  const notas = pool.map(w => [w, entropia(w, cands) + (cands.includes(w) ? 0.05 : 0)]).sort((a,b) => b[1]-a[1]);
+  return pick(notas.slice(0, 3))[0];
+}
+
+/* ---------- utilidades de tela ---------- */
+const fmtT = ms => { const s = Math.max(0, Math.round(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const LOCAL = {game:-1, typed:'', nVistas:0, shake:false};
+function lerEst(){ return Object.assign({jogos:0, vit:0, seq:0, max:0, dist:[0,0,0,0,0,0], dia:-1}, lsGet('central.palavra.est') || {}); }
+
+Mesa.run({
+  id:'palavra', name:'Palavra do Dia', icon:'🔤', tagline:'Adivinhe a palavra de 5 letras',
+  seats: o => +o.jogadores || 1,
+  options:[
+    {key:'modo', label:'Palavra', default:'dia', choices:[['dia','Do dia (a mesma para todos)'],['livre','Livre (sorteada)']]},
+    {key:'jogadores', label:'Jogadores', default:'1', choices:[['1','Só eu'],['2','2 (disputa)'],['3','3 (disputa)'],['4','4 (disputa)']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => ((o.modo === 'livre' ? 'Livre' : 'Do dia') + ' · ' + ((+o.jogadores || 1) > 1 ? 'Disputa · bot ' + DIFS[o.diff || 'normal'] : 'Sozinho')).toUpperCase(),
+  seatLabel: s => 'Jogador ' + (s+1),
+
+  setup(players, o){
+    const dia = diaNum(), w = o.modo === 'livre' ? pick(RESP) : palavraDoDia(dia);
+    return {w, wn:semAcento(w), modo:o.modo === 'livre' ? 'livre' : 'dia', dia, t0:Date.now(), names:players.map(p => p.name), human:players.map(p => !!p.human),
+      p:players.map(() => ({g:[], cod:[], done:false, ok:false, quit:false, t:0, last:Date.now()}))};
+  },
+  waiting(st){ return st.p.map((p, i) => p.done ? -1 : i).filter(i => i >= 0); },
+  apply(st, seat, a){
+    const p = st.p[seat];
+    if(!p || p.done) return {ok:false, err:'Você já terminou.'};
+    if(a && a.t === 'desistir'){
+      p.done = true; p.quit = true; p.t = Date.now();
+      return {events:[{k:'log', text:`${esc(st.names[seat])} desistiu`}]};
+    }
+    if(!a || a.t !== 'g' || typeof a.w !== 'string') return {ok:false, err:'Jogada inválida.'};
+    const g = semAcento(a.w).replace(/[^a-z]/g, '');
+    if(g.length !== 5) return {ok:false, err:'A palavra tem 5 letras.'};
+    if(!FORMAS.has(g)) return {ok:false, err:'Essa palavra não está na lista.'};
+    if(p.g.includes(g)) return {ok:false, err:'Você já tentou essa palavra.'};
+    p.g.push(g); p.cod.push(codigo(g, st.wn)); p.last = Date.now();
+    const ev = [];
+    if(g === st.wn){
+      p.done = true; p.ok = true; p.t = Date.now();
+      if(st.p.length > 1){ ev.push({k:'log', text:`${esc(st.names[seat])} acertou em ${p.g.length} (${fmtT(p.t - st.t0)})`}, {k:'say', seat, text:'Acertei! 🎯'}, {k:'snd', s:'alert'}); }
+    } else if(p.g.length >= MAXT){
+      p.done = true; p.t = Date.now();
+      if(st.p.length > 1) ev.push({k:'log', text:`${esc(st.names[seat])} não acertou`});
+    }
+    return {events:ev};
+  },
+  over(st){
+    if(st.p.some(p => !p.done)) return null;
+    const ord = st.p.map((p, i) => ({i, p})).sort((a, b) => (b.p.ok - a.p.ok) || (a.p.g.length - b.p.g.length) || (a.p.t - b.p.t));
+    const best = ord[0].p.ok ? ord.filter(x => x.p.ok && x.p.g.length === ord[0].p.g.length && x.p.t === ord[0].p.t).map(x => x.i) : [];
+    const pal = `A palavra era <b>${esc(st.w.toUpperCase())}</b>.`;
+    if(st.p.length === 1){
+      const p = st.p[0];
+      return {winners:p.ok ? [0] : [], text: p.ok ? `Acertou em ${p.g.length} tentativa${p.g.length > 1 ? 's' : ''} (${fmtT(p.t - st.t0)}). ${pal}` : `${p.quit ? 'Você desistiu.' : 'Acabaram as tentativas.'} ${pal}`};
+    }
+    const linhas = ord.map((x, k) => `${x.p.ok ? (k+1) + 'º' : '—'} <b>${esc(st.names[x.i])}</b>: ${x.p.ok ? `${x.p.g.length} tentativa${x.p.g.length > 1 ? 's' : ''}, ${fmtT(x.p.t - st.t0)}` : (x.p.quit ? 'desistiu' : 'não acertou')}`);
+    return {winners:best, text:`${pal}<br>${linhas.join('<br>')}`};
+  },
+  bot(st, seat, o){ return {t:'g', w:botPalpite(st, seat, o.diff || 'normal')}; },
+  botDelay(st, seat, o){
+    // ritmo humano: cada bot "pensa" alguns segundos por tentativa (os bots revezam a vez)
+    const base = {facil:15000, normal:12000, dificil:10000}[o.diff || 'normal'];
+    const p = st.p[seat], k = Math.max(1, st.p.filter((q, i) => !q.done && !st.human[i]).length);
+    const alvo = p.last + (base * (0.7 + 0.6 * ((p.g.length * 7 + seat * 3) % 10) / 10)) * CFG.speed;
+    return Math.max(250, Math.min(3000 * k, (alvo - Date.now()) / CFG.speed)) / k;
+  },
+  view(st, seat){
+    const fim = st.p.every(p => p.done), me = st.p[seat];
+    return {
+      modo:st.modo, dia:st.dia, t0:st.t0, fim,
+      w: (me && me.done) || fim ? st.w : null,
+      me: me ? {g:me.g.map(g => (g === st.wn ? st.w : FORMAS.get(g)) || g), c:me.g.map(g => cores(g, st.wn)), done:me.done, ok:me.ok, quit:me.quit, t:me.t} : null,
+      // dos outros: só quantas linhas usaram; as cores só depois do fim
+      outros: st.p.map((p, i) => ({i, name:st.names[i], n:p.g.length, done:p.done, ok:p.ok, quit:p.quit, t:p.done ? p.t - st.t0 : 0, c: fim ? p.g.map(g => cores(g, st.wn)) : null}))
+    };
+  },
+  topInfo(g, v){
+    if(!g.me) return '';
+    const n = g.me.g.length;
+    return `<div class="status">${g.modo === 'dia' ? 'Palavra do dia' : 'Palavra livre'} · ${g.me.done ? (g.me.ok ? 'Acertou!' : 'Fim') : 'Tentativa ' + Math.min(n+1, MAXT) + '/' + MAXT}</div>`;
+  },
+  render(g, v, ui){ desenha(g, v, ui); },
+  onEvent(e, v){
+    if(e.k === 'start'){ LOCAL.typed = ''; LOCAL.nVistas = 0; }
+    if(e.k === 'over' && v && v.game && v.game.me && NET_ok(v)) gravaEst(v.game);
+  },
+  rules:`<h3>Objetivo</h3><p>Descobrir a palavra secreta de <b>5 letras</b> em até <b>6 tentativas</b>.</p>
+<h3>Como jogar</h3><ul>
+<li>Digite uma palavra de 5 letras (teclado da tela ou do computador) e aperte <b>ENTER</b>. Só valem palavras da lista do jogo.</li>
+<li>Depois de cada tentativa as letras mudam de cor:
+ <span class="ex"><span class="tile v">P</span></span> verde = letra certa no lugar certo;
+ <span class="ex"><span class="tile a">R</span></span> amarelo = a letra existe, mas em outro lugar;
+ <span class="ex"><span class="tile c">X</span></span> cinza = a letra não está na palavra.</li>
+<li>Acentos e cedilha não contam: digite sem acento (A = Á = Ã, C = Ç) que o jogo completa sozinho.</li>
+<li>Letras repetidas: cada letra da palavra secreta só "acende" uma vez. Se você usar duas letras iguais e a palavra tiver só uma, a segunda fica cinza.</li>
+</ul>
+<h3>Modos</h3><ul>
+<li><b>Do dia</b>: a mesma palavra para todo mundo, muda à meia-noite.</li>
+<li><b>Livre</b>: uma palavra sorteada a cada partida.</li>
+</ul>
+<h3>Disputa (2 a 4 jogadores)</h3><p>Todos tentam a <b>mesma palavra</b> ao mesmo tempo, cada um na sua grade. Durante a partida você só vê <b>quantas linhas</b> os outros já usaram; as cores deles aparecem no fim. Vence quem acertar com <b>menos tentativas</b>; no empate, quem acertou <b>mais rápido</b>. Dá para <b>desistir</b> a qualquer momento.</p>
+<p>Os bots pensam como gente: o Fácil chuta palavras que ainda podem ser a resposta; o Normal e o Difícil escolhem a tentativa que mais elimina possibilidades (o Difícil às vezes usa uma palavra só para descobrir letras).</p>
+<h3>Estatísticas</h3><p>Ficam guardadas neste aparelho (botão 📊). No modo "Do dia", só a primeira partida de cada dia conta para a sequência.</p>`
+});
+
+/* estatísticas locais: grava uma vez por partida */
+let estGravado = -1;
+function NET_ok(v){ return v.gameNo !== estGravado; }
+function gravaEst(g){
+  estGravado = Mesa.ui.view ? Mesa.ui.view.gameNo : 0;
+  const e = lerEst();
+  if(g.modo === 'dia' && e.dia === g.dia) return;            // a palavra de hoje já contou
+  if(g.modo === 'dia') e.dia = g.dia;
+  e.jogos++;
+  if(g.me.ok){ e.vit++; e.seq++; e.max = Math.max(e.max, e.seq); e.dist[g.me.g.length - 1]++; } else e.seq = 0;
+  lsSet('central.palavra.est', e);
+}
+function mostraEst(){
+  const e = lerEst(), mx = Math.max(1, ...e.dist), v = Mesa.ui.view, g = v && v.game;
+  const hl = g && g.me && g.me.ok ? g.me.g.length - 1 : -1;
+  modal(`<h2>📊 Estatísticas</h2><div class="est"><div><b>${e.jogos}</b><span>jogos</span></div><div><b>${e.jogos ? Math.round(100*e.vit/e.jogos) : 0}%</b><span>vitórias</span></div>
+    <div><b>${e.seq}</b><span>sequência</span></div><div><b>${e.max}</b><span>melhor seq.</span></div></div>
+    <h3>Acertos por tentativa</h3><div class="dist">${e.dist.map((n, i) => `<div>${i+1} <i class="${i === hl ? 'hl' : ''}" style="width:${8 + 82*n/mx}%">${n}</i></div>`).join('')}</div>`, [{label:'Fechar'}]);
+}
+
+/* ---------------------------- TELA ---------------------------- */
+function letraEstado(g){
+  const m = {};
+  g.me.g.forEach((w, r) => { const n = semAcento(w); for(let i=0;i<5;i++){ const c = g.me.c[r][i]; if((m[n[i]] ?? -1) < c) m[n[i]] = c; } });
+  return m;
+}
+function desenha(g, v, ui){
+  const S = ui.stage; if(!g.me){ S.innerHTML = ''; return; }
+  if(LOCAL.game !== v.gameNo){ LOCAL.game = v.gameNo; LOCAL.typed = ''; LOCAL.nVistas = g.me.g.length; }
+  const W = S.clientWidth, H = S.clientHeight, multi = g.outros.length > 1;
+  const kh = clamp(Math.round(H * 0.075), 40, 58), kbH = 3*kh + 12;
+  const oppH = multi ? 34 : 0, gap = 5;
+  const s = Math.floor(Math.max(30, Math.min((W - 30 - 4*gap) / 5, (H - kbH - oppH - 30 - 34 - 5*gap - 24) / 6, 66)));
+  S.style.setProperty('--s', s + 'px'); S.style.setProperty('--gap', gap + 'px'); S.style.setProperty('--kh', kh + 'px');
+  const novo = g.me.g.length > LOCAL.nVistas; LOCAL.nVistas = g.me.g.length;
+  const cls = ['', 'a', 'v'];
+  let rows = '';
+  for(let r=0;r<MAXT;r++){
+    if(r < g.me.g.length){
+      const w = g.me.g[r].toUpperCase();
+      rows += `<div class="row ${novo && r === g.me.g.length - 1 ? 'new' : ''}">${[...w].map((ch, i) => `<div class="tile ${cls[g.me.c[r][i]] || 'c'}">${esc(ch)}</div>`).join('')}</div>`;
+    } else if(r === g.me.g.length && !g.me.done){
+      const t = LOCAL.typed.toUpperCase();
+      rows += `<div class="row cur ${LOCAL.shake ? 'shake' : ''}">${[0,1,2,3,4].map(i => `<div class="tile ${t[i] ? 'fill' : ''} ${i === t.length ? 'at' : ''}">${esc(t[i] || '')}</div>`).join('')}</div>`;
+    } else rows += `<div class="row">${'<div class="tile"></div>'.repeat(5)}</div>`;
+  }
+  LOCAL.shake = false;
+  const est = letraEstado(g), kc = ['c','a','v'];
+  const linha = (ks, extraL, extraR) => `<div class="kr">${extraL || ''}${[...ks].map(k => `<button data-k="${k}" class="${est[k] != null ? kc[est[k]] : ''}">${k}</button>`).join('')}${extraR || ''}</div>`;
+  const kb = `<div class="kb ${g.me.done ? 'off' : ''}">${linha('qwertyuiop')}${linha('asdfghjkl', '', '<button data-k="back" class="wide" aria-label="Apagar">⌫</button>')}${linha('zxcvbnm', '<button data-k="enter" class="wide">ENTER</button>')}</div>`;
+  let msg = '';
+  if(g.me.done) msg = g.me.ok ? `🎉 Acertou em ${g.me.g.length}! ${g.w ? '<b>' + esc(g.w.toUpperCase()) + '</b>' : ''}` : `A palavra era <b>${esc((g.w || '').toUpperCase())}</b>`;
+  else if(multi){ const ok = g.outros.filter(o => o.ok && o.i !== v.me).length; msg = ok ? `${ok} adversário${ok > 1 ? 's' : ''} já acert${ok > 1 ? 'aram' : 'ou'}!` : 'Todos com a mesma palavra — corra!'; }
+  else msg = g.modo === 'dia' ? 'Palavra de hoje' : 'Palavra sorteada';
+  const opps = multi ? `<div class="opps">${g.outros.filter(o => o.i !== v.me).map(o => `<div class="opp ${o.ok ? 'ok' : (o.done ? 'fail' : '')}" data-seat="${o.i}">${esc(o.name)}
+      ${o.c ? `<span class="mini">${o.c.map(r => r.map(c => `<i class="${['c','a','v'][c]}"></i>`).join('')).join('')}</span>`
+            : `<span class="bars">${[0,1,2,3,4,5].map(i => `<i class="${i < o.n ? (o.ok && i === o.n - 1 ? 'g' : 'u') : ''}"></i>`).join('')}</span>`}
+      ${o.done ? (o.ok ? '✓ ' + fmtT(o.t) : (o.quit ? 'desistiu' : '✗')) : o.n + '/6'}</div>`).join('')}</div>` : '';
+  const acts = `<div class="acts"><button class="tbtn" id="bEst">📊 Estatísticas</button>${!g.me.done ? '<button class="tbtn" id="bDes">🏳️ Desistir</button>' : ''}</div>`;
+  S.innerHTML = `<div class="pw">${opps}<div class="grid">${rows}</div><div class="msgl">${msg}</div>${acts}${kb}</div>`;
+  if(novo){ const c = g.me.c[g.me.c.length - 1]; if(g.me.ok) Snd.win(); else if(g.me.done) Snd.lose(); else if(c.some(x => x)) Snd.card(); else Snd.move(); }
+  $$('.kb button', S).forEach(b => b.onclick = () => tecla(b.dataset.k));
+  $('#bEst', S).onclick = mostraEst;
+  if($('#bDes', S)) $('#bDes', S).onclick = () => modal('<h2>Desistir?</h2><p>A palavra será revelada e a partida conta como derrota.</p>',
+    [{label:'Desistir', cls:'b-up', fn:() => { LOCAL.typed = ''; ui.act({t:'desistir'}); }}, {label:'Continuar', cls:'b-no'}]);
+}
+function tecla(k){
+  const ui = Mesa.ui, v = ui.view, g = v && v.game;
+  if(!g || !g.me || g.me.done || v.phase !== 'game') return;
+  if(k === 'back') LOCAL.typed = LOCAL.typed.slice(0, -1);
+  else if(k === 'enter'){
+    if(LOCAL.typed.length < 5){ LOCAL.shake = true; toast('Faltam letras.'); }
+    else if(!FORMAS.has(LOCAL.typed)){ LOCAL.shake = true; toast('Essa palavra não está na lista.'); Snd.error(); }
+    else if(g.me.g.some(w => semAcento(w) === LOCAL.typed)){ LOCAL.shake = true; toast('Você já tentou essa.'); }
+    else { const w = LOCAL.typed; LOCAL.typed = ''; ui.act({t:'g', w}); }
+  }
+  else if(/^[a-z]$/.test(k) && LOCAL.typed.length < 5) LOCAL.typed += k;
+  ui.rerender();
+}
+document.addEventListener('keydown', e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const a = document.activeElement; if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return;
+  if($('#modal.show') || $('#game').classList.contains('hidden')) return;
+  const k = e.key === 'Enter' ? 'enter' : e.key === 'Backspace' ? 'back' : semAcento(e.key);
+  if(k === 'enter' || k === 'back' || /^[a-z]$/.test(k)){ e.preventDefault(); tecla(k); }
+});
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => Mesa.ui.view && Mesa.ui.view.game && Mesa.ui.rerender(), 120); });
+</script>
+</body>
+</html>
