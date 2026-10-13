@@ -276,25 +276,24 @@ const Mesa = (() => {
   };
 
   function buildDOM(){
-    const opts = (D.options || []).map(o => `<div><label class="lbl" for="opt_${o.key}">${esc(o.label)}</label>
+    const opts = (D.options || []).map(o => `<div class="optf"><label class="lbl" for="opt_${o.key}">${esc(o.label)}</label>
       <select class="sel" id="opt_${o.key}">${o.choices.map(c => `<option value="${esc(c[0])}">${esc(c[1])}</option>`).join('')}</select></div>`).join('');
-    const ropts = (D.options || []).map(o => `<div><label class="small" style="display:block;text-align:left;margin:0 0 4px">${esc(o.label)}</label>
+    const ropts = (D.options || []).map(o => `<div class="optf"><label class="lbl" for="ropt_${o.key}">${esc(o.label)}</label>
       <select class="sel" id="ropt_${o.key}">${o.choices.map(c => `<option value="${esc(c[0])}">${esc(c[1])}</option>`).join('')}</select></div>`).join('');
     document.body.insertAdjacentHTML('afterbegin', `
-<div class="screen" id="home"><div class="panel">
+<div class="screen" id="home"><div class="panel home">
   <div class="title">${D.icon || ''} ${esc(D.name.toUpperCase())}</div>
   <div class="subtitle">${esc(D.tagline || (D.solo ? 'Para jogar sozinho' : 'Online ou contra bots'))}</div>
-  ${D.solo ? '' : `<div class="field"><label for="nameIn">Seu nome</label><input class="txt" id="nameIn" maxlength="16" placeholder="Como te chamam na mesa?"></div>`}
-  ${opts ? `<div class="field"><div class="row" style="flex-wrap:wrap">${opts}</div></div>` : ''}
-  ${D.solo ? `<button class="big g" id="bSolo">Jogar</button>` : `
-  <button class="big g" id="bCreate">Criar sala online</button>
-  <div class="field"><label for="codeIn">Entrar numa sala</label>
-    <div class="row"><input class="txt code" id="codeIn" maxlength="5" placeholder="CÓDIGO">
-    <button class="big y" id="bJoin" style="flex:0 0 auto;width:auto;margin:0;padding:0 20px">Entrar</button></div></div>
-  <div class="sep">ou</div>
-  <button class="big d" id="bSolo">Jogar contra bots (offline)</button>`}
-  <button class="big d ghost" id="bRules1">Ver regras</button>
-  <a class="big d ghost" href="../index.html" style="display:block;text-align:center;text-decoration:none">← Central de Jogos</a>
+  ${D.solo ? '' : `<div class="field"><label for="nameIn">Seu nome</label><input class="txt" id="nameIn" maxlength="16" placeholder="Como te chamam na mesa?" autocomplete="nickname"></div>`}
+  ${opts ? `<div class="opts">${opts}</div>` : ''}
+  ${D.solo ? `<button class="big g" id="bSolo">▶ Jogar</button>` : `
+  <button class="big g" id="bSolo">▶ Jogar contra bots</button>
+  <div class="friends"><div class="fh">👥 Jogar com amigos <small>online, sem cadastro</small></div>
+    <button class="big y" id="bCreate">Criar sala e chamar amigos</button>
+    <div class="row"><input class="txt code" id="codeIn" maxlength="5" placeholder="CÓDIGO" aria-label="Código da sala" autocapitalize="characters">
+    <button class="big d" id="bJoin" style="flex:0 0 auto;width:auto;margin:0;padding:0 22px">Entrar</button></div></div>`}
+  <div class="row foot"><button class="big d ghost" id="bRules1">📖 Regras</button>
+  <a class="big d ghost" href="../index.html">← Jogos</a></div>
   <div class="msg" id="homeMsg"></div><div class="small" id="histHome"></div>
 </div></div>
 <div class="screen hidden" id="room"><div class="panel">
@@ -302,7 +301,7 @@ const Mesa = (() => {
     <div class="row" style="justify-content:center;margin-top:6px">
       <button class="tbtn" id="bCopyCode" style="flex:0 0 auto">Copiar código</button>
       <button class="tbtn" id="bCopyLink" style="flex:0 0 auto">Copiar link</button></div></div>
-  ${ropts ? `<div class="row" style="flex-wrap:wrap;margin-bottom:6px">${ropts}</div>` : ''}
+  ${ropts ? `<div class="opts">${ropts}</div>` : ''}
   <div class="seats" id="seatGrid"></div>
   <p class="small" style="margin:0 0 10px">Clique num lugar vago para trocar. Lugares vazios viram bots ao iniciar.</p>
   <div class="logbox"></div>
@@ -527,6 +526,9 @@ const Mesa = (() => {
     document.documentElement.classList.add('app');
     document.title = def.name + ' — Central de Jogos';
     buildDOM(); wire();
+    // lembra os últimos jogos abertos (a Central mostra em "Jogados recentemente")
+    try{ const k = 'games/' + location.pathname.split('/').pop() + location.search;
+      const r = (lsGet('central.recent') || []).filter(x => x !== k); r.unshift(k); lsSet('central.recent', r.slice(0, 8)); }catch(_){}
     if($('#nameIn')) $('#nameIn').value = CFG.name || '';
     const saved = lsGet('central.opts.' + D.id) || {};
     const qs = new URLSearchParams(location.search);
@@ -540,7 +542,7 @@ const Mesa = (() => {
     if(location.hash.length > 1 && $('#codeIn')) $('#codeIn').value = location.hash.slice(1).toUpperCase().slice(0,5);
     // com 1 lugar só (jogos que também têm disputa online), o botão vira "Jogar sozinho"
     const soloLbl = () => { if(D.solo || !$('#bSolo')) return; const n = D.seats ? D.seats(readOpts('opt_')) : (D.players || 2);
-      $('#bSolo').textContent = n === 1 ? 'Jogar sozinho' : 'Jogar contra bots (offline)'; };
+      $('#bSolo').textContent = n === 1 ? '▶ Jogar sozinho' : '▶ Jogar contra bots'; };
     (D.options || []).forEach(o => { const el = $('#opt_' + o.key); if(el) el.addEventListener('change', soloLbl); });
     soloLbl();
     render();

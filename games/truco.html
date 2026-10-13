@@ -311,39 +311,55 @@ body.many .so .tag{font-size:12px;padding:3px 9px}
   #deckArea .card{--cw:44px;--ch:63px;width:44px;height:63px}
   #btnTruco{width:62px;height:62px;bottom:10px} #btnCobrir{bottom:18px}
 }
+
+.ghost{background:transparent!important;border:1px solid rgba(255,255,255,.3)!important;color:#fff}
+.panel.home{display:flex;flex-direction:column}
+.opts{display:flex;flex-direction:column;gap:12px;margin:2px 0 16px;padding:12px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+.optf{display:flex;flex-direction:column;gap:6px;min-width:0}
+.optf .lbl,.optf label{font-size:12.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#ffe6a6}
+.friends{margin:6px 0 12px;padding:12px;border-radius:14px;border:1px solid rgba(231,180,58,.35);background:rgba(231,180,58,.06)}
+.friends .fh{font-weight:800;color:#ffe6a6;margin-bottom:10px;font-size:15px}
+.friends .fh small{display:block;font-weight:600;color:#9cb;font-size:12px;margin-top:2px}
+.friends .big{margin-bottom:10px}
+.foot{gap:8px}.foot .big{margin:0;padding:11px;font-size:14.5px;display:block;text-align:center;text-decoration:none}
+.home .big.g{font-size:18px;padding:16px}
+@media (max-width:600px){
+  .screen{align-items:flex-start!important;padding:max(10px,env(safe-area-inset-top)) 10px max(14px,env(safe-area-inset-bottom))!important}
+  .panel{padding:16px 14px!important}
+  .title{font-size:30px!important}
+  .subtitle{font-size:11.5px!important;letter-spacing:1.5px!important;margin-bottom:12px!important}
+}
 </style>
 </head>
 <body>
 
 <!-- ============ TELA INICIAL ============ -->
 <div class="screen" id="home">
-  <div class="panel">
+  <div class="panel home">
     <div class="title">TRUCO</div>
     <div class="subtitle">MINEIRO · PAULISTA · TRUCÃO · DOURADINHO</div>
     <div class="field">
       <label for="nameIn">Seu nome</label>
-      <input class="txt" id="nameIn" maxlength="16" placeholder="Como te chamam na mesa?">
+      <input class="txt" id="nameIn" maxlength="16" placeholder="Como te chamam na mesa?" autocomplete="nickname">
     </div>
-    <div class="field">
+    <div class="opts">
+      <div class="optf"><label class="lbl" for="modeSel">Modo</label>
+        <select class="sel" id="modeSel"><option value="mineiro">Mineiro</option><option value="paulista">Paulista</option><option value="trucao6">Trucão 6</option><option value="trucao8">Trucão 8</option><option value="douradinho">Douradinho</option><option value="douradao">Douradão</option></select></div>
+      <div class="optf"><label class="lbl" for="diffSel">Bots</label>
+        <select class="sel" id="diffSel"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select></div>
+    </div>
+    <button class="big g" id="bSolo">▶ Jogar contra bots</button>
+    <div class="friends"><div class="fh">👥 Jogar com amigos <small>online, sem cadastro</small></div>
+      <button class="big y" id="bCreate">Criar sala e chamar amigos</button>
       <div class="row">
-        <div><label for="modeSel">Modo</label>
-          <select class="sel" id="modeSel"><option value="mineiro">Truco Mineiro</option><option value="paulista">Truco Paulista</option><option value="trucao6">Trucão (6 jogadores)</option><option value="trucao8">Trucão (8 jogadores)</option><option value="douradinho">Douradinho (6)</option><option value="douradao">Douradão (8)</option></select></div>
-        <div><label for="diffSel">Bots</label>
-          <select class="sel" id="diffSel"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select></div>
+        <input class="txt code" id="codeIn" maxlength="5" placeholder="CÓDIGO" aria-label="Código da sala" autocapitalize="characters">
+        <button class="big d" id="bJoin" style="flex:0 0 auto;width:auto;margin:0;padding:0 22px">Entrar</button>
       </div>
     </div>
-    <button class="big g" id="bCreate">Criar sala online</button>
-    <div class="field">
-      <label for="codeIn">Entrar numa sala</label>
-      <div class="row">
-        <input class="txt code" id="codeIn" maxlength="5" placeholder="CÓDIGO">
-        <button class="big y" id="bJoin" style="flex:0 0 auto;width:auto;margin:0;padding:0 20px">Entrar</button>
-      </div>
+    <div class="row foot">
+      <button class="big d ghost" id="bRules1">📖 Regras</button>
+      <a class="big d ghost" href="../index.html">← Jogos</a>
     </div>
-    <div class="sep">ou</div>
-    <button class="big d" id="bSolo">Jogar sozinho contra bots (offline)</button>
-    <button class="big d" id="bRules1" style="background:transparent;border:1px solid rgba(255,255,255,.3)">Ver regras</button>
-    <a class="big d" href="../index.html" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid rgba(255,255,255,.3)">← Central de Jogos</a>
     <div class="msg" id="homeMsg"></div>
     <div class="small" id="histHome"></div>
   </div>
@@ -360,10 +376,10 @@ body.many .so .tag{font-size:12px;padding:3px 9px}
         <button class="tbtn" id="bCopyLink" style="flex:0 0 auto">Copiar link</button>
       </div>
     </div>
-    <div class="row" style="margin-bottom:6px">
-      <div><label class="small" style="display:block;text-align:left;margin:0 0 4px">Modo</label>
-        <select class="sel" id="roomMode"><option value="mineiro">Truco Mineiro</option><option value="paulista">Truco Paulista</option><option value="trucao6">Trucão (6 jogadores)</option><option value="trucao8">Trucão (8 jogadores)</option><option value="douradinho">Douradinho (6)</option><option value="douradao">Douradão (8)</option></select></div>
-      <div><label class="small" style="display:block;text-align:left;margin:0 0 4px">Bots</label>
+    <div class="opts">
+      <div class="optf"><label class="lbl" for="roomMode">Modo</label>
+        <select class="sel" id="roomMode"><option value="mineiro">Mineiro</option><option value="paulista">Paulista</option><option value="trucao6">Trucão 6</option><option value="trucao8">Trucão 8</option><option value="douradinho">Douradinho</option><option value="douradao">Douradão</option></select></div>
+      <div class="optf"><label class="lbl" for="roomDiff">Bots</label>
         <select class="sel" id="roomDiff"><option value="facil">Fácil</option><option value="normal">Normal</option><option value="dificil">Difícil</option></select></div>
     </div>
     <div class="duplas" id="seatGrid"></div>
@@ -419,6 +435,7 @@ body.many .so .tag{font-size:12px;padding:3px 9px}
 
 <!-- PeerJS: conexão direta entre navegadores (WebRTC). Sem internet, só o modo sozinho funciona. -->
 <script src="../shared/peerjs.min.js"></script>
+<script src="../shared/chips.js" defer></script>
 <script>
 "use strict";
 /* =====================================================================
@@ -1920,6 +1937,7 @@ window.addEventListener('beforeunload', e => {
 /* ---------- início ---------- */
 $('#nameIn').value = (lsGet('central.cfg') || {}).name || lsGet('trucoMineiroNome') || '';
 const savedModo = lsGet('trucoModo');
+try{ const rk = 'games/truco.html' + location.search; const rr = (JSON.parse(localStorage.getItem('central.recent')) || []).filter(x => x !== rk); rr.unshift(rk); localStorage.setItem('central.recent', JSON.stringify(rr.slice(0,8))); }catch(_){}
 if(savedModo){ if(MODES[savedModo.mode]) $('#modeSel').value = savedModo.mode; if(DIFF[savedModo.diff]) $('#diffSel').value = savedModo.diff; }
 { const qm = new URLSearchParams(location.search).get('mode'); const mm = qm === 'trucao' ? 'trucao6' : qm; if(mm && MODES[mm]) $('#modeSel').value = mm; }
 if(location.hash.length > 1) $('#codeIn').value = location.hash.slice(1).toUpperCase().slice(0,5);

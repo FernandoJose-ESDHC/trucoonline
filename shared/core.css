@@ -153,3 +153,24 @@ input.code{text-transform:uppercase;letter-spacing:4px;font-weight:800}
 .dot::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--eles);margin-left:3px;vertical-align:top}
 .bubble{position:absolute;background:#fff;color:#222;font-weight:900;border-radius:14px;padding:6px 12px;font-size:14px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:20;
   pointer-events:none;animation:pop .25s;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- tela inicial dos jogos (opções em botões, mais clara no celular) ---------- */
+.panel.home{display:flex;flex-direction:column}
+.opts{display:flex;flex-direction:column;gap:12px;margin:2px 0 16px;padding:12px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+.optf{display:flex;flex-direction:column;gap:6px;min-width:0}
+.optf .lbl{font-size:12.5px;letter-spacing:.5px;text-transform:uppercase;color:#ffe6a6}
+.friends{margin:6px 0 12px;padding:12px;border-radius:14px;border:1px solid rgba(231,180,58,.35);background:rgba(231,180,58,.06)}
+.friends .fh{font-weight:800;color:#ffe6a6;margin-bottom:10px;font-size:15px}
+.friends .fh small{display:block;font-weight:600;color:#9cb;font-size:12px;margin-top:2px}
+.friends .big{margin-bottom:10px}
+.foot{gap:8px}.foot .big{margin:0;padding:11px;font-size:14.5px;display:block;text-align:center;text-decoration:none}
+.home .big.g{font-size:18px;padding:16px}
+input.txt.code{text-transform:uppercase;letter-spacing:4px;font-weight:800;text-align:center}
+@media (max-width:600px){
+  .screen{align-items:flex-start;padding:max(10px,env(safe-area-inset-top)) 10px max(14px,env(safe-area-inset-bottom))}
+  .panel{padding:16px 14px;border-radius:16px}
+  .title{font-size:26px;line-height:1.15}
+  .subtitle{font-size:11.5px;letter-spacing:1.5px;margin-bottom:12px}
+  .opts{padding:10px;gap:10px}
+  .chipsel button{min-height:42px;padding:8px 13px;font-size:14px}
+}
