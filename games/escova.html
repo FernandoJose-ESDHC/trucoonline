@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Escova</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px 8px;gap:5px}
+/* ---------- mesa: adversário/parceiro no topo, laterais nas colunas ---------- */
+.tbl{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);gap:6px}
+.otop{grid-column:1/-1;display:flex;justify-content:center}
+.oside{display:flex;flex-direction:column;justify-content:center}
+.opp{background:rgba(0,0,0,.32);border:2px solid transparent;border-radius:12px;padding:4px 8px 5px;text-align:center;font-weight:800;font-size:12px;width:var(--ow);position:relative;transition:border-color .2s}
+.opp .onm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .oc{display:flex;justify-content:center;gap:3px;margin-top:3px;min-height:21px}
+.opp .tag{font-size:9px;letter-spacing:1px;color:#cfe;font-weight:700}
+.opp.t0 .tag{color:var(--nos)} .opp.t1 .tag{color:var(--eles)}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite;background:rgba(0,0,0,.45)}
+.mback{width:14px;height:20px;border-radius:3px;background:linear-gradient(135deg,#8e1b22,#5a0e14);border:2px solid #f4ead2;box-shadow:0 1px 3px rgba(0,0,0,.5);flex:none}
+.pile{font-size:10.5px;color:#cfe;font-weight:700;margin-top:2px}
+.esc{color:var(--gold)}
+/* ---------- centro: monte, última jogada e cartas da mesa ---------- */
+.ctr{grid-column:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:0;overflow:hidden;position:relative;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,.07),rgba(0,0,0,.16));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:6px}
+.info{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:11.5px;font-weight:700;color:#cfe}
+.dk{display:inline-flex;align-items:center;gap:5px}
+.dk .mback{width:12px;height:17px}
+.lastp{font-size:12.5px;font-weight:800;color:#ffe6a6;text-align:center;min-height:17px;text-shadow:0 1px 3px #000;max-width:100%}
+.lastp .e{color:var(--gold);font-size:14px}
+.table{flex-shrink:0;display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:calc(var(--tw)*.12);max-width:100%;min-height:calc(var(--tw)*1.43)}
+.table .card{--cw:var(--tw);--ch:calc(var(--tw)*1.43)}
+.table .card.can{box-shadow:0 0 0 3px rgba(231,180,58,.75),0 3px 8px rgba(0,0,0,.45)}
+.table .card.pick{box-shadow:0 0 0 3px var(--nos),0 0 14px rgba(62,207,122,.9);transform:translateY(-6px)}
+.table .empty{color:#9cb;font-size:13px;font-weight:700;align-self:center}
+.card .nm{color:#7a5a00!important}
+.sumbox{background:rgba(0,0,0,.5);border:2px solid var(--gold);border-radius:14px;padding:8px 12px;text-align:center;font-weight:800;max-width:100%}
+.sumbox h3{color:var(--gold);font-size:16px;margin-bottom:4px}
+.sumbox table{border-collapse:collapse;margin:4px auto;font-size:13px}
+.sumbox td,.sumbox th{padding:2px 8px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sumbox th{color:#cfe;font-size:11px}
+.sumbox .n{color:var(--nos)} .sumbox .e2{color:var(--eles)}
+.sumbox button{margin-top:6px;padding:10px 16px;border-radius:12px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+/* ---------- minha área ---------- */
+.mine{display:flex;flex-direction:column;align-items:center;gap:4px}
+.myname{font-size:12px;font-weight:800;color:#bff5d4;padding:2px 10px;border-radius:12px;border:2px solid transparent}
+.myname.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.hand{display:flex;justify-content:center;gap:calc(var(--cw)*.14);padding-top:12px;min-height:calc(var(--ch) + 12px)}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:not(.sel){box-shadow:0 0 0 2px rgba(231,180,58,.9),0 3px 8px rgba(0,0,0,.45)}
+@media (hover:hover){ .hand .card.ok:not(.sel):hover{transform:translateY(-8px)} }
+.acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:38px;align-items:center}
+.acts button{border:none;border-radius:11px;padding:8px 12px;font-weight:900;font-size:14px;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+.acts .tk{background:var(--nos);color:#06301a}
+.acts .ds{background:#555;color:#fff}
+.acts .tk .ms{background:#fff;color:#1a1a1a;border-radius:5px;padding:1px 4px;font-size:13px}
+.acts .tk .ms.r{color:var(--red)}
+.score{font-size:13px;font-weight:800;color:#ffe6a6;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.score .n{color:var(--nos)} .score .e{color:var(--eles)}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================ ESCOVA ================================
+   Escova de 15, como se joga no Rio Grande do Sul: baralho de 40 (sem 8,
+   9 e 10). Valores: Ás 1, 2 a 7 pelo número, Valete 8, Dama 9, Rei 10.
+   Jogue uma carta e leve da mesa cartas que, somadas a ela, deem 15.      */
+const RK = ['A','2','3','4','5','6','7','J','Q','K'];
+const SI = {'♣':0,'♥':1,'♠':2,'♦':3};
+const cI = c => SI[c.s] * 10 + RK.indexOf(c.r);                 // 0..39: naipe*10 + (valor-1)
+const cv = i => i % 10 + 1;                                      // valor da carta (índice)
+const vOf = c => RK.indexOf(c.r) + 1;                            // valor da carta (objeto)
+const SETE_BELO = 36;                                            // 7 de ouros
+const PRIME = [16,12,13,14,15,18,21,10,10,10];                   // pontos de "primeira" por valor-1
+const sideOf = (n, s) => n === 4 ? s % 2 : s;
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const cName = c => c.r + c.s;
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+// todas as combinações (índices) de vals que somam need
+function combosOf(vals, need){
+  const out = [], acc = [];
+  (function rec(i, s){
+    if(s === need){ out.push(acc.slice()); return; }
+    if(i >= vals.length || s > need) return;
+    acc.push(i); rec(i + 1, s + vals[i]); acc.pop();
+    rec(i + 1, s);
+  })(0, 0);
+  return out;
+}
+function captureOptions(st, card){
+  const vals = st.table.map(vOf);
+  return combosOf(vals, 15 - vOf(card)).map(ix => ix.map(i => st.table[i]));
+}
+
+/* ------------------------------ PARTIDA -------------------------------- */
+function dealHand(st, ev){
+  const d = shuffle(makeDeck({ranks:RK}));
+  st.deck = d; st.table = d.splice(0, 4);
+  st.hands = Array.from({length:st.n}, () => []);
+  st.caps = [[], []]; st.escovas = [0, 0]; st.lastCap = -1; st.last = null;
+  st.turn = (st.dealer + 1) % st.n; st.phase = 'play'; st.handRes = null; st.drawSeq = (st.drawSeq || 0) + 1;
+  refill(st);
+  // mesa inicial somando 15 (ou 30): quem deu as cartas leva e marca escova(s)
+  const tot = sum(st.table.map(vOf));
+  if(tot === 15 || tot === 30){
+    const sd = sideOf(st.n, st.dealer), k = tot / 15;
+    st.caps[sd].push(...st.table); st.escovas[sd] += k; st.lastCap = st.dealer;
+    st.last = {seat:st.dealer, card:null, took:st.table.slice(), escova:k, initial:true};
+    st.table = [];
+    ev.push({k:'banner', text: k === 2 ? 'Escova dupla na mesa!' : 'Mesa de 15: escova!'},
+            {k:'log', text:`A mesa saiu somando ${tot}: ${esc(st.names[st.dealer])} (quem deu) levou e marcou ${k} escova${k > 1 ? 's' : ''}.`});
+  }
+}
+function refill(st){
+  for(let k=0;k<3;k++) for(let i=1;i<=st.n;i++) st.hands[(st.dealer + i) % st.n].push(st.deck.pop());
+  st.drawSeq++;
+}
+function primeira(cards){
+  const best = [0, 0, 0, 0];
+  for(const c of cards){ const p = PRIME[RK.indexOf(c.r)]; if(p > best[SI[c.s]]) best[SI[c.s]] = p; }
+  return best.every(Boolean) ? sum(best) : 0;
+}
+// pontos da mão: escovas, cartas, ouros, sete belo, setes (ou primeira)
+function scoreHand(st){
+  const A = st.caps[0], B = st.caps[1];
+  const most = (a, b) => a > b ? 0 : b > a ? 1 : -1;
+  const rows = [];
+  rows.push({k:'Escovas', a:st.escovas[0], b:st.escovas[1], pa:st.escovas[0], pb:st.escovas[1]});
+  const r = (k, a, b) => { const w = most(a, b); rows.push({k, a, b, pa:w === 0 ? 1 : 0, pb:w === 1 ? 1 : 0}); };
+  r('Mais cartas', A.length, B.length);
+  r('Mais ouros', A.filter(c => c.s === '♦').length, B.filter(c => c.s === '♦').length);
+  const sb = A.some(c => cI(c) === SETE_BELO) ? 0 : 1;
+  rows.push({k:'Sete belo (7♦)', a:sb === 0 ? '✔' : '', b:sb === 1 ? '✔' : '', pa:sb === 0 ? 1 : 0, pb:sb === 1 ? 1 : 0});
+  if(st.ponto === 'primeira') r('Primeira', primeira(A), primeira(B));
+  else r('Mais setes', A.filter(c => c.r === '7').length, B.filter(c => c.r === '7').length);
+  return {rows, pts:[sum(rows.map(x => x.pa)), sum(rows.map(x => x.pb))]};
+}
+function endHand(st, ev){
+  if(st.table.length && st.lastCap >= 0){
+    const sd = sideOf(st.n, st.lastCap);
+    ev.push({k:'log', text:`Sobraram ${st.table.length} carta(s) na mesa: ficam com ${esc(st.names[st.lastCap])}, que levou por último.`});
+    st.caps[sd].push(...st.table); st.leftover = {seat:st.lastCap, n:st.table.length}; st.table = [];
+  } else st.leftover = null;
+  const res = scoreHand(st);
+  st.score[0] += res.pts[0]; st.score[1] += res.pts[1];
+  st.handRes = res;
+  const [a, b] = st.score, T = st.target;
+  st.phase = (a >= T || b >= T) && a !== b ? 'end' : 'handEnd';
+  ev.push({k:'log', text:`Fim da mão ${st.handNo}: ${res.pts[0]} × ${res.pts[1]} pontos. Placar: ${a} × ${b}.`},
+          {k:'banner', text:`Mão: ${res.pts[0]} × ${res.pts[1]}`});
+}
+
+/* ---------------------------- MOTOR DO BOT ----------------------------
+   Cartas como números (naipe*10 + valor-1). O valor de cada carta para
+   quem a leva depende do placar da mão (contagem): carta conta para "mais
+   cartas", ouro para "mais ouros", setes, e o 7 de ouros vale 1 ponto
+   inteiro. Quando um quesito já está decidido, ele deixa de pesar.        */
+const ESC = 1.0;
+function weights(st, lvl){
+  const W = new Float64Array(40), aware = lvl !== 'facil';
+  const cnt = a => ({c:a.length, o:a.filter(c => c.s === '♦').length, s7:a.filter(c => c.r === '7').length});
+  const A = cnt(st.caps[0]), B = cnt(st.caps[1]);
+  const wc = aware && (A.c > 20 || B.c > 20) ? 0 : 0.08;
+  const wo = aware && (A.o > 5 || B.o > 5) ? 0 : 0.13;
+  const w7 = st.ponto !== 'primeira' && aware && (A.s7 > 2 || B.s7 > 2) ? 0 : 0.2;
+  for(let i=0;i<40;i++){
+    const v = cv(i);
+    let x = wc;
+    if(i >= 30) x += wo;
+    if(v === 7) x += w7;
+    if(st.ponto === 'primeira'){ if(v === 6) x += 0.1; if(v === 1) x += 0.06; }
+    if(i === SETE_BELO) x += 1.0;
+    W[i] = x;
+  }
+  return W;
+}
+// movimentos possíveis com a mão h (números) e a mesa t (números): capturar é obrigatório se der 15
+function movesOf(h, t){
+  const tv = t.map(cv), out = [];
+  for(const c of h){
+    const cs = combosOf(tv, 15 - cv(c));
+    if(cs.length) for(const ix of cs) out.push({c, take:ix.map(j => t[j])});
+    else out.push({c, take:null});
+  }
+  return out;
+}
+function gainOf(m, t, W){
+  if(!m.take) return 0;
+  let g = W[m.c]; for(const x of m.take) g += W[x];
+  return g + (m.take.length === t.length ? ESC : 0);
+}
+function tableAfter(m, t){ return m.take ? t.filter(x => !m.take.includes(x)) : t.concat([m.c]); }
+// valor esperado do melhor lance de quem joga a seguir, sem ver a mão dele:
+// para cada valor de carta, chance de ele ter (hipergeométrica) × o que levaria
+function replyEV(t, W, U, h){
+  if(!h || !U.length) return 0;
+  const N = U.length, byV = Array.from({length:11}, () => []);
+  for(const i of U) byV[cv(i)].push(i);
+  const tv = t.map(cv), g = [];
+  for(let v=1;v<=10;v++){
+    const k = byV[v].length; if(!k) continue;
+    const cs = combosOf(tv, 15 - v); if(!cs.length) continue;
+    let best = -1;
+    for(const ix of cs){ let x = 0; for(const j of ix) x += W[t[j]]; if(ix.length === t.length) x += ESC; if(x > best) best = x; }
+    let aw = 0; for(const i of byV[v]) aw += W[i]; aw /= k;
+    let q = 1; for(let i=0;i<h;i++) q *= Math.max(0, N - k - i) / (N - i);
+    g.push([best + aw, 1 - q]);
+  }
+  g.sort((a, b) => b[0] - a[0]);
+  let ev = 0, rem = 1; for(const [x, p] of g){ ev += rem * p * x; rem *= 1 - p; }
+  return ev;
+}
+// "conhecido" por um jogador: tudo que já foi levado + mesa (as cartas saíram abertas)
+function seenMask(st){ const m = new Uint8Array(40); for(const a of st.caps) for(const c of a) m[cI(c)] = 1; for(const c of st.table) m[cI(c)] = 1; return m; }
+function unseenFor(mask, hand){ const U = []; const inH = new Uint8Array(40); hand.forEach(i => inH[i] = 1); for(let i=0;i<40;i++) if(!mask[i] && !inH[i]) U.push(i); return U; }
+
+// política "Normal": ganho imediato menos o que o próximo (adversário) deve levar
+function normalScore(m, ctx){
+  const {t, W, U, hNext, lastRound, lastCapMine, nextIsOpp} = ctx;
+  let s = gainOf(m, t, W);
+  const t2 = tableAfter(m, t);
+  if(lastRound){                                 // eu sou o último a jogar na mão: o que sobra vai para quem levou por último
+    const rest = sum(t2.map(x => W[x]));
+    s += (m.take || lastCapMine) ? rest : -rest;
+  } else {
+    const r = replyEV(t2, W, m.take ? U : U, hNext);
+    s += nextIsOpp ? -r : r * .6;
+  }
+  return s;
+}
+function easyScore(m, ctx){
+  const {t, W, U, hNext} = ctx;
+  let s = gainOf(m, t, W) + Math.random() * 0.22;
+  const t2 = tableAfter(m, t), tot = sum(t2.map(cv));
+  // só se preocupa em não deixar escova fácil
+  if(t2.length && tot <= 14 && tot >= 5){
+    const need = 15 - tot, k = U.filter(i => cv(i) === need).length, N = U.length;
+    let q = 1; for(let i=0;i<hNext;i++) q *= Math.max(0, N - k - i) / Math.max(1, N - i);
+    s -= (1 - q) * 0.8;
+  }
+  return s;
+}
+function ctxFor(st, p, W, handInts){
+  const n = st.n, t = st.table.map(cI), mask = seenMask(st), U = unseenFor(mask, handInts);
+  const nx = (p + 1) % n;
+  const totLeft = sum(st.hands.map(h => h.length));
+  return {t, W, U, hNext:st.hands[nx].length, nextIsOpp:true,
+    lastRound: !st.deck.length && totLeft === 1, lastCapMine: st.lastCap >= 0 && sideOf(n, st.lastCap) === sideOf(n, p)};
+}
+
+/* Difícil: amostra mãos coerentes para os outros (Monte Carlo) e olha 3
+   lances à frente (eu → adversário → meu lado), cada um jogando pela
+   política Normal; no fim da mão, com poucas cartas, calcula tudo exato. */
+function simCtx(sim, p){
+  const n = sim.n, nx = (p + 1) % n, U = [];
+  const inH = new Uint8Array(40); sim.hands[p].forEach(i => inH[i] = 1);
+  for(let i=0;i<40;i++) if(!sim.seen[i] && !inH[i]) U.push(i);
+  const totLeft = sum(sim.hands.map(h => h.length));
+  return {t:sim.table, W:sim.W, U, hNext:sim.hands[nx].length, nextIsOpp:true,
+    lastRound: !sim.deck.length && totLeft === 1, lastCapMine: sim.lastCap >= 0 && sideOf(n, sim.lastCap) === sideOf(n, p)};
+}
+function simPlay(sim, p, m){
+  const h = sim.hands[p]; h.splice(h.indexOf(m.c), 1);
+  sim.seen[m.c] = 1;
+  const sg = sideOf(sim.n, p) === sim.my ? 1 : -1;
+  if(m.take){
+    sim.val += sg * gainOf(m, sim.table, sim.W);
+    sim.table = sim.table.filter(x => !m.take.includes(x)); sim.lastCap = p;
+  } else sim.table = sim.table.concat([m.c]);
+  sim.turn = (p + 1) % sim.n;
+  if(sim.hands.every(x => !x.length)){
+    if(sim.deck.length){ for(let k=0;k<3;k++) for(let i=0;i<sim.n;i++) if(sim.deck.length) sim.hands[(sim.turn + i) % sim.n].push(sim.deck.pop()); }
+    else if(sim.table.length && sim.lastCap >= 0){
+      const v = sum(sim.table.map(x => sim.W[x]));
+      sim.val += (sideOf(sim.n, sim.lastCap) === sim.my ? 1 : -1) * v; sim.table = [];
+    }
+  }
+}
+const simClone = s => ({n:s.n, my:s.my, W:s.W, hands:s.hands.map(h => h.slice()), table:s.table.slice(), deck:s.deck.slice(), seen:s.seen.slice(), lastCap:s.lastCap, turn:s.turn, val:s.val});
+const simDone = s => s.hands.every(h => !h.length) && !s.deck.length;
+function exactSolve(sim){
+  if(simDone(sim)) return sim.val;
+  const p = sim.turn, maxi = sideOf(sim.n, p) === sim.my;
+  let best = maxi ? -1e9 : 1e9;
+  for(const m of movesOf(sim.hands[p], sim.table)){
+    const s2 = simClone(sim); simPlay(s2, p, m);
+    const v = exactSolve(s2);
+    if(maxi ? v > best : v < best) best = v;
+  }
+  return best;
+}
+function lookahead(sim, plies){
+  for(let k=0;k<plies && !simDone(sim);k++){
+    if(!sim.deck.length && sum(sim.hands.map(h => h.length)) <= 5) return exactSolve(sim);
+    const p = sim.turn, ctx = simCtx(sim, p);
+    let bm = null, bv = -1e9;
+    for(const m of movesOf(sim.hands[p], sim.table)){ const v = normalScore(m, ctx); if(v > bv){ bv = v; bm = m; } }
+    simPlay(sim, p, bm);
+  }
+  if(simDone(sim)) return sim.val;
+  // folha: o que o próximo deve levar (com sinal)
+  const p = sim.turn, ctx = simCtx(sim, p);
+  let bv = -1e9; for(const m of movesOf(sim.hands[p], sim.table)){ const v = normalScore(m, ctx); if(v > bv) bv = v; }
+  return sim.val + (sideOf(sim.n, p) === sim.my ? 1 : -1) * Math.max(0, bv) * .7;
+}
+function sampleSim(st, p, W){
+  const n = st.n, mask = seenMask(st), mine = st.hands[p].map(cI);
+  const U = shuffle(unseenFor(mask, mine));
+  const hands = st.hands.map((h, q) => q === p ? mine.slice() : U.splice(0, h.length));
+  return {n, my:sideOf(n, p), W, hands, table:st.table.map(cI), deck:U, seen:mask, lastCap:st.lastCap, turn:p, val:0};
+}
+function hardPick(st, p, W, ms){
+  const mine = st.hands[p].map(cI), t = st.table.map(cI);
+  const M = movesOf(mine, t);
+  if(M.length === 1) return M[0];
+  const tot = new Float64Array(M.length), t0 = now(); let k = 0;
+  do{
+    const base = sampleSim(st, p, W);
+    for(let i=0;i<M.length;i++){ const s = simClone(base); simPlay(s, p, M[i]); tot[i] += lookahead(s, 2); }
+    k++;
+  } while(k < 300 && (now() - t0 < ms || k < 12));
+  let bi = 0; for(let i=1;i<M.length;i++) if(tot[i] > tot[bi]) bi = i;
+  return M[bi];
+}
+function botMove(st, p, lvl){
+  const W = weights(st, lvl), mine = st.hands[p].map(cI);
+  let m;
+  if(lvl === 'dificil') m = hardPick(st, p, W, (typeof window !== 'undefined' && window.__mcms) || 220);
+  else {
+    const ctx = ctxFor(st, p, W, mine), M = movesOf(mine, ctx.t);
+    let bv = -1e9;
+    for(const x of M){ const v = (lvl === 'facil' ? easyScore : normalScore)(x, ctx); if(v > bv){ bv = v; m = x; } }
+  }
+  const card = st.hands[p].find(c => cI(c) === m.c);
+  return {t:'play', id:card.id, take: m.take ? m.take.map(i => st.table.find(c => cI(c) === i).id) : []};
+}
+
+/* ------------------------------- REGRAS -------------------------------- */
+const DIFFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const teamName = (g, sd, me) => g.n === 4 ? (sd === sideOf(4, me) ? 'Nós' : 'Eles') : (sd === me ? 'Você' : g.names[sd]);
+Mesa.run({
+  id:'escova', name:'Escova', icon:'🧹', tagline:'A escova de 15 do Sul',
+  options:[
+    {key:'modo', label:'Jogadores', default:'2', choices:[['2','2'],['4','4 (duplas)']]},
+    {key:'meta', label:'Partida até', default:'15', choices:[['15','15 pontos'],['21','21 pontos']]},
+    {key:'ponto', label:'Quinto ponto', default:'setes', choices:[['setes','Mais setes'],['primeira','Primeira']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => o.modo === '4' ? 4 : 2,
+  team: (s, n) => n === 4 ? s % 2 : null,
+  seatLabel: (s, n) => n === 4 ? 'Dupla ' + (s % 2 + 1) : 'Jogador ' + (s + 1),
+  modeLabel: o => (o.modo === '4' ? 'DUPLAS' : 'MANO A MANO') + ' · ATÉ ' + (o.meta === '21' ? 21 : 15) + ' · ' + (DIFFS[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length;
+    const st = {n, names:players.map(p => p.name), score:[0, 0], target:o.meta === '21' ? 21 : 15, ponto:o.ponto === 'primeira' ? 'primeira' : 'setes',
+      dealer:Math.floor(Math.random() * n), handNo:1, startEv:[]};
+    dealHand(st, st.startEv); return st;
+  },
+  startEvents(st){ const ev = [{k:'snd', s:'deal'}, {k:'log', text:`Mão 1: ${esc(st.names[st.dealer])} deu as cartas. Começa ${esc(st.names[st.turn])}.`}].concat(st.startEv); st.startEv = []; return ev; },
+  waiting(st){ return st.phase === 'play' ? [st.turn] : st.phase === 'handEnd' ? [0] : []; },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const [a, b] = st.score, w = a > b ? 0 : 1;
+    const nm = sd => st.n === 4 ? 'Dupla ' + (sd + 1) + ' (' + st.names.filter((_, i) => i % 2 === sd).map(esc).join(' e ') + ')' : esc(st.names[sd]);
+    return {winners:[...Array(st.n).keys()].filter(s => sideOf(st.n, s) === w), text:`${nm(w)} venceu por ${st.score[w]} a ${st.score[1 - w]}.`};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.phase === 'handEnd'){
+      if(a.t !== 'next') return {ok:false, err:'Aguarde a próxima mão.'};
+      st.handNo++; st.dealer = (st.dealer + 1) % st.n;
+      const ev = [{k:'snd', s:'deal'}];
+      dealHand(st, ev);
+      ev.splice(1, 0, {k:'log', text:`Mão ${st.handNo}: ${esc(st.names[st.dealer])} deu as cartas.`});
+      return {events:ev};
+    }
+    if(st.phase !== 'play') return {ok:false, err:'A mão terminou.'};
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    if(a.t !== 'play') return {ok:false, err:'Jogada inválida.'};
+    const h = st.hands[seat], i = h.findIndex(c => c.id === a.id);
+    if(i < 0) return {ok:false, err:'Essa carta não está na sua mão.'};
+    const c = h[i];
+    const take = Array.isArray(a.take) ? a.take : [];
+    if(new Set(take).size !== take.length) return {ok:false, err:'Carta repetida na captura.'};
+    const tk = take.map(id => st.table.find(x => x.id === id));
+    if(tk.some(x => !x)) return {ok:false, err:'Essa carta não está na mesa.'};
+    const ev = [{k:'snd', s:'card'}];
+    if(tk.length){
+      const s = vOf(c) + sum(tk.map(vOf));
+      if(s !== 15) return {ok:false, err:`${cName(c)} + as cartas escolhidas somam ${s}, não 15.`};
+    } else if(captureOptions(st, c).length) return {ok:false, err:`Com ${cName(c)} dá para fazer 15: é obrigatório levar.`};
+    h.splice(i, 1);
+    const sd = sideOf(st.n, seat);
+    let escova = 0;
+    if(tk.length){
+      st.table = st.table.filter(x => !tk.includes(x));
+      st.caps[sd].push(c, ...tk); st.lastCap = seat;
+      if(!st.table.length){ escova = 1; st.escovas[sd]++; }
+      ev.push({k:'snd', s:'capture'}, {k:'log', text:`${esc(st.names[seat])} jogou ${cName(c)} e levou ${tk.map(cName).join(' + ')}${escova ? ' — <b>ESCOVA!</b>' : ''}`});
+      if(escova) ev.push({k:'banner', text:'Escova!'}, {k:'say', seat, text:'Escova! 🧹'});
+      else if(tk.some(x => cI(x) === SETE_BELO) || cI(c) === SETE_BELO) ev.push({k:'say', seat, text:'Sete belo!'});
+    } else {
+      st.table.push(c);
+      ev.push({k:'log', text:`${esc(st.names[seat])} descartou ${cName(c)}`});
+    }
+    st.last = {seat, card:c, took:tk, escova};
+    st.turn = (seat + 1) % st.n;
+    if(st.hands.every(x => !x.length)){
+      if(st.deck.length){ refill(st); ev.push({k:'snd', s:'deal'}); return {events:ev, pause:700}; }
+      endHand(st, ev);
+      return {events:ev, pause:1500};
+    }
+    return {events:ev, pause: tk.length ? 650 : 250};
+  },
+  bot(st, seat, o){ if(st.phase === 'handEnd') return {t:'next'}; return botMove(st, seat, DIFFS[o.diff] ? o.diff : 'normal'); },
+  botFallback(st, seat){
+    if(st.phase === 'handEnd') return {t:'next'};
+    for(const c of st.hands[seat]){ const op = captureOptions(st, c); return {t:'play', id:c.id, take: op.length ? op[0].map(x => x.id) : []}; }
+    return null;
+  },
+  botDelay(st, s, o){ return st.phase === 'handEnd' ? 3200 : 700 + Math.random() * 500; },
+  view(st, seat){
+    const me = seat >= 0 && seat < st.n;
+    return {n:st.n, names:st.names, hand: me ? st.hands[seat] : [], counts:st.hands.map(h => h.length), deckN:st.deck.length,
+      table:st.table, turn:st.turn, dealer:st.dealer, score:st.score, target:st.target, ponto:st.ponto, phase:st.phase, handNo:st.handNo,
+      pile:st.caps.map(a => a.length), escovas:st.escovas, last:st.last, handRes:st.handRes, leftover:st.leftover, drawSeq:st.drawSeq};
+  },
+  topInfo(g, v){
+    const me = v.me, my = sideOf(g.n, me), ot = 1 - my;
+    return `<div class="score"><span><span class="n">${esc(teamName(g, my, me))} ${g.score[my]}</span> · <span class="e">${esc(teamName(g, ot, me))} ${g.score[ot]}</span></span><span style="color:#cfe">até ${g.target}</span></div>`;
+  },
+  rules: o => `<h3>Objetivo</h3><p>Levar cartas da mesa formando <b>15 pontos</b> e somar pontos no fim de cada mão. Vence quem chegar primeiro a <b>15 ou 21 pontos</b> (opção da mesa).</p>
+  <h3>Baralho e valores (versão gaúcha)</h3><p>40 cartas: tira-se 8, 9 e 10 do baralho comum. Valem: <b>Ás = 1</b>, 2 a 7 pelo número, <b>Valete (J) = 8</b>, <b>Dama (Q) = 9</b>, <b>Rei (K) = 10</b>. No baralho espanhol é o mesmo: sota 8, cavalo 9, rei 10. O valor das figuras aparece no pé da carta.</p>
+  <h3>Como jogar</h3><ol><li>Cada um recebe <b>3 cartas</b> e <b>4 vão abertas na mesa</b>. Se as 4 da mesa somarem 15 (ou 30), quem deu as cartas leva tudo e marca 1 (ou 2) escovas.</li>
+  <li>Na sua vez, jogue <b>uma carta</b>. Se ela, somada a uma ou mais cartas da mesa, der <b>exatamente 15</b>, você leva essas cartas e a sua. Se der para fazer 15 com a carta jogada, é obrigatório levar (se houver mais de um jeito, você escolhe).</li>
+  <li>Se não fizer 15, a carta fica na mesa.</li>
+  <li><b>Escova:</b> levar <b>todas</b> as cartas da mesa de uma vez vale 1 ponto.</li>
+  <li>Quando todos ficam sem cartas, o carteador dá mais 3 para cada um (a mesa não recebe). Quando o monte acaba, as cartas que sobrarem na mesa ficam com quem levou por último (isso não é escova).</li></ol>
+  <h3>Pontos no fim da mão</h3><table><tr><th>Quesito</th><th>Pontos</th></tr><tr><td>Cada escova</td><td>1</td></tr><tr><td>Mais cartas (21 ou mais)</td><td>1</td></tr>
+  <tr><td>Mais ouros (6 ou mais)</td><td>1</td></tr><tr><td>Sete belo (7 de ouros)</td><td>1</td></tr><tr><td>Mais setes (3 ou mais) — ou "primeira"</td><td>1</td></tr></table>
+  <p>Empate num quesito (ex.: 20 cartas para cada lado) = ninguém marca. Na opção <b>Primeira</b>, em vez dos setes, cada lado soma a melhor carta de cada naipe (7 = 21, 6 = 18, Ás = 16, 5 = 15, 4 = 14, 3 = 13, 2 = 12, figuras = 10); precisa ter os 4 naipes e ganha o maior total.</p>
+  <h3>Fim da partida</h3><p>Ao fim de cada mão os pontos são somados. Quem passar da meta vence; se os dois passarem, vence quem tiver mais (empatou, joga-se mais uma mão).</p>
+  <h3>Duplas (4 jogadores)</h3><p>Parceiros sentam frente a frente e juntam as cartas levadas e as escovas.</p>
+  <h3>Bots</h3><p>Contam as cartas que já saíram, avaliam cada captura pelo que ela vale no placar da mão (sete belo, setes, ouros, cartas e escovas) e evitam deixar a mesa num total que o adversário provavelmente consegue completar 15. O <b>Difícil</b> ainda simula as mãos possíveis dos outros (Monte Carlo), olha lances à frente e calcula o fim da mão com exatidão.</p>`,
+  render(g, v, ui){ renderEscova(g, v, ui); }
+});
+
+/* ------------------------------ INTERFACE ------------------------------ */
+let selId = null, optIdx = 0, prevTable = new Set(), myRects = new Map(), prevHand = new Set(), lastDraw = -1;
+function relPos(n, me, s){ const r = ((s - me) % n + n) % n; return n === 2 ? (r ? 2 : 0) : r; }   // 0 baixo · 1 esq · 2 topo · 3 dir
+const valLabel = c => vOf(c) >= 8 ? '= ' + vOf(c) : '';
+function oppHTML(g, v, i){
+  const cls = ['opp'];
+  if(g.n === 4) cls.push('t' + (i % 2));
+  if(i === g.turn && g.phase === 'play') cls.push('vez');
+  const tag = g.n === 4 ? (i % 2 === v.me % 2 ? 'PARCEIRO' : 'ADVERSÁRIO') : '';
+  // monte de cartas levadas (o do meu lado aparece no centro)
+  const sd = sideOf(g.n, i), pile = `<div class="pile">levou ${g.pile[sd]}${g.escovas[sd] ? ` · <span class="esc">🧹${g.escovas[sd]}</span>` : ''}</div>`;
+  return `<div class="${cls.join(' ')}" data-seat="${i}">${tag ? `<div class="tag">${tag}</div>` : ''}<div class="onm">${esc(g.names[i])}${i === g.dealer ? ' <small style="color:#cfe">(deu)</small>' : ''}</div>
+    <div class="oc">${'<span class="mback"></span>'.repeat(g.counts[i])}</div>${sd !== sideOf(g.n, v.me) ? pile : ''}</div>`;
+}
+function miniName(c){ return `<span class="ms ${isRed(c) ? 'r' : ''}">${c.r}${c.s}</span>`; }
+function renderEscova(g, v, ui){
+  const st = ui.stage, me = v.me, n = g.n, W = st.clientWidth, H = st.clientHeight;
+  const myTurn = ui.isMyTurn() && g.phase === 'play' && g.turn === me;
+  myRects = new Map($$('.hand .card', st).map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  const oldRects = new Map($$('.table .card', st).map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  if(!st.querySelector('.tbl')){
+    st.innerHTML = `<div class="tbl"><div class="otop" id="oT"></div><div class="oside" id="oL"></div>
+      <div class="ctr" id="ctr"></div><div class="oside" id="oR"></div></div>
+      <div class="mine"><div class="status" id="stt"></div><div class="acts" id="acts"></div><div class="myname" id="myn" data-seat="${me}"></div><div class="hand" id="hand"></div></div>`;
+    prevTable = new Set(); prevHand = new Set(); lastDraw = g.drawSeq;
+  }
+  if(!myTurn || !g.hand.some(c => c.id === selId)){ selId = null; optIdx = 0; }
+  // tamanhos a partir do palco
+  const cw = Math.floor(clamp(Math.min(W / 4.3, H / 5.6), 54, 104));
+  const ow = n === 4 ? Math.floor(clamp(W * .2, 66, 124)) : Math.floor(clamp(W * .42, 130, 220));
+  const areaW = W - 40 - (n === 4 ? 2 * ow : 0), areaH = H - cw * 1.43 - 190;
+  const nt = Math.max(4, g.table.length);
+  let tw = 38;
+  for(let x=96;x>=34;x-=2){ const per = Math.max(1, Math.floor(areaW / (x * 1.12))), rows = Math.ceil(nt / per); if(rows * x * 1.43 * 1.1 + 34 <= areaH){ tw = x; break; } }
+  st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw * 1.43) + 'px');
+  st.style.setProperty('--tw', tw + 'px'); st.style.setProperty('--ow', ow + 'px');
+  // adversários / parceiro
+  const P = {1:[], 2:[], 3:[]};
+  for(let i=0;i<n;i++) if(i !== me) P[relPos(n, me, i)].push(i);
+  $('#oL').innerHTML = P[1].map(i => oppHTML(g, v, i)).join(''); $('#oL').style.display = P[1].length ? '' : 'none';
+  $('#oT').innerHTML = P[2].map(i => oppHTML(g, v, i)).join('');
+  $('#oR').innerHTML = P[3].map(i => oppHTML(g, v, i)).join(''); $('#oR').style.display = P[3].length ? '' : 'none';
+  // opções de captura da carta selecionada
+  const sel = g.hand.find(c => c.id === selId);
+  const opts = sel ? combosOf(g.table.map(vOf), 15 - vOf(sel)).map(ix => ix.map(i => g.table[i])) : [];
+  if(optIdx >= opts.length) optIdx = 0;
+  const pickIds = new Set(opts.length ? opts[optIdx].map(c => c.id) : []);
+  const canIds = new Set(); opts.forEach(o => o.forEach(c => canIds.add(c.id)));
+  // centro
+  const ctr = $('#ctr'); const my = sideOf(n, me);
+  const info = `<div class="info"><span class="dk"><span class="mback"></span> Monte: ${g.deckN}</span>
+    <span>${esc(teamName(g, my, me))}: levou ${g.pile[my]}${g.escovas[my] ? ` · <span class="esc">🧹${g.escovas[my]}</span>` : ''}</span>
+    <span>Mão ${g.handNo}</span></div>`;
+  let mid;
+  if((g.phase === 'handEnd' || g.phase === 'end') && g.handRes){
+    const r = g.handRes, ot = 1 - my, A = my === 0 ? 'a' : 'b', B = my === 0 ? 'b' : 'a', PA = my === 0 ? 'pa' : 'pb', PB = my === 0 ? 'pb' : 'pa';
+    const rows = r.rows.map(x => `<tr><td style="text-align:left">${x.k}</td><td class="n">${x[A]}${x[PA] ? ` <b>+${x[PA]}</b>` : ''}</td><td class="e2">${x[B]}${x[PB] ? ` <b>+${x[PB]}</b>` : ''}</td></tr>`).join('');
+    mid = `<div class="sumbox"><h3>Fim da mão ${g.handNo}</h3>
+      <table><tr><th></th><th class="n">${esc(teamName(g, my, me))}</th><th class="e2">${esc(teamName(g, ot, me))}</th></tr>${rows}
+      <tr><td style="text-align:left">Na mão</td><td class="n">${r.pts[my]}</td><td class="e2">${r.pts[ot]}</td></tr>
+      <tr><td style="text-align:left"><b>Placar</b></td><td class="n"><b>${g.score[my]}</b></td><td class="e2"><b>${g.score[ot]}</b></td></tr></table>
+      ${g.leftover ? `<div class="small" style="margin:0">Sobra da mesa (${g.leftover.n}) foi para ${esc(g.leftover.seat === me ? 'você' : g.names[g.leftover.seat])}.</div>` : ''}
+      ${g.phase === 'end' ? '' : v.waiting.includes(me) ? '<button class="b-ok" id="bNext">Próxima mão ▶</button>' : '<div class="small">Aguardando a próxima mão...</div>'}</div>`;
+  } else {
+    const L = g.last;
+    let lp = '';
+    if(L){
+      const who = L.seat === me ? 'Você' : esc(g.names[L.seat]);
+      if(L.initial) lp = `${who} (carteador) levou a mesa de ${sum(L.took.map(vOf))} <span class="e">🧹 ESCOVA${L.escova > 1 ? ' ×2' : ''}!</span>`;
+      else if(L.took.length) lp = `${who}: ${cName(L.card)} levou ${L.took.map(cName).join(' + ')}${L.escova ? ' <span class="e">🧹 ESCOVA!</span>' : ''}`;
+      else lp = `${who} descartou ${cName(L.card)}`;
+    }
+    const tc = g.table.map(c => {
+      const el = cardEl(c, {label:valLabel(c), cls: pickIds.has(c.id) ? 'pick' : canIds.has(c.id) ? 'can' : ''});
+      el.dataset.id = c.id; return el.outerHTML;
+    }).join('');
+    mid = `<div class="lastp">${lp}</div><div class="table" id="table">${tc || '<div class="empty">Mesa vazia</div>'}</div>`;
+  }
+  ctr.innerHTML = info + mid;
+  // ajuste fino: diminui as cartas da mesa até caberem no centro
+  if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+  $$('#table .card', st).forEach(el => {
+    if(canIds.has(el.dataset.id)){
+      el.style.cursor = 'pointer';
+      el.onclick = () => { const k = opts.findIndex((o, i) => i > optIdx && o.some(c => c.id === el.dataset.id)); const k2 = k >= 0 ? k : opts.findIndex(o => o.some(c => c.id === el.dataset.id)); optIdx = Math.max(0, k2); ui.rerender(); };
+    }
+  });
+  // animação: cartas novas na mesa voam de quem jogou
+  const L = g.last;
+  $$('#table .card', st).forEach(el => {
+    const id = el.dataset.id; if(prevTable.has(id)) return;
+    if(L && L.card && L.card.id === id){
+      const from = L.seat === me ? myRects.get(id) : (st.querySelector(`.opp[data-seat="${L.seat}"]`) || {getBoundingClientRect:() => null}).getBoundingClientRect();
+      if(from) flyFrom(el, from, {dur:320});
+    } else if(prevTable.size === 0) anim(el, [{transform:'scale(.4)', opacity:0}, {transform:'none', opacity:1}], {duration:300, easing:'ease-out'});
+  });
+  prevTable = new Set(g.table.map(c => c.id));
+  // ações
+  const acts = $('#acts'); let ah = '';
+  if(myTurn && sel){
+    if(opts.length) ah = opts.slice(0, 8).map((o, i) => `<button class="tk" data-o="${i}" style="${i === optIdx ? 'outline:3px solid #fff' : ''}">Levar ${o.map(miniName).join('+')}</button>`).join('') + (opts.length > 8 ? `<span class="small">+${opts.length - 8} opções (toque nas cartas da mesa)</span>` : '');
+    else ah = `<button class="ds" id="bDisc">Descartar ${miniName(sel)} na mesa</button>`;
+  }
+  acts.innerHTML = ah;
+  $$('#acts [data-o]').forEach(b => {
+    b.onclick = () => ui.act({t:'play', id:sel.id, take:opts[+b.dataset.o].map(c => c.id)});
+    b.onpointerenter = () => { optIdx = +b.dataset.o; $$('#table .card').forEach(el => el.classList.toggle('pick', opts[optIdx].some(c => c.id === el.dataset.id))); };
+  });
+  if($('#bDisc')) $('#bDisc').onclick = () => ui.act({t:'play', id:sel.id, take:[]});
+  // minha mão
+  const mn = $('#myn'); mn.textContent = (n === 4 ? 'Você · Dupla ' + (me % 2 + 1) : 'Você') + (g.dealer === me ? ' (deu as cartas)' : '');
+  mn.classList.toggle('vez', myTurn);
+  const hand = $('#hand');
+  const newDraw = g.drawSeq !== lastDraw; lastDraw = g.drawSeq;
+  hand.innerHTML = '';
+  g.hand.forEach(c => {
+    const el = cardEl(c, {label:valLabel(c), cls: c.id === selId ? 'sel' : ''}); el.dataset.id = c.id;
+    if(myTurn){
+      el.classList.add('ok');
+      el.onclick = () => {
+        if(selId === c.id){                                  // 2º toque confirma se só há uma opção
+          const o = combosOf(g.table.map(vOf), 15 - vOf(c));
+          if(o.length <= 1){ ui.act({t:'play', id:c.id, take: o.length ? o[0].map(i => g.table[i].id) : []}); return; }
+          if(opts[optIdx]){ ui.act({t:'play', id:c.id, take:opts[optIdx].map(x => x.id)}); return; }
+        }
+        selId = c.id; optIdx = 0; ui.rerender();
+      };
+    }
+    hand.appendChild(el);
+    if(newDraw && !prevHand.has(c.id)){ const db = $('.dk', st); if(db) flyFrom(el, db.getBoundingClientRect(), {dur:420, delay:150}); }
+  });
+  prevHand = new Set(g.hand.map(c => c.id));
+  // texto de estado
+  let s = '';
+  if(g.phase === 'handEnd' || g.phase === 'end') s = 'Fim da mão';
+  else if(myTurn) s = sel ? (opts.length ? (opts.length > 1 ? 'Escolha o que levar' : 'Toque em "Levar" (ou de novo na carta)') : 'Não faz 15: a carta fica na mesa') : 'Sua vez — escolha uma carta';
+  else if(g.phase === 'play') s = 'Vez de ' + (g.names[g.turn] || '');
+  $('#stt').textContent = s;
+  // ajuste fino (depois de montar tudo): diminui as cartas da mesa até caberem no centro
+  const needH = () => [...ctr.children].reduce((a, e) => a + Math.max(e.offsetHeight, e.scrollHeight) + 6, 14);
+  for(let k=0;k<16 && tw > 30 && needH() > ctr.clientHeight;k++){ tw -= 4; st.style.setProperty('--tw', tw + 'px'); }
+}
+</script>
+</body>
+</html>

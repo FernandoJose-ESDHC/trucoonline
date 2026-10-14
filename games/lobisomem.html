@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Lobisomem</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{padding:8px;transition:background .8s}
+#stage.noite{background:radial-gradient(ellipse at 50% 0%,rgba(40,60,130,.55),rgba(5,10,35,.88) 75%)}
+#lb{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:auto auto auto minmax(0,1fr);gap:8px;max-width:1180px;margin:0 auto}
+/* ---------- barra de cima ---------- */
+.lb-top{grid-column:1/-1;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.32);border-radius:14px;padding:6px 10px;min-height:54px;position:relative;overflow:hidden}
+.lb-fase{flex:1;min-width:0;line-height:1.2}
+.lb-fase b{display:block;font-size:18px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-fase span{font-size:12.5px;color:#cfe;font-weight:600}
+.lb-papel{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.35);border:2px solid var(--gold);border-radius:12px;padding:4px 10px;cursor:pointer;flex:none}
+.lb-papel .ic{font-size:26px;line-height:1}
+.lb-papel .tx{font-size:11px;color:#cfe;line-height:1.15}
+.lb-papel .tx b{display:block;font-size:14px;color:#fff}
+.lb-papel.lobo{border-color:#ff5a5a;background:rgba(120,10,20,.45)}
+.lb-time{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:18px;background:rgba(0,0,0,.35);border:3px solid var(--gold);color:#fff}
+.lb-time.urg{border-color:var(--eles);color:#ffb3b3;animation:pulse 1s infinite}
+.lb-time:empty{visibility:hidden}
+.lb-bar{position:absolute;left:0;bottom:0;height:3px;background:var(--gold);transition:width .25s linear}
+/* ---------- jogadores ---------- */
+.lb-pl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-content:start;min-height:0}
+.lp{position:relative;background:rgba(0,0,0,.32);border:2px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 6px 6px;text-align:center;min-width:0;transition:transform .12s,border-color .2s,background .2s}
+.lp .av{font-size:34px;line-height:1.1;height:40px}
+.lp .nm{font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp .tg{font-size:11px;font-weight:700;color:#cfe;min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp .vt{position:absolute;top:4px;right:5px;min-width:22px;height:22px;border-radius:11px;background:var(--eles);color:#fff;font-weight:900;font-size:13px;display:grid;place-items:center;padding:0 5px}
+.lp .vt:empty{display:none}
+.lp .mk{position:absolute;top:4px;left:6px;font-size:15px}
+.lp .vw{font-size:10.5px;color:#ffcf9a;min-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp.eu{border-color:rgba(191,245,212,.6)} .lp.eu .nm{color:#bff5d4}
+.lp.lobo{border-color:rgba(255,90,90,.7);background:rgba(110,10,20,.4)}
+.lp.morto{opacity:.55;filter:grayscale(.7)}
+.lp.morto .nm{text-decoration:line-through}
+.lp.pode{cursor:pointer;border-color:var(--gold)}
+.lp.pode:hover{transform:translateY(-2px);background:rgba(231,180,58,.14)}
+.lp.esc{border-color:#fff;box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(231,180,58,.7);background:rgba(231,180,58,.22)}
+.lp.ult{animation:pulse 1.2s 3}
+/* ---------- painel de ação ---------- */
+.lb-act{grid-column:1;grid-row:3;align-self:start;background:rgba(0,0,0,.28);border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:50px}
+.lb-act .ins{flex:1 1 200px;font-size:14px;font-weight:700;color:#ffe6a6;line-height:1.35}
+.lb-act .ins small{display:block;color:#cfe;font-weight:600;font-size:12px}
+.lb-act button{padding:10px 14px;border-radius:10px;border:none;font-weight:900;font-size:14px;cursor:pointer;background:var(--gold);color:#3a2600;box-shadow:0 3px 0 var(--gold2)}
+.lb-act button.cin{background:#555;color:#fff;box-shadow:0 3px 0 #2a2a2a}
+.lb-act button.on{background:var(--nos);color:#06301a;box-shadow:0 3px 0 #0f6b3a}
+.lb-act button:disabled{opacity:.45;cursor:default}
+/* ---------- conversa ---------- */
+.lb-chat{grid-column:2;grid-row:2/5;display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0}
+.lb-feed{flex:1 1 0;min-height:0;overflow:auto;background:rgba(0,0,0,.3);border-radius:12px;padding:6px 9px;font-size:13.5px;line-height:1.45;-webkit-user-select:text;user-select:text}
+.lb-feed div{padding:2px 0;word-break:break-word}
+.lb-feed b{color:#ffe6a6}
+.lb-feed .s{color:#cfe;font-style:italic;font-size:12.5px}
+.lb-feed .s.m{color:#ffb3b3;font-style:normal;font-weight:700}
+.lb-feed .s.d{color:var(--gold);font-style:normal;font-weight:800;border-top:1px solid rgba(255,255,255,.12);margin-top:3px;padding-top:4px}
+.lb-feed .l{color:#ffb0b0}
+.lb-feed .l b{color:#ff8080}
+#lbForm{display:flex;gap:6px}
+#lbIn{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;font-size:16px;outline:none}
+#lbIn:focus{border-color:var(--gold)}
+#lbIn:disabled{opacity:.5}
+#lbIn.lob{border-color:rgba(255,90,90,.7)}
+#lbForm button{flex:none;padding:0 14px;border-radius:10px;border:none;background:var(--nos);color:#06301a;font-weight:900;font-size:15px;cursor:pointer}
+#lbForm button:disabled{opacity:.4}
+.lb-comp{font-size:11.5px;color:#cfe;text-align:center;font-weight:700}
+.lb-pl-wrap{grid-column:1;grid-row:2;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px}
+/* ---------- celular ---------- */
+@media (max-width:759px){
+  #stage{padding:5px}
+  #lb{display:flex;flex-direction:column;gap:5px}
+  .lb-top{min-height:46px;padding:4px 8px;gap:7px}
+  .lb-fase b{font-size:15px} .lb-fase span{font-size:11px}
+  .lb-papel{padding:2px 7px;gap:5px} .lb-papel .ic{font-size:21px} .lb-papel .tx b{font-size:12.5px} .lb-papel .tx{font-size:9.5px}
+  .lb-time{width:38px;height:38px;font-size:15px;border-width:2px}
+  .lb-pl-wrap{flex:none;overflow:visible}
+  .lb-pl{gap:4px}
+  .lp{padding:4px 2px 3px;border-radius:10px}
+  .lp .av{font-size:22px;height:26px}
+  .lp .nm{font-size:11.5px}
+  .lp .tg{font-size:9.5px;min-height:12px}
+  .lp .vw{display:none}
+  .lp .vt{min-width:18px;height:18px;font-size:11px;top:2px;right:2px}
+  .lp .mk{font-size:12px;top:2px;left:3px}
+  .lb-act{flex:none;padding:5px 8px;min-height:0;gap:6px}
+  .lb-act .ins{font-size:12.5px;flex-basis:150px} .lb-act .ins small{font-size:11px}
+  .lb-act button{padding:8px 11px;font-size:13px}
+  .lb-chat{flex:1 1 0;min-height:90px}
+  .lb-feed{font-size:12.5px}
+  .lb-comp{font-size:10.5px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================ LOBISOMEM (Cidade Dorme) ============================
+   Fases: noite → manhã (anúncio) → [tiro do caçador] → dia (conversa) → voto → execução → ...
+   Humanos agem quando quiserem (estão sempre em `waiting`); os bots agem pelo relógio (tick). */
+const PAPEIS = {
+  lobo:{n:'Lobisomem', ic:'🐺', d:'À noite, escolha com os outros lobos uma vítima. De dia, finja ser aldeão.'},
+  aldeao:{n:'Aldeão', ic:'🧑‍🌾', d:'Descubra os lobisomens pela conversa e pelos votos.'},
+  vidente:{n:'Vidente', ic:'🔮', d:'Toda noite, descubra se um jogador é lobisomem.'},
+  medico:{n:'Médico', ic:'🩺', d:'Toda noite, proteja alguém do ataque (não o mesmo duas noites seguidas).'},
+  cacador:{n:'Caçador', ic:'🏹', d:'Se você morrer, atira em alguém e o leva junto.'}
+};
+const AVS = ['🧑‍🌾','👩‍🦰','🧔','👵','👨‍🦳','👩','🧑','👴','👱‍♀️','🧕','👨‍🔧','👩‍🍳'];
+const NOITE_MS = 35000, VOTO_MS = 35000, TIRO_MS = 20000, MANHA_MS = 6500, EXEC_MS = 6500;
+const SPD = () => clamp((typeof CFG !== 'undefined' && CFG.speed) || 1, 0.002, 2);
+const clock = () => (window.LB_CLOCK ? window.LB_CLOCK() : Date.now());
+const rand = (a,b) => a + Math.random()*(b-a);
+const nrm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const NOISE = {facil:1.6, normal:0.7, dificil:0.3};
+
+/* ---------------- quem é bot (a Mesa sabe; no teste usa st.hum) ---------------- */
+function seatInfo(s){ try{ const h = Mesa._H; if(h && h.seats && h.seats[s] && h.state) return h.seats[s]; }catch(_){} return null; }
+const isBot = (st, s) => { const x = seatInfo(s); return x ? !x.human : !st.hum[s]; };
+
+/* ---------------- papéis ---------------- */
+function nLobos(n, o){ const auto = n <= 6 ? 1 : n <= 9 ? 2 : 3; const v = o.lobos === 'auto' || !o.lobos ? auto : +o.lobos; return clamp(v|0 || auto, 1, Math.floor((n-1)/2)); }
+function composicao(n, o){
+  const L = nLobos(n, o), r = Array(L).fill('lobo');
+  const quer = (k, auto) => o[k] === 'sim' ? true : o[k] === 'nao' ? false : auto;
+  if(quer('vidente', true)) r.push('vidente');
+  if(quer('medico', n >= 6)) r.push('medico');
+  if(quer('cacador', n >= 8)) r.push('cacador');
+  while(r.length > n - 1 && r.length > L) r.pop();            // sempre sobra ao menos 1 aldeão
+  while(r.length < n) r.push('aldeao');
+  return r;
+}
+const compTxt = r => { const c = {}; r.forEach(p => c[p] = (c[p]||0) + 1);
+  return ['lobo','vidente','medico','cacador','aldeao'].filter(p => c[p]).map(p => `${c[p]} ${PAPEIS[p].ic} ${c[p] > 1 ? {lobo:'lobisomens', aldeao:'aldeões'}[p] || PAPEIS[p].n : PAPEIS[p].n.toLowerCase()}`).join(' · '); };
+
+/* ---------------- utilidades de estado ---------------- */
+const vivos = st => st.papel.map((p,i) => i).filter(i => st.vivo[i]);
+const lobosVivos = st => vivos(st).filter(i => st.papel[i] === 'lobo');
+const nm = (st, s) => st.names[s];
+function feed(st, f){ st.feed.push(f); if(st.feed.length > 120) st.feed.splice(0, st.feed.length - 120); st.fid++; }
+const sys = (st, x, c) => feed(st, {k:'s', x, c:c || ''});
+function vencedor(st){
+  const L = lobosVivos(st).length, O = vivos(st).length - L;
+  if(L === 0) return 'aldeia';
+  if(L >= O) return 'lobos';
+  return null;
+}
+const humanosVivos = st => vivos(st).some(s => !isBot(st, s));
+function prazo(st, now, ms, escala){ st.ini = now; st.dur = escala ? ms * SPD() : ms; st.fim = now + st.dur; }
+
+/* ---------------- mortes ---------------- */
+function morre(st, s, como, ev){
+  if(!st.vivo[s]) return;
+  st.vivo[s] = false;
+  st.hist.push({k:'morte', s, como, dia:st.dia});
+  const p = PAPEIS[st.papel[s]];
+  sys(st, `💀 ${esc(nm(st,s))} ${como === 'lobos' ? 'foi atacado(a) pelos lobisomens' : como === 'voto' ? 'foi eliminado(a) pela vila' : 'levou o tiro do caçador'} — era ${p.ic} ${p.n}.`, 'm');
+  ev.push({k:'morte', seat:s});
+  if(st.papel[s] === 'cacador') st.tiroPend = s;
+}
+
+/* ---------------- transições de fase ---------------- */
+function iniciaNoite(st, now, ev){
+  st.dia++; st.fase = 'noite';
+  st.lobVoto = {}; st.vidAlvo = null; st.medAlvo = null; st.lobPlano = null;
+  const humNoite = vivos(st).some(s => !isBot(st, s) && ['lobo','vidente','medico'].includes(st.papel[s]));
+  prazo(st, now, humNoite ? NOITE_MS : 12000, !humNoite);
+  sys(st, `🌙 Noite ${st.dia}. A vila dorme...`, 'd');
+  agendaBots(st, now, [2500, 7000]);
+  ev.push({k:'fase', f:'noite'}, {k:'snd', s:'deal'});
+}
+function noiteCompleta(st){
+  const L = lobosVivos(st);
+  if(L.some(s => st.lobVoto[s] == null)) return false;
+  if(new Set(L.map(s => st.lobVoto[s])).size > 1) return false;
+  const tem = p => vivos(st).some(s => st.papel[s] === p);
+  if(tem('vidente') && st.vidAlvo == null) return false;
+  if(tem('medico') && st.medAlvo == null) return false;
+  return true;
+}
+function alvoLobos(st){
+  const c = {}; lobosVivos(st).forEach(s => { const t = st.lobVoto[s]; if(t != null) c[t] = (c[t]||0) + 1; });
+  const ks = Object.keys(c).map(Number); if(!ks.length) return null;
+  const mx = Math.max(...ks.map(k => c[k]));
+  return pick(ks.filter(k => c[k] === mx));
+}
+function fimNoite(st, now, ev){
+  const alvo = alvoLobos(st);
+  // vidente descobre
+  const vid = vivos(st).find(s => st.papel[s] === 'vidente');
+  if(vid != null && st.vidAlvo != null) st.vis.push({t:st.vidAlvo, lobo:st.papel[st.vidAlvo] === 'lobo', noite:st.dia});
+  const med = vivos(st).find(s => st.papel[s] === 'medico');
+  st.medUlt = med != null ? st.medAlvo : null;
+  st.noiteRes = {alvo:null, salvo:false};
+  if(alvo != null && st.vivo[alvo]){
+    if(med != null && st.medAlvo === alvo){ st.noiteRes.salvo = true; st.medSalvou.push(alvo); st.lobFalhou = alvo;
+      sys(st, '☀️ Amanheceu e ninguém morreu esta noite!', 'd'); ev.push({k:'banner', text:'Ninguém morreu!'}); }
+    else { st.lobFalhou = null; sys(st, '☀️ Amanheceu...', 'd'); st.noiteRes.alvo = alvo; morre(st, alvo, 'lobos', ev); ev.push({k:'banner', text:`${nm(st, alvo)} morreu!`, bad:true}, {k:'snd', s:'capture'}); }
+  } else { st.lobFalhou = null; sys(st, '☀️ Amanheceu e ninguém morreu esta noite!', 'd'); ev.push({k:'banner', text:'Ninguém morreu!'}); }
+  st.fase = 'manha'; prazo(st, now, MANHA_MS, true);
+}
+function iniciaDia(st, now, ev){
+  st.fase = 'dia'; st.pronto = {};
+  const hv = humanosVivos(st);
+  prazo(st, now, hv ? st.tempo : 16000, !hv);
+  st.falasDia = {};
+  agendaBots(st, now, [1200, 5000]);
+  ev.push({k:'fase', f:'dia'});
+}
+function iniciaVoto(st, now, ev, alvos){
+  st.fase = 'voto'; st.votos = {}; st.alvos = alvos || null;
+  const hv = humanosVivos(st);
+  prazo(st, now, hv ? VOTO_MS : 9000, !hv);
+  sys(st, alvos ? `🗳️ Empate! Nova votação entre ${alvos.map(s => esc(nm(st,s))).join(' e ')}.` : '🗳️ Hora da votação! Toque em quem deve ser eliminado.', 'd');
+  agendaBots(st, now, [1500, (hv ? 16000 : 6000)]);
+  ev.push({k:'fase', f:'voto'}, {k:'snd', s:'alert'});
+}
+function fimVoto(st, now, ev){
+  const c = {}; let nada = 0;
+  vivos(st).forEach(s => { const t = st.votos[s]; if(t == null || t < 0) { if(t === -1) nada++; return; } c[t] = (c[t]||0) + 1;
+    st.hist.push({k:'voto', v:s, t, dia:st.dia}); });
+  const ks = Object.keys(c).map(Number), mx = ks.length ? Math.max(...ks.map(k => c[k])) : 0;
+  const top = ks.filter(k => c[k] === mx);
+  st.execRes = null;
+  if(!mx || nada > mx){
+    sys(st, '🕊️ A vila decidiu não eliminar ninguém hoje.', 'd');
+  } else if(top.length > 1 || nada === mx){
+    if(st.empate === 'revoto' && !st.alvos && top.length > 1 && nada < mx){ iniciaVoto(st, now, ev, top); return; }
+    sys(st, '⚖️ Empate na votação: ninguém é eliminado hoje.', 'd');
+    ev.push({k:'banner', text:'Empate!'});
+  } else {
+    const s = top[0]; st.execRes = s;
+    morre(st, s, 'voto', ev);
+    ev.push({k:'banner', text:`${nm(st,s)} foi eliminado(a)!`, bad:true}, {k:'snd', s:'capture'});
+  }
+  st.fase = 'exec'; st.alvos = null; prazo(st, now, EXEC_MS, true);
+}
+function iniciaTiro(st, now, ev, depois){
+  st.fase = 'tiro'; st.cacador = st.tiroPend; st.tiroPend = null; st.depois = depois;
+  prazo(st, now, isBot(st, st.cacador) ? 9000 : TIRO_MS, isBot(st, st.cacador));
+  sys(st, `🏹 ${esc(nm(st, st.cacador))} era o caçador e vai atirar em alguém!`, 'd');
+  agendaBots(st, now, [2000, 5000]);
+  ev.push({k:'fase', f:'tiro'}, {k:'snd', s:'alert'});
+}
+function atira(st, t, ev){
+  const c = st.cacador; st.cacador = null;
+  if(t != null && st.vivo[t] && t !== c){ st.hist.push({k:'tiro', s:c, t}); morre(st, t, 'tiro', ev); ev.push({k:'banner', text:`Tiro em ${nm(st,t)}!`, bad:true}, {k:'snd', s:'capture'}); }
+  else sys(st, '🏹 O caçador não atirou.', '');
+}
+// depois de uma morte: fim de jogo? caçador? senão segue para a próxima fase
+function segue(st, now, ev, prox){
+  const w = vencedor(st);
+  if(w){ st.venc = w; st.fase = 'fim'; return; }
+  if(st.tiroPend != null){ iniciaTiro(st, now, ev, prox); return; }
+  if(prox === 'dia') iniciaDia(st, now, ev); else iniciaNoite(st, now, ev);
+}
+function avanca(st, now, ev){
+  switch(st.fase){
+    case 'noite': fimNoite(st, now, ev); break;
+    case 'manha': segue(st, now, ev, 'dia'); break;
+    case 'dia': iniciaVoto(st, now, ev); break;
+    case 'voto': fimVoto(st, now, ev); break;
+    case 'exec': segue(st, now, ev, 'noite'); break;
+    case 'tiro': atira(st, null, ev); segue(st, now, ev, st.depois); break;
+  }
+}
+
+/* ---------------- conversa: leitura de acusações (humanos e bots) ---------------- */
+const ACUSA = /lobo|suspeit|desconfi|mentir|mentindo|culpad|estranh|vota no|votem|voto no|vote no|elimin|mata|fora/;
+const DEFENDE = /inocente|confio|confiavel|confianca|nao e lobo|limpo|de boa|e do bem|e aldea/;
+function leFala(st, s, x){
+  const t = nrm(x), cit = [];
+  st.names.forEach((n, i) => { if(i !== s && st.vivo[i]){ const k = nrm(n).trim(); if(k.length >= 2 && new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '($|[^a-z0-9])').test(t)) cit.push(i); } });
+  if(/sou (a |o )?vidente/.test(t)){
+    const pos = cit.map(i => ({i, p:t.indexOf(nrm(st.names[i]).trim())})).sort((a,b) => a.p - b.p);
+    const res = pos.map((x,j) => { const seg = t.slice(x.p, j + 1 < pos.length ? pos[j+1].p : t.length);
+      return {t:x.i, lobo:/lobo/.test(seg) && !/nao e lobo|inocente/.test(seg)}; });
+    st.hist.push({k:'claim', s, res, dia:st.dia}); return;
+  }
+  if(!cit.length) return;
+  const def = DEFENDE.test(t), acu = ACUSA.test(t);
+  cit.forEach(i => { if(def && !acu) st.hist.push({k:'def', s, t:i, dia:st.dia}); else if(acu) st.hist.push({k:'acu', s, t:i, dia:st.dia}); });
+}
+function fala(st, s, x, lob, bot){
+  feed(st, {k:lob ? 'l' : 'f', s, x});
+  if(!lob && !bot) leFala(st, s, x);     // as falas dos bots já registram o que significam
+}
+
+/* ============================ cérebro dos bots ============================ */
+// o que o lugar `o` sabe com certeza: +1 lobo, -1 do bem (mortos têm o papel revelado)
+function sabe(st, o){
+  const k = Array(st.n).fill(0);
+  st.papel.forEach((p,i) => { if(!st.vivo[i]) k[i] = p === 'lobo' ? 1 : -1; });
+  if(o < 0) return k;
+  k[o] = st.papel[o] === 'lobo' ? 1 : -1;
+  if(st.papel[o] === 'lobo') st.papel.forEach((p,i) => k[i] = p === 'lobo' ? 1 : -1);
+  if(st.papel[o] === 'vidente') st.vis.forEach(v => k[v.t] = v.lobo ? 1 : -1);
+  if(st.papel[o] === 'medico') st.medSalvou.forEach(t => { if(!k[t]) k[t] = -1; });
+  return k;
+}
+// suspeita de cada jogador do ponto de vista de `o` (o = -1: só o que é público)
+function suspeita(st, o, k){
+  k = k || sabe(st, o);
+  const s = Array(st.n).fill(0), H = st.hist;
+  const claims = H.filter(h => h.k === 'claim');
+  const cred = {}, quem = [...new Set(claims.map(c => c.s))];
+  quem.forEach(c => {
+    let ok = 0, ruim = 0;
+    claims.filter(x => x.s === c).forEach(x => x.res.forEach(r => { if(k[r.t]) { if((k[r.t] > 0) === r.lobo) ok++; else ruim++; } }));
+    if(o >= 0 && st.papel[o] === 'vidente' && c !== o) ruim++;
+    if(k[c] > 0) ruim++;
+    const outros = quem.some(x => x !== c && st.vivo[x] && !(k[x] > 0));
+    cred[c] = ruim ? -1 : ok ? 1 : outros ? (quem[0] === c ? 0.55 : 0.35) : 0.75;
+  });
+  const nAcu = {};
+  for(const h of H){
+    if(h.k === 'voto'){ if(k[h.t] > 0) s[h.v] -= 0.9; else if(k[h.t] < 0) s[h.v] += 0.8; }
+    else if(h.k === 'acu'){ if(k[h.t] > 0) s[h.s] -= 0.7; else if(k[h.t] < 0) s[h.s] += 0.45; else { const q = nAcu[h.t + '|' + h.dia] = (nAcu[h.t + '|' + h.dia] || 0) + 1; s[h.t] += (k[h.s] < 0 ? 0.6 : 0.22) / Math.sqrt(q); } }
+    else if(h.k === 'def'){ if(k[h.t] > 0) s[h.s] += 1.3; else if(k[h.t] < 0) s[h.s] -= 0.2; else s[h.t] -= k[h.s] < 0 ? 0.5 : 0.12; }
+    else if(h.k === 'morte' && h.como === 'lobos'){
+      H.forEach(a => { if(a.k === 'acu' && a.s === h.s) s[a.t] += 0.45; });
+    }
+  }
+  Object.keys(cred).forEach(cs => {
+    const c = +cs, cr = cred[c];
+    if(cr < 0){ s[c] += 9; return; }
+    s[c] -= 1.6 * cr;
+    claims.filter(x => x.s === c).forEach(x => x.res.forEach(r => { if(!k[r.t]) s[r.t] += r.lobo ? 6 * cr : -2.5 * cr; }));
+  });
+  if(o >= 0 && st.ai[o]) st.ai[o].ru.forEach((r,i) => s[i] += r);
+  for(let i=0;i<st.n;i++){ if(k[i] > 0) s[i] += 100; else if(k[i] < 0) s[i] -= 100; }
+  return s;
+}
+const argmax = (xs, f) => { let b = null, bv = -Infinity; xs.forEach(x => { const v = f(x); if(v > bv){ bv = v; b = x; } }); return b; };
+// escolha com erro conforme o nível: fácil sorteia entre os 3 melhores
+function escolhe(st, xs, f){
+  if(!xs.length) return null;
+  const o = xs.slice().sort((a,b) => f(b) - f(a));
+  if(st.diff === 'facil' && Math.random() < 0.45) return pick(o.slice(0, 3));
+  if(st.diff === 'normal' && Math.random() < 0.15) return pick(o.slice(0, 2));
+  return o[0];
+}
+const contaVotos = (st, t) => vivos(st).filter(s => st.votos[s] === t).length;
+const acusacoesHoje = (st, t) => st.hist.filter(h => h.k === 'acu' && h.t === t && h.dia === st.dia).length;
+// alvo que os lobos querem empurrar de dia (o aldeão mais suspeito para a vila)
+function alvoFarsa(st, eu){
+  const pub = suspeita(st, -1), cand = vivos(st).filter(i => st.papel[i] !== 'lobo');
+  return argmax(cand, i => pub[i] + 0.25 * (st.ai[eu] ? st.ai[eu].ru[i] : 0) + (st.fase === 'voto' ? 0.5 * contaVotos(st, i) : 0));
+}
+// plano noturno dos lobos (uma vítima para todos)
+function planoLobos(st){
+  const hum = lobosVivos(st).find(s => !isBot(st, s) && st.lobVoto[s] != null);
+  if(hum != null) return st.lobVoto[hum];
+  if(st.lobPlano != null && st.vivo[st.lobPlano]) return st.lobPlano;
+  const pub = suspeita(st, -1), cand = vivos(st).filter(i => st.papel[i] !== 'lobo');
+  const claims = st.hist.filter(h => h.k === 'claim'), bode = alvoFarsa(st, lobosVivos(st)[0]);
+  const val = i => {
+    let v = -pub[i] * 0.5 + rand(0, NOISE[st.diff] * 2);
+    if(claims.some(c => c.s === i)) v += st.diff === 'facil' ? 2 : 8;
+    v += 1.4 * st.hist.filter(h => ((h.k === 'acu' && h.s === i) || (h.k === 'voto' && h.v === i)) && st.papel[h.t] === 'lobo').length;
+    if(st.diff !== 'facil' && st.hist.some(h => h.k === 'claim' && h.s === i) && st.lobFalhou === i) v += 3;   // médico não repete
+    if(st.diff === 'dificil' && st.lobFalhou === i && !claims.some(c => c.s === i)) v -= 2;
+    if(st.hist.some(h => h.k === 'claimc' && h.s === i)) v -= 3;                                              // caçador assumido: evita
+    if(i === bode) v -= 1.5;                                                                 // deixa o "bode" para a vila
+    return v;
+  };
+  st.lobPlano = argmax(cand, val);
+  return st.lobPlano;
+}
+
+/* ---------------- falas prontas ---------------- */
+const F = {
+  acusa:['Tô desconfiado de {x}.','Acho que {x} é lobo.','{x} tá quieto demais... suspeito.','Votem em {x}, gente.','{x} votou estranho ontem.','Não confio em {x}, é suspeito.','{x}, explica aí essa história estranha.','Meu palpite: {x} é lobisomem.','Reparem em {x}: só acusa sem motivo, suspeito.'],
+  defende:['Não sou eu, gente! Sou aldeão.','Calma! Eu sou do bem.','Tão me acusando à toa...','Votar em mim é ajudar os lobos!'],
+  luto:['Coitado(a) de {x}... 😢','Perdemos {x}. Precisamos achar esses lobos!','Descanse em paz, {x}.','Ai, {x} não!'],
+  vazia:['Ufa, ninguém morreu!','O médico mandou bem esta noite!'],
+  confia:['Confio em {x}.','{x} é de confiança, deixa em paz.'],
+  voto:['Voto em {x}.','Meu voto vai para {x}.','{x}. Fechado.'],
+  lobChat:['Vamos pegar {x}?','Bora atacar {x} hoje.','{x} tá atrapalhando, vamos nele(a).','Fechado em {x}.']
+};
+const fr = (arr, st, x) => pick(arr).replace(/\{x\}/g, x != null ? nm(st, x) : '');
+
+/* ---------------- ações dos bots (chamadas pelo relógio) ---------------- */
+function agendaBots(st, now, [a, b]){
+  for(let s=0;s<st.n;s++) if(st.ai[s]){ st.ai[s].at = now + rand(a, b) * SPD(); st.ai[s].fez = false; }
+}
+function botAge(st, s, now){
+  const ai = st.ai[s], p = st.papel[s], ev = [];
+  const prox = (a, b) => { ai.at = now + rand(a, b) * SPD(); };
+  if(st.fase === 'noite'){
+    if(ai.fez) { ai.at = Infinity; return ev; }
+    const k = sabe(st, s), sus = suspeita(st, s, k);
+    if(p === 'lobo'){
+      // espera um pouco o lobo humano decidir; depois segue o plano comum
+      const humL = lobosVivos(st).filter(x => !isBot(st, x));
+      if(humL.length && humL.every(x => st.lobVoto[x] == null) && now < st.ini + st.dur * 0.55){ prox(1500, 2500); return ev; }
+      const t = planoLobos(st);
+      if(st.lobVoto[s] !== t){
+        r(doAct(st, s, {t:'alvo', s:t}, now), ev);
+        if(!lobosVivos(st).some(x => x !== s && st.lobVoto[x] === t)) r(doAct(st, s, {t:'fala', x:fr(F.lobChat, st, t), bot:1}, now), ev);
+      }
+      prox(1500, 3000); return ev;                           // reconfere (o humano pode mudar de ideia)
+    }
+    if(p === 'vidente'){
+      const cand = vivos(st).filter(i => i !== s && !k[i]);
+      const t = cand.length ? escolhe(st, cand, i => sus[i]) : vivos(st).find(i => i !== s);
+      if(t != null) r(doAct(st, s, {t:'alvo', s:t}, now), ev);
+    } else if(p === 'medico'){
+      const cand = vivos(st).filter(i => i !== st.medUlt);
+      const claims = st.hist.filter(h => h.k === 'claim' && st.vivo[h.s]);
+      let t = null;
+      if(st.diff !== 'facil'){
+        const vid = claims.map(c => c.s).filter(i => cand.includes(i) && sus[i] < 2);
+        if(vid.length) t = argmax(vid, i => -sus[i]);
+      }
+      if(t == null){
+        if(st.diff === 'facil') t = pick(cand);
+        else if(cand.includes(s) && Math.random() < (st.diff === 'dificil' ? 0.45 : 0.3)) t = s;
+        else t = escolhe(st, cand.filter(i => i !== s).length ? cand.filter(i => i !== s) : cand, i => -sus[i] + st.hist.filter(h => h.k === 'acu' && h.s === i).length * 0.3);
+      }
+      if(t != null) r(doAct(st, s, {t:'alvo', s:t}, now), ev);
+    }
+    ai.fez = true; ai.at = Infinity; return ev;
+  }
+  if(st.fase === 'tiro'){
+    if(st.cacador !== s) { ai.at = Infinity; return ev; }
+    const sus = suspeita(st, s), cand = vivos(st).filter(i => i !== s);
+    const t = p === 'cacador' ? escolhe(st, cand, i => sus[i]) : null;
+    r(doAct(st, s, {t:'tiro', s:t}, now), ev);
+    ai.at = Infinity; return ev;
+  }
+  if(!st.vivo[s]) { ai.at = Infinity; return ev; }
+  if(st.fase === 'dia'){
+    const n = st.falasDia[s] || 0;
+    if(n >= (st.diff === 'facil' ? 2 : 3)) { ai.at = Infinity; return ev; }
+    const x = falaDoBot(st, s, n);
+    if(x) r(doAct(st, s, {t:'fala', x, bot:1}, now), ev);
+    st.falasDia[s] = n + 1;
+    prox(5000, 13000);
+    return ev;
+  }
+  if(st.fase === 'voto'){
+    if(st.votos[s] != null){ ai.at = Infinity; return ev; }
+    const t = votoDoBot(st, s);
+    r(doAct(st, s, {t:'alvo', s:t}, now), ev);
+    if(t >= 0 && Math.random() < 0.35) r(doAct(st, s, {t:'fala', x:fr(F.voto, st, t), bot:1}, now), ev);
+    ai.at = Infinity; return ev;
+  }
+  ai.at = Infinity; return ev;
+}
+const r = (res, ev) => { if(res && res.events) ev.push(...res.events); else if(res && res.ok === false) ev.push({k:'botErr', err:res.err}); };
+
+function votoDoBot(st, s){
+  const p = st.papel[s];
+  const cand = (st.alvos || vivos(st)).filter(i => i !== s && st.vivo[i]);
+  if(!cand.length) return -1;
+  if(p === 'lobo'){
+    // difícil: entrega o parceiro que já está perdido para parecer inocente
+    if(st.diff !== 'facil'){
+      const L = lobosVivos(st).filter(i => i !== s && cand.includes(i));
+      const meta = Math.floor(vivos(st).length / 2);
+      const perdido = L.find(i => contaVotos(st, i) >= meta);
+      if(perdido != null && st.diff === 'dificil' && vivos(st).length <= 4) return perdido;   // só no fim, quando salvar é impossível
+    }
+    const nl = cand.filter(i => st.papel[i] !== 'lobo');
+    if(!nl.length) return cand[0];
+    const f = alvoFarsa(st, s);
+    return nl.includes(f) ? f : argmax(nl, i => contaVotos(st, i));
+  }
+  const sus = suspeita(st, s), band = st.diff === 'facil' ? 0.25 : 0.45;
+  return escolhe(st, cand, i => sus[i] + band * contaVotos(st, i));
+}
+function falaDoBot(st, s, n){
+  const p = st.papel[s], k = sabe(st, s), ai = st.ai[s];
+  // vidente: revela no momento certo
+  if(p === 'vidente' && !ai.revelou){
+    const achou = st.vis.some(v => v.lobo && st.vivo[v.t]);
+    const acusado = acusacoesHoje(st, s) >= 2;
+    const quer = st.diff === 'facil' ? (achou && Math.random() < 0.5) || acusado
+      : st.diff === 'normal' ? achou || acusado || st.vis.length >= 3
+      : achou || acusado || (st.vis.length >= 2 && vivos(st).length <= 6);
+    if(quer && st.vis.length){
+      ai.revelou = true; ai.rev = st.vis.length;
+      st.hist.push({k:'claim', s, res:st.vis.map(v => ({t:v.t, lobo:v.lobo})), dia:st.dia});
+      const txt = st.vis.filter(v => st.vivo[v.t] || v.lobo).map(v => `${nm(st, v.t)} ${v.lobo ? 'é LOBISOMEM' : 'é inocente'}`).join(', ');
+      return `🔮 Sou a vidente! ${txt}.`;
+    }
+  }
+  if(p === 'vidente' && ai.revelou && st.vis.length > ai.rev){
+    const nov = st.vis.slice(ai.rev); ai.rev = st.vis.length;
+    st.hist.push({k:'claim', s, res:nov.map(v => ({t:v.t, lobo:v.lobo})), dia:st.dia});
+    return `🔮 Esta noite vi: ${nov.map(v => `${nm(st, v.t)} ${v.lobo ? 'é LOBISOMEM!' : 'é inocente.'}`).join(' ')}`;
+  }
+  // lobo acusado por uma "vidente": contra-ataca (difícil sempre, normal às vezes)
+  if(p === 'lobo' && !ai.contra){
+    const c = st.hist.find(h => h.k === 'claim' && h.dia === st.dia && st.vivo[h.s] && st.papel[h.s] !== 'lobo' && h.res.some(x => x.lobo && st.papel[x.t] === 'lobo'));
+    const jaTem = st.hist.some(h => h.k === 'claim' && st.papel[h.s] === 'lobo');
+    if(c && !jaTem && (st.diff === 'dificil' || (st.diff === 'normal' && Math.random() < 0.4))){
+      ai.contra = true;
+      const inoc = vivos(st).filter(i => i !== s && i !== c.s && st.papel[i] !== 'lobo');
+      const res = [{t:c.s, lobo:true}]; if(inoc.length && Math.random() < 0.5) res.unshift({t:pick(inoc), lobo:false});
+      st.hist.push({k:'claim', s, res, dia:st.dia});
+      return `Mentira! EU sou a vidente de verdade. ${res.map(x => `${nm(st, x.t)} ${x.lobo ? 'é LOBISOMEM' : 'é inocente'}`).join(', ')}!`;
+    }
+  }
+  // acusado hoje: se defende (caçador e médico podem se revelar)
+  if(acusacoesHoje(st, s) >= 2 && !ai.defendeu){
+    ai.defendeu = true;
+    if(p === 'cacador' && st.diff !== 'facil'){ st.hist.push({k:'claimc', s}); return 'Sou o caçador! Se me eliminarem, levo um lobo junto. 🏹'; }
+    if(p === 'medico' && st.diff === 'dificil' && vivos(st).length <= 5) return 'Sou o médico! Me tirar agora é presente para os lobos.';
+    return fr(F.defende, st);
+  }
+  if(n === 0 && st.dia > 0){
+    const nr = st.noiteRes;
+    if(nr && Math.random() < 0.45) return nr.alvo != null ? fr(F.luto, st, nr.alvo) : fr(F.vazia, st);
+  }
+  // acusa o mais suspeito (lobo: empurra um aldeão plausível)
+  let t;
+  if(p === 'lobo'){ t = alvoFarsa(st, s);
+    // difícil: o lobo só acusa quando a vila já desconfia do alvo (acusação solta denuncia depois)
+    if(st.diff === 'dificil' && t != null && suspeita(st, -1)[t] < 0.8) t = null; }
+  else { const sus = suspeita(st, s, k), cand = vivos(st).filter(i => i !== s); t = escolhe(st, cand, i => sus[i]);
+    if(t != null && sus[t] < 0.4 && st.dia <= 1 && Math.random() < 0.5) t = null;
+    // evita o "efeito manada": se já acusaram muito esse, olha para o segundo suspeito
+    if(t != null && k[t] <= 0 && acusacoesHoje(st, t) >= 3 && Math.random() < 0.6){ const o2 = cand.filter(i => i !== t).sort((a,b) => sus[b] - sus[a])[0]; if(o2 != null && sus[o2] > -50) t = o2; }
+    if(t == null && Math.random() < 0.5){ const ok = cand.filter(i => k[i] < 0 && st.vivo[i]); if(ok.length){ const u = pick(ok); st.hist.push({k:'def', s, t:u, dia:st.dia}); return fr(F.confia, st, u); } } }
+  if(t == null) return pick(['Alguém tem alguma pista?','Hmm... tô de olho em todo mundo.','Precisamos votar com cuidado.','Quem tá mais quieto aí?']);
+  st.hist.push({k:'acu', s, t, dia:st.dia});
+  if(k[t] > 0 && p !== 'lobo') return `${nm(st, t)} é lobo, tenho certeza!`;
+  return fr(st.dia <= 1 ? F.acusa.filter(x => !/ontem/.test(x)) : F.acusa, st, t);
+}
+
+/* ============================ ações (humanos e bots) ============================ */
+function doAct(st, seat, a, now){
+  if(!a || typeof a !== 'object') return {ok:false, err:'Ação inválida.'};
+  const p = st.papel[seat], ev = [];
+  const alvoOk = t => Number.isInteger(t) && t >= 0 && t < st.n && st.vivo[t];
+  switch(a.t){
+    case 'nada': return {events:[]};
+    case 'fala': {
+      const x = String(a.x == null ? '' : a.x).replace(/\s+/g, ' ').trim().slice(0, 140);
+      if(!x) return {ok:false, err:'Mensagem vazia.'};
+      if(!st.vivo[seat]) return {ok:false, err:'Mortos não falam... 👻'};
+      if(st.fase === 'noite'){
+        if(p !== 'lobo') return {ok:false, err:'À noite a vila dorme. Só os lobisomens conversam.'};
+        fala(st, seat, x, true, true); return {events:[]};
+      }
+      if(st.fase === 'fim') return {ok:false, err:'A partida acabou.'};
+      const bot = a.bot === 1 && isBot(st, seat);
+      fala(st, seat, x, false, bot);
+      // balão só para humanos e revelações (no celular muitos balões cobrem a vila)
+      return {events:!bot || /vidente|caçador|médico/i.test(x) ? [{k:'say', seat, text:x.length > 40 ? x.slice(0, 40) + '…' : x}] : []};
+    }
+    case 'pronto': {
+      if(st.fase !== 'dia' || !st.vivo[seat]) return {ok:false, err:'Agora não.'};
+      st.pronto[seat] = !st.pronto[seat];
+      return {events:[]};
+    }
+    case 'alvo': {
+      const t = a.s;
+      if(st.fase === 'noite'){
+        if(!st.vivo[seat]) return {ok:false, err:'Você está fora do jogo.'};
+        if(!alvoOk(t)) return {ok:false, err:'Escolha um jogador vivo.'};
+        if(p === 'lobo'){
+          if(st.papel[t] === 'lobo') return {ok:false, err:'Lobisomem não ataca lobisomem.'};
+          st.lobVoto[seat] = t; return {events:[]};
+        }
+        if(p === 'vidente'){
+          if(st.vidAlvo != null) return {ok:false, err:'Você já fez sua visão esta noite.'};
+          if(t === seat) return {ok:false, err:'Escolha outra pessoa.'};
+          st.vidAlvo = t; return {events:[]};
+        }
+        if(p === 'medico'){
+          if(st.medAlvo != null) return {ok:false, err:'Você já escolheu quem proteger.'};
+          if(t === st.medUlt) return {ok:false, err:'Não pode proteger a mesma pessoa duas noites seguidas.'};
+          st.medAlvo = t; return {events:[]};
+        }
+        return {ok:false, err:'Você está dormindo. 😴'};
+      }
+      if(st.fase === 'voto'){
+        if(!st.vivo[seat]) return {ok:false, err:'Mortos não votam.'};
+        if(t === -1){ st.votos[seat] = -1; return {events:[{k:'snd', s:'card'}]}; }
+        if(!alvoOk(t) || t === seat) return {ok:false, err:'Escolha outro jogador vivo.'};
+        if(st.alvos && !st.alvos.includes(t)) return {ok:false, err:'Nesta votação só valem os empatados.'};
+        st.votos[seat] = t;
+        return {events:[{k:'snd', s:'card'}]};
+      }
+      return {ok:false, err:'Agora não é hora de escolher.'};
+    }
+    case 'tiro': {
+      if(st.fase !== 'tiro' || st.cacador !== seat) return {ok:false, err:'Agora não.'};
+      const t = a.s;
+      if(t != null && (!alvoOk(t) || t === seat)) return {ok:false, err:'Escolha um jogador vivo.'};
+      atira(st, t, ev); segue(st, now, ev, st.depois);
+      return {events:ev};
+    }
+  }
+  return {ok:false, err:'Ação inválida.'};
+}
+
+/* ============================ cliente: tela ============================ */
+const CL = {g:null, recv:0, left:0, timers:false, ui:null, game:-1, nvis:0};
+const setH = (el, h) => { if(el && el._h !== h){ el._h = h; el.innerHTML = h; return true; } return false; };
+function build(stage){
+  if($('#lb', stage)) return;
+  stage.innerHTML = `<div id="lb">
+    <div class="lb-top"><div class="lb-fase" id="lbFase"></div><div class="lb-papel" id="lbPapel"></div><div class="lb-time" id="lbTime"></div><div class="lb-bar" id="lbBar"></div></div>
+    <div class="lb-pl-wrap"><div class="lb-pl" id="lbPl"></div><div class="lb-comp" id="lbComp"></div></div>
+    <div class="lb-act" id="lbAct"></div>
+    <div class="lb-chat"><div class="lb-feed" id="lbFeed"></div>
+      <form id="lbForm" autocomplete="off"><input id="lbIn" maxlength="140" placeholder="Fale com a vila..." enterkeyhint="send" autocorrect="off"><button id="lbSend">➤</button></form></div>
+  </div>`;
+  $('#lbForm').onsubmit = e => { e.preventDefault(); const t = $('#lbIn').value.trim(); if(t && CL.ui){ CL.ui.act({t:'fala', x:t}); $('#lbIn').value = ''; } };
+  $('#lbPl').addEventListener('click', e => {
+    const c = e.target.closest('.lp.pode'); if(!c || !CL.ui) return;
+    const s = +c.dataset.seat, g = CL.g;
+    if(g.fase === 'tiro') pmodal(`<h2>Atirar em ${esc(CL.v.seats[s].name)}?</h2>`, [{label:'🏹 Atirar', cls:'b-up', fn:() => CL.ui.act({t:'tiro', s})}, {label:'Cancelar', cls:'b-no'}]);
+    else CL.ui.act({t:'alvo', s});
+  });
+  $('#lbAct').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b || !CL.ui) return;
+    if(b.dataset.a === 'pronto') CL.ui.act({t:'pronto'});
+    else if(b.dataset.a === 'nada') CL.ui.act({t:'alvo', s:-1});
+    else if(b.dataset.a === 'semtiro') CL.ui.act({t:'tiro', s:null});
+  });
+  $('#lbPapel').onclick = () => { const g = CL.g; if(!g || !g.meuPapel) return; const p = PAPEIS[g.meuPapel];
+    modal(`<h2>${p.ic} Você é ${p.n}</h2><p>${p.d}</p>${g.meuPapel === 'lobo' ? `<p>Seus parceiros: ${g.parceiros.map(s => esc(CL.v.seats[s].name)).join(', ') || 'nenhum — você é o único lobo'}.</p>` : ''}`, [{label:'OK'}]); };
+  if(!CL.timers){ CL.timers = true; setInterval(tickClock, 250); }
+}
+function tickClock(){
+  const g = CL.g, el = $('#lbTime'); if(!g || !el) return;
+  const left = Math.max(0, CL.left - (Date.now() - CL.recv)), s = Math.ceil(left / 1000);
+  const show = g.fase !== 'fim';
+  el.textContent = show ? s : '';
+  el.classList.toggle('urg', show && s <= 10 && ['dia','voto','noite','tiro'].includes(g.fase));
+  $('#lbBar').style.width = (show ? clamp(left / (g.dur || 1), 0, 1) * 100 : 0) + '%';
+}
+const FASE_TXT = {noite:'🌙 Noite', manha:'☀️ Amanhecer', dia:'☀️ Dia', voto:'🗳️ Votação', exec:'⚖️ Veredito', tiro:'🏹 Tiro do caçador', fim:'🏁 Fim de jogo'};
+function faseHTML(g, v){
+  const me = g.eu, vivo = g.vivo[me];
+  let sub = '';
+  if(g.fase === 'noite') sub = !vivo ? 'Você é espectador(a).' : g.meuPapel === 'lobo' ? 'Escolham juntos a vítima.' : g.meuPapel === 'vidente' ? 'Escolha alguém para investigar.' : g.meuPapel === 'medico' ? 'Escolha alguém para proteger.' : 'Você está dormindo... 😴';
+  else if(g.fase === 'dia') sub = `Conversem e descubram os lobos · ${g.nvivos} vivos`;
+  else if(g.fase === 'voto') sub = `${g.nvotos}/${g.nvivos} votaram`;
+  else if(g.fase === 'manha') sub = 'O que aconteceu à noite?';
+  else if(g.fase === 'exec') sub = 'A vila decidiu.';
+  else if(g.fase === 'tiro') sub = `${esc(v.seats[g.cacador].name)} vai atirar`;
+  else if(g.fase === 'fim') sub = g.venc === 'lobos' ? 'Os lobisomens venceram!' : 'A vila venceu!';
+  return `<b>${FASE_TXT[g.fase] || ''}${g.dia && g.fase !== 'fim' ? ' ' + g.dia : ''}</b><span>${sub}</span>`;
+}
+function podeClicar(g, s){
+  const me = g.eu;
+  if(!g.vivo[s]) return false;
+  if(g.fase === 'noite' && g.vivo[me]){
+    if(g.meuPapel === 'lobo') return g.papeis[s] !== 'lobo';
+    if(g.meuPapel === 'vidente') return g.minha == null && s !== me;
+    if(g.meuPapel === 'medico') return g.minha == null && s !== g.medUlt;
+  }
+  if(g.fase === 'voto' && g.vivo[me]) return s !== me && (!g.alvos || g.alvos.includes(s));
+  if(g.fase === 'tiro' && g.cacador === me) return s !== me;
+  return false;
+}
+function renderPlayers(g, v){
+  const me = g.eu, vot = {};
+  if(g.votos) Object.keys(g.votos).forEach(k => { const t = g.votos[k]; if(t >= 0) (vot[t] = vot[t] || []).push(+k); });
+  setH($('#lbPl'), g.papeis.map((p, s) => {
+    const x = v.seats[s] || {name:'?'}, vivo = g.vivo[s];
+    const pa = p ? PAPEIS[p] : null;
+    let tag = '', mk = '';
+    if(!vivo) tag = pa ? `${pa.ic} ${pa.n}` : 'morto';
+    else if(s === me) tag = pa ? `Você · ${pa.n}` : 'Você';
+    else if(p === 'lobo') tag = '🐺 Lobisomem';
+    const vis = g.vis && g.vis.filter(z => z.t === s).pop();
+    if(vis && vivo) { mk = vis.lobo ? '🐺' : '✅'; tag = vis.lobo ? '🔮 É lobo!' : '🔮 Inocente'; }
+    if(g.claims && g.claims[s] && vivo && s !== me && !tag) tag = '“Vidente”';
+    if(g.claimc && g.claimc[s] && vivo && s !== me && !tag) tag = '“Caçador”';
+    let esc0 = false;
+    if(g.fase === 'noite' && g.minha === s) esc0 = true;
+    if(g.fase === 'voto' && g.votos && g.votos[me] === s) esc0 = true;
+    const lv = g.lobVoto ? Object.keys(g.lobVoto).filter(k => g.lobVoto[k] === s).map(Number) : [];
+    const vw = g.fase === 'noite' && lv.length ? '🐺 ' + lv.map(k => k === me ? 'você' : v.seats[k].name).join(', ')
+      : vot[s] ? '← ' + vot[s].map(k => k === me ? 'você' : v.seats[k].name).join(', ') : '';
+    const pronto = g.fase === 'dia' && g.pronto && g.pronto[s] ? '✋' : '';
+    return `<div class="lp ${vivo ? '' : 'morto'} ${s === me ? 'eu' : ''} ${p === 'lobo' && vivo && g.papeis[me] === 'lobo' && g.fase !== 'fim' ? 'lobo' : ''} ${podeClicar(g, s) ? 'pode' : ''} ${esc0 ? 'esc' : ''}" data-seat="${s}">
+      <span class="mk">${mk || pronto || (x.human ? '' : '🤖')}</span><span class="vt">${g.fase === 'voto' || g.fase === 'exec' ? (vot[s] ? vot[s].length : '') : (lv.length || '')}</span>
+      <div class="av">${vivo ? AVS[s % AVS.length] : '💀'}</div><div class="nm">${esc(x.name)}</div><div class="tg">${tag}</div><div class="vw">${esc(vw)}</div></div>`;
+  }).join(''));
+}
+function renderAct(g, v){
+  const me = g.eu, vivo = g.vivo[me];
+  let ins = '', btn = '';
+  if(g.fase === 'fim') ins = g.venc === 'lobos' ? '🐺 Os lobisomens dominaram a vila!' : '🎉 A vila eliminou todos os lobisomens!';
+  else if(!vivo && g.fase !== 'tiro') ins = '👻 Você morreu e agora assiste como espectador(a).<small>Não dê dicas aos vivos!</small>';
+  else if(g.fase === 'noite'){
+    if(g.meuPapel === 'lobo'){ const t = g.lobVoto && g.lobVoto[me]; ins = t != null ? `Seu voto: <b>${esc(v.seats[t].name)}</b>. Combine com os outros lobos no chat (só vocês leem).` : 'Toque na vítima desta noite. Os outros lobos veem seu voto.'; }
+    else if(g.meuPapel === 'vidente') ins = g.minha != null ? `Você vai descobrir ${esc(v.seats[g.minha].name)} ao amanhecer.` : 'Toque em alguém para descobrir se é lobisomem.';
+    else if(g.meuPapel === 'medico') ins = g.minha != null ? `Você protege ${esc(v.seats[g.minha].name)} esta noite.` : `Toque em quem você quer proteger.${g.medUlt != null ? `<small>Não pode repetir ${esc(v.seats[g.medUlt].name)}.</small>` : ''}`;
+    else ins = 'Você dorme enquanto os lobisomens agem... 😴<small>Espere o amanhecer.</small>';
+  } else if(g.fase === 'dia'){
+    ins = 'Converse, acuse e defenda. Quando estiver pronto, peça a votação.<small>A votação começa quando o tempo acabar ou todos estiverem prontos.</small>';
+    btn = `<button data-a="pronto" class="${g.pronto && g.pronto[me] ? 'on' : ''}">${g.pronto && g.pronto[me] ? '✋ Pronto!' : '✋ Pronto para votar'}</button>`;
+  } else if(g.fase === 'voto'){
+    const t = g.votos ? g.votos[me] : null;
+    ins = t != null ? (t >= 0 ? `Seu voto: <b>${esc(v.seats[t].name)}</b>. Pode trocar até o fim.` : 'Você votou em <b>ninguém</b>.') : 'Toque em quem deve ser eliminado.';
+    btn = `<button data-a="nada" class="cin">Ninguém</button>`;
+  } else if(g.fase === 'tiro'){
+    if(g.cacador === me){ ins = '🏹 Você foi abatido! Toque em alguém para levar junto.'; btn = `<button data-a="semtiro" class="cin">Não atirar</button>`; }
+    else ins = `🏹 ${esc(v.seats[g.cacador].name)} está mirando...`;
+  } else if(g.fase === 'manha') ins = g.ultMorte != null ? `💀 ${esc(v.seats[g.ultMorte].name)} não acordou.` : '🌅 Ninguém morreu esta noite!';
+  else if(g.fase === 'exec') ins = g.execRes != null ? `⚖️ ${esc(v.seats[g.execRes].name)} foi eliminado(a).` : '⚖️ Ninguém foi eliminado.';
+  setH($('#lbAct'), `<div class="ins">${ins}</div>${btn}`);
+}
+function renderFeed(g, v){
+  const el = $('#lbFeed'), name = s => esc((v.seats[s] || {name:'?'}).name);
+  const h = g.feed.map(f => f.k === 'f' ? `<div><b>${name(f.s)}:</b> ${esc(f.x)}</div>`
+    : f.k === 'l' ? `<div class="l">🐺 <b>${name(f.s)}:</b> ${esc(f.x)}</div>`
+    : `<div class="s ${f.c}">${f.x}</div>`).join('');
+  if(setH(el, h)) el.scrollTop = el.scrollHeight;
+}
+function renderInput(g){
+  const inp = $('#lbIn'), me = g.eu;
+  let ph = 'Fale com a vila...', dis = false, lob = false;
+  if(!g.vivo[me]){ ph = 'Mortos não falam 👻'; dis = true; }
+  else if(g.fase === 'fim'){ ph = 'Fim de jogo'; dis = true; }
+  else if(g.fase === 'noite'){ if(g.meuPapel === 'lobo'){ ph = '🐺 Só os lobos leem...'; lob = true; } else { ph = 'A vila dorme... 😴'; dis = true; } }
+  if(inp.placeholder !== ph) inp.placeholder = ph;
+  inp.classList.toggle('lob', lob);
+  if(inp.disabled !== dis){ inp.disabled = dis; $('#lbSend').disabled = dis; }
+}
+function renderAll(g, v, ui){
+  CL.ui = ui; CL.v = v; CL.g = g; CL.recv = Date.now(); CL.left = g.left;
+  build(ui.stage);
+  ui.stage.classList.toggle('noite', g.fase === 'noite');
+  setH($('#lbFase'), faseHTML(g, v));
+  const p = g.meuPapel ? PAPEIS[g.meuPapel] : null;
+  $('#lbPapel').className = 'lb-papel' + (g.meuPapel === 'lobo' ? ' lobo' : '');
+  setH($('#lbPapel'), p ? `<span class="ic">${p.ic}</span><span class="tx">Você é<b>${p.n}</b></span>` : '');
+  setH($('#lbComp'), 'Nesta partida: ' + g.comp);
+  renderPlayers(g, v); renderAct(g, v); renderFeed(g, v); renderInput(g);
+  tickClock();
+  // ao começar: mostra o papel; vidente: avisa o resultado novo
+  if(CL.game !== v.gameNo){ CL.game = v.gameNo; CL.nvis = 0;
+    if(p && g.fase !== 'fim' && v.seats[v.me] && v.seats[v.me].human) setTimeout(() => $('#lbPapel').click(), 250); }
+  if(g.vis && g.vis.length > CL.nvis && g.fase !== 'fim'){ const z = g.vis[g.vis.length - 1]; CL.nvis = g.vis.length;
+    toast(`🔮 ${v.seats[z.t].name} ${z.lobo ? 'É LOBISOMEM!' : 'não é lobisomem.'}`, 3500); }
+}
+
+const CHATQ = [], BOTERR = {n:0, last:''};
+function checaFim(st, now, ev){
+  // fases que terminam antes do prazo: noite completa, todos prontos, todos votaram
+  let guard = 0;
+  while(st.fase !== 'fim' && guard++ < 6){
+    const v = vivos(st);
+    const cedo = (st.fase === 'noite' && noiteCompleta(st) && now >= st.ini + 1500 * SPD())
+      || (st.fase === 'dia' && v.filter(s => !isBot(st, s)).length > 0 && v.filter(s => !isBot(st, s)).every(s => st.pronto[s]) && now >= st.ini + 3000 * SPD())
+      || (st.fase === 'voto' && v.every(s => st.votos[s] != null));
+    if(now >= st.fim || cedo){ const f = st.fase; avanca(st, now, ev); if(st.fase === f) break; now = now; }
+    else break;
+  }
+}
+
+/* ============================ definição para a Mesa ============================ */
+Mesa.run({
+  id:'lobisomem', name:'Lobisomem', icon:'🐺', tagline:'Cidade dorme · papéis secretos',
+  seats: o => clamp(+o.jogadores || 8, 5, 12),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'8', choices:[['5','5'],['6','6'],['7','7'],['8','8'],['9','9'],['10','10'],['11','11'],['12','12']]},
+    {key:'lobos', label:'Lobisomens', default:'auto', choices:[['auto','Automático'],['1','1'],['2','2'],['3','3'],['4','4']]},
+    {key:'vidente', label:'Vidente', default:'auto', choices:[['auto','Auto'],['sim','Sim'],['nao','Não']]},
+    {key:'medico', label:'Médico', default:'auto', choices:[['auto','Auto'],['sim','Sim'],['nao','Não']]},
+    {key:'cacador', label:'Caçador', default:'auto', choices:[['auto','Auto'],['sim','Sim'],['nao','Não']]},
+    {key:'tempo', label:'Conversa de dia', default:'90', choices:[['60','1 min'],['90','1min30'],['120','2 min'],['180','3 min']]},
+    {key:'empate', label:'Empate no voto', default:'nada', choices:[['nada','Ninguém sai'],['revoto','Revotação']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${nLobos(clamp(+o.jogadores || 8, 5, 12), o)} LOBO${nLobos(clamp(+o.jogadores || 8, 5, 12), o) > 1 ? 'S' : ''} · BOT ${({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'}[o.diff] || 'NORMAL')}`,
+  tickMs:250,
+  setup(players, o){
+    const n = players.length, now = clock();
+    const papel = shuffle(composicao(n, o));
+    const diff = ['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal';
+    const st = {n, names:players.map(p => p.name), hum:players.map(p => !!p.human), papel, vivo:Array(n).fill(true),
+      comp:compTxt(papel), diff, tempo:clamp(+o.tempo || 90, 30, 300) * 1000, empate:o.empate === 'revoto' ? 'revoto' : 'nada',
+      dia:0, fase:'', feed:[], fid:0, hist:[], vis:[], medSalvou:[], medUlt:null, lobVoto:{}, votos:{}, pronto:{},
+      vidAlvo:null, medAlvo:null, tiroPend:null, cacador:null, depois:null, alvos:null, noiteRes:null, execRes:null, venc:null, falasDia:{}, lobFalhou:null,
+      ai:players.map(() => ({at:Infinity, ru:Array(n).fill(0).map(() => (Math.random() - 0.5) * 2 * NOISE[diff]), fez:false}))};
+    sys(st, `Nesta vila: ${st.comp}.`, '');
+    iniciaNoite(st, now, []);
+    return st;
+  },
+  startEvents(st){ return [{k:'inicio'}]; },
+  // humanos vivos podem agir a qualquer momento; o caçador abatido também. Bots agem pelo relógio.
+  waiting(st){
+    if(st.fase === 'fim') return [];
+    const w = vivos(st).filter(s => !isBot(st, s));
+    if(st.fase === 'tiro' && st.cacador != null && !st.vivo[st.cacador] && !isBot(st, st.cacador)) w.push(st.cacador);
+    return w;
+  },
+  apply(st, seat, a){
+    const now = clock(), r0 = doAct(st, seat, a, now);
+    if(r0 && r0.ok === false) return r0;
+    const ev = r0.events || [];
+    checaFim(st, now, ev);
+    return {events:ev};
+  },
+  tick(st, o, agora){
+    const now = window.LB_CLOCK ? clock() : agora;
+    if(st.fase === 'fim') return null;
+    const ev = [], f0 = st.fase, id0 = st.fid;
+    let ch = false;
+    // conversa do chat da Mesa (lida no anfitrião) também conta para os bots
+    while(CHATQ.length){ const c = CHATQ.shift(); if(c.seat >= 0 && c.seat < st.n && st.vivo[c.seat] && st.fase !== 'noite') leFala(st, c.seat, c.text); }
+    for(let s=0;s<st.n;s++){
+      if(!isBot(st, s) || st.ai[s].at > now) continue;
+      if(!st.vivo[s] && !(st.fase === 'tiro' && st.cacador === s)) { st.ai[s].at = Infinity; continue; }
+      const d0 = st.diff; if(st.dl) st.diff = st.dl[s];          // (testes: nível por lugar)
+      const e = botAge(st, s, now); st.diff = d0; if(e.length) ev.push(...e.filter(x => x.k !== 'botErr'));
+      e.filter(x => x.k === 'botErr').forEach(x => { BOTERR.n++; BOTERR.last = x.err; });
+      ch = true;
+      if(st.fase !== f0) break;
+    }
+    if(st.fase === f0) checaFim(st, now, ev);
+    if(st.fase !== f0 || st.fid !== id0) ch = true;
+    return ch || ev.length ? {changed:true, events:ev} : null;
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    const lob = st.venc === 'lobos', winners = st.papel.map((p,i) => i).filter(i => (st.papel[i] === 'lobo') === lob);
+    const tab = st.papel.map((p,i) => `${PAPEIS[p].ic} ${esc(st.names[i])} — ${PAPEIS[p].n}${st.vivo[i] ? '' : ' 💀'}`).join('<br>');
+    return {winners, text:`${lob ? '🐺 Os lobisomens venceram!' : '🏡 A vila venceu!'} (${st.dia} noite${st.dia > 1 ? 's' : ''})<br><br>${tab}`};
+  },
+  bot(){ return {t:'nada'}; },
+  botDelay(){ return 1500; },
+  // cada lugar vê só o que o seu papel permite
+  view(st, seat){
+    const fim = st.fase === 'fim', meuP = st.papel[seat], lobo = meuP === 'lobo';
+    const claims = {}, claimc = {};
+    st.hist.forEach(h => { if(h.k === 'claim') claims[h.s] = 1; if(h.k === 'claimc') claimc[h.s] = 1; });
+    return {
+      n:st.n, eu:seat, fase:st.fase, dia:st.dia, vivo:st.vivo.slice(), comp:st.comp, venc:st.venc,
+      left:Math.max(0, st.fim - clock()), dur:st.dur,
+      meuPapel:meuP || null,
+      papeis:st.papel.map((p,i) => (fim || i === seat || !st.vivo[i] || (lobo && p === 'lobo')) ? p : null),
+      parceiros:lobo ? st.papel.map((p,i) => i).filter(i => i !== seat && st.papel[i] === 'lobo') : [],
+      lobVoto:lobo && st.fase === 'noite' ? Object.assign({}, st.lobVoto) : null,
+      vis:meuP === 'vidente' || fim ? st.vis.slice() : null,
+      minha:st.fase === 'noite' ? (meuP === 'vidente' ? st.vidAlvo : meuP === 'medico' ? st.medAlvo : null) : null,
+      medUlt:meuP === 'medico' ? st.medUlt : null,
+      votos:st.fase === 'voto' || st.fase === 'exec' ? Object.assign({}, st.votos) : null,
+      nvotos:Object.keys(st.votos).filter(k => st.vivo[k]).length, nvivos:vivos(st).length,
+      alvos:st.alvos, pronto:st.fase === 'dia' ? Object.assign({}, st.pronto) : null,
+      cacador:st.cacador, execRes:st.execRes, ultMorte:st.noiteRes ? st.noiteRes.alvo : null,
+      claims, claimc,
+      feed:st.feed.filter(f => f.k !== 'l' || lobo || fim).slice(-70)
+    };
+  },
+  render(g, v, ui){ renderAll(g, v, ui); },
+  topInfo(g){ const L = g.papeis.filter((p,i) => !g.vivo[i] && p === 'lobo').length;
+    return `<div class="status">${g.nvivos} vivos · ${L} lobo${L === 1 ? '' : 's'} abatido${L === 1 ? '' : 's'}</div>`; },
+  onEvent(e, v){
+    if(e.k === 'chat' && typeof Mesa !== 'undefined' && Mesa._NET && Mesa._NET.role && Mesa._NET.role !== 'guest') CHATQ.push({seat:e.seat, text:e.text});
+    const me = v ? v.me : -1, g = v && v.game;
+    if(e.k === 'fase'){
+      if(e.f === 'noite'){ banner('🌙 A noite caiu'); }
+      else if(e.f === 'dia') Snd.msg();
+      else if(e.f === 'voto') banner('🗳️ Votação!');
+      else if(e.f === 'tiro' && g && g.cacador === me){ banner('🏹 Atire!'); }
+    }
+    if(e.k === 'morte' && e.seat === me) setTimeout(() => toast('💀 Você morreu. Agora é espectador(a).', 3000), 900);
+  },
+  rules: o => `<h3>Objetivo</h3><p><b>Aldeões</b> (e vidente, médico, caçador): eliminar todos os lobisomens. <b>Lobisomens</b>: ficar em número igual ou maior que o resto da vila.</p>
+<h3>Papéis (secretos)</h3><ul>
+<li>🐺 <b>Lobisomem</b> — conhece os outros lobos. À noite, os lobos escolhem juntos uma vítima (cada um toca em quem quer; vale o mais votado entre eles). Só eles veem o chat noturno.</li>
+<li>🔮 <b>Vidente</b> — toda noite descobre se um jogador é lobisomem. Decide quando (e se) revelar isso à vila.</li>
+<li>🩺 <b>Médico</b> — toda noite protege alguém (pode ser ele mesmo), mas não a mesma pessoa duas noites seguidas. Se os lobos atacarem o protegido, ninguém morre.</li>
+<li>🏹 <b>Caçador</b> — quando morre (de noite ou na votação), atira em alguém e o leva junto.</li>
+<li>🧑‍🌾 <b>Aldeão</b> — sem poder especial: só a conversa e o voto.</li></ul>
+<p>Com <b>Automático</b>: 1 lobo até 6 jogadores, 2 lobos de 7 a 9, 3 lobos de 10 a 12; vidente sempre; médico a partir de 6; caçador a partir de 8. Você pode ligar ou desligar cada papel.</p>
+<h3>Como jogar</h3><ol>
+<li><b>Noite</b>: a vila dorme. Lobisomens, vidente e médico tocam nos jogadores para agir.</li>
+<li><b>Amanhecer</b>: anuncia quem morreu. Todo morto tem o papel revelado e vira <b>espectador</b> (não fala nem vota).</li>
+<li><b>Dia</b>: conversa no chat da mesa por ${({60:'1 minuto', 90:'1min30', 120:'2 minutos', 180:'3 minutos'})[o.tempo] || '1min30'} (ou até todos tocarem em <b>Pronto para votar</b>).</li>
+<li><b>Votação</b>: cada vivo toca em quem quer eliminar (ou “Ninguém”). Os votos aparecem para todos e dá para trocar até o fim. O mais votado sai. ${o.empate === 'revoto' ? 'Empate: nova votação só entre os empatados; se empatar de novo, ninguém sai.' : 'Empate: ninguém sai.'} Se “Ninguém” tiver mais votos, ninguém sai.</li></ol>
+<h3>Dicas</h3><ul><li>Repare em quem vota junto, quem acusa sem motivo e quem defende quem depois se revelou lobo.</li>
+<li>Os lobos mentem! Alguém pode se dizer vidente para confundir a vila.</li>
+<li>O chat 💬 da Mesa também vale, mas combine de não usá-lo à noite nem depois de morrer.</li></ul>
+<h3>Bots</h3><p>Os bots desconfiam pelos votos, acusações e mortes; os lobos combinam a vítima, mentem e tentam empurrar um aldeão para a forca; a vidente se revela na hora certa. No <b>Difícil</b> os lobos chegam a se passar por vidente e a entregar um parceiro perdido.</p>`
+});
+</script>
+</body>
+</html>

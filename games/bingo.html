@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<link rel="icon" href="../docs/img/icon-192.png">
+<title>Bingo</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:6px 8px 8px;gap:6px}
+.bg-top{flex:none;display:flex;align-items:center;justify-content:center;gap:14px;min-height:var(--th)}
+.ballbox{display:flex;align-items:center;gap:12px;min-width:0}
+.ball{--bs:var(--bsz);width:var(--bs);height:var(--bs);border-radius:50%;flex:none;position:relative;display:grid;place-items:center;
+  background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.9) 0 6%,var(--bc) 34%,var(--bd) 100%);box-shadow:0 8px 18px rgba(0,0,0,.5),inset -6px -8px 14px rgba(0,0,0,.3)}
+.ball .in{width:62%;height:62%;border-radius:50%;background:#fffdf5;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.25);line-height:1}
+.ball .in b{font-size:calc(var(--bs)*.13);font-weight:900;color:var(--bd)}
+.ball .in span{font-size:calc(var(--bs)*.27);font-weight:900;letter-spacing:-1px}
+.ball.empty{background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.35),rgba(0,0,0,.35));box-shadow:inset 0 0 12px rgba(0,0,0,.5)}
+.ball.empty .in{background:transparent;box-shadow:none;color:#cfe}
+.ball.roll{animation:roll .9s cubic-bezier(.2,.8,.3,1.15)}
+@keyframes roll{0%{transform:translateX(160px) rotate(300deg) scale(.6);opacity:0}60%{transform:translateX(-6px) rotate(-12deg) scale(1.08);opacity:1}100%{transform:none}}
+.L0{--bc:#4f9bff;--bd:#1d55b8}.L1{--bc:#ff6b62;--bd:#b0251f}.L2{--bc:#f4f4f4;--bd:#8b8b8b}.L3{--bc:#4fdc8a;--bd:#178a47}.L4{--bc:#ffd257;--bd:#b98300}
+.call{display:flex;flex-direction:column;gap:2px;min-width:0}
+.call .big1{font-size:var(--cf);font-weight:900;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.5);white-space:nowrap}
+.call .sub{font-size:13px;color:#ffe6a6;font-weight:700;max-width:260px}
+.call .sub i{color:#cfe;font-weight:600}
+.call.pop .big1{animation:pop .5s}
+.meta{display:flex;flex-direction:column;gap:4px;align-items:flex-start;font-size:12.5px;font-weight:800;color:#cfe}
+.meta .prem{background:rgba(0,0,0,.35);border:1px solid rgba(231,180,58,.6);color:var(--gold);border-radius:999px;padding:3px 10px;letter-spacing:.5px}
+.pbar{width:120px;height:6px;border-radius:4px;background:rgba(0,0,0,.35);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--gold);width:0}
+.recent{display:flex;gap:5px;align-items:center}
+.mb{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:900;color:#1a1a1a;flex:none;
+  background:radial-gradient(circle at 35% 30%,#fff 0 18%,var(--bc) 60%,var(--bd));box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.mb span{background:#fffdf5;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:11px}
+.bg-mid{flex:1;min-height:0;display:flex;gap:10px}
+.cardsw{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.tabs{display:flex;gap:6px;flex:none}
+.tabs:empty{display:none}
+.tabs button{border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;border-radius:999px;padding:6px 12px;font-weight:800;font-size:13px;cursor:pointer}
+.tabs button.on{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.tabs button.p1{box-shadow:0 0 0 2px #ff6b62}
+.cards{display:grid;gap:10px;justify-content:center;align-content:center}
+.ct{--c:48px;background:linear-gradient(170deg,#fffdf3,#f1e9d2);border-radius:12px;padding:6px;box-shadow:0 6px 16px rgba(0,0,0,.45);position:relative}
+.ct .ch,.ct .cg{display:grid;grid-template-columns:repeat(5,var(--c));gap:3px}
+.ct .ch{margin-bottom:3px}
+.ct .ch span{height:calc(var(--c)*.7);border-radius:7px;display:grid;place-items:center;font-weight:900;font-size:calc(var(--c)*.48);color:#fff;
+  background:linear-gradient(180deg,var(--bc),var(--bd));text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.ct .ch span.L2{color:#333;text-shadow:none}
+.cl{height:var(--c);border-radius:8px;border:1px solid #d9cfb4;background:#fff;color:#2a2a2a;font-weight:900;font-size:calc(var(--c)*.42);
+  display:grid;place-items:center;cursor:pointer;position:relative;padding:0;font-family:inherit;transition:transform .08s}
+.cl:active{transform:scale(.92)}
+.cl.mk::after{content:"";position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,120,120,.75),rgba(200,24,43,.72));
+  box-shadow:0 0 0 2px rgba(150,10,25,.35);animation:daub .25s}
+.cl.mk{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cl.mk span{position:relative;z-index:1}
+.cl.fr{background:linear-gradient(180deg,#ffe28a,#e7b43a);color:#6b4a00;font-size:calc(var(--c)*.22);cursor:default;line-height:1.05;text-align:center}
+.cl.fr::after{display:none}
+.cl.win{box-shadow:0 0 0 3px var(--gold),0 0 12px rgba(231,180,58,.9)}
+@keyframes daub{from{transform:scale(1.6);opacity:0}}
+.ct.mini{--c:22px;padding:4px;border-radius:9px}
+.ct.mini .cl{border-radius:5px;cursor:default}
+.ct .tag{position:absolute;top:-9px;right:8px;background:#c0182b;color:#fff;font-size:11px;font-weight:900;border-radius:999px;padding:2px 8px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.side{flex:none;width:270px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.board{background:rgba(0,0,0,.3);border-radius:12px;padding:8px;display:grid;grid-template-columns:18px repeat(15,1fr);gap:2px}
+.board .bl{font-weight:900;font-size:12px;display:grid;place-items:center;border-radius:4px;color:#fff;background:linear-gradient(180deg,var(--bc),var(--bd))}
+.board .bl.L2{color:#333}
+.board span{font-size:9.5px;font-weight:800;text-align:center;border-radius:4px;padding:2px 0;color:rgba(255,255,255,.28)}
+.board span.on{background:var(--bc);color:#111}
+.board span.L0.on,.board span.L1.on{color:#fff}
+.board span.last{animation:pulse 1.2s infinite;outline:2px solid var(--gold)}
+.plist{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:none}
+.side .plist{flex-direction:column;flex-wrap:nowrap;overflow:auto;min-height:0;justify-content:flex-start}
+.pc{background:rgba(0,0,0,.38);border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap;border:2px solid transparent;display:flex;gap:6px;align-items:center;justify-content:space-between}
+.pc.me{color:#bff5d4;border-color:rgba(191,245,212,.35)}
+.pc.p1{border-color:#ff6b62;animation:pulse 1.2s infinite}
+.pc .f{color:#ffe6a6;font-weight:800}
+.pc .f.u{color:#ff9d8f}
+.bg-bot{flex:none;display:flex;gap:8px;align-items:center;justify-content:center}
+.bingo{background:linear-gradient(180deg,#ff6b5b,#c0182b);color:#fff;border:none;border-radius:16px;font-size:26px;font-weight:900;letter-spacing:3px;padding:10px 40px;
+  box-shadow:0 5px 0 #6e0d18,0 10px 18px rgba(0,0,0,.4);cursor:pointer;line-height:1.05;min-width:200px}
+.bingo small{display:block;font-size:11px;letter-spacing:.5px;font-weight:700;opacity:.9}
+.bingo:disabled{filter:grayscale(.85);opacity:.55;cursor:not-allowed}
+.bingo:not(:disabled):active{transform:translateY(3px);box-shadow:0 2px 0 #6e0d18}
+.bingo.glow{animation:glow .8s infinite alternate}
+@keyframes glow{to{box-shadow:0 5px 0 #6e0d18,0 0 28px 6px rgba(255,210,87,.9)}}
+.sq{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:12px;font-size:20px;padding:10px 12px;cursor:pointer}
+.ov{position:absolute;inset:0;display:grid;place-items:center;z-index:15;background:rgba(0,0,0,.45);padding:12px;animation:fade .25s}
+.ovb{background:var(--panel);border:2px solid var(--gold);border-radius:16px;padding:14px 16px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.6);max-width:96%;max-height:96%;overflow:auto}
+.ovb h3{color:var(--gold);font-size:24px;margin-bottom:4px}
+.ovb p{font-size:14px;color:#e3f3ea;margin-bottom:8px}
+.ovb .wins{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+.ovb .wn{display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:800;font-size:13px;color:#ffe6a6}
+.ovb .bingo{font-size:20px;padding:8px 26px;min-width:0}
+.hidebig{display:none}
+@media (max-width:600px){ #stage>.plist{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding-bottom:2px} #stage>.plist .pc{flex:none} .tabs button{padding:6px 9px;font-size:12px} .call .sub{font-size:12px;max-width:170px} .meta{font-size:11.5px} .pbar{width:84px} .bingo{font-size:22px;padding:9px 26px;min-width:170px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================== BINGO ==============================
+   75 bolas (B 1-15, I 16-30, N 31-45, G 46-60, O 61-75), cartelas 5×5 com
+   centro livre. O anfitrião sorteia pelo relógio (tick); cada um marca a
+   própria cartela e grita BINGO! — o anfitrião confere as marcações. */
+const LET = 'BINGO';
+const clock = () => window.BG_CLOCK ? window.BG_CLOCK() : Date.now();
+const TS = () => CFG.speed < 0.3 ? Math.max(CFG.speed, 0.002) : 1;      // testes automáticos aceleram o relógio
+function seatInfo(s){ try{ const h = Mesa._H; if(h && h.seats && h.seats[s]) return h.seats[s]; }catch(_){} return null; }
+const isBot = (st, s) => { const x = seatInfo(s); return x ? !x.human : !st.hum[s]; };
+function rng(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = (st, s, j, k) => rng((st.seed ^ Math.imul(s + 1, 7919) ^ Math.imul(j + 1, 104729) ^ Math.imul(k + 1, 1299709)) >>> 0)();
+const letra = x => Math.floor((x - 1) / 15);
+const nm = (st, s) => esc(st.names[s]);
+
+/* ---------- padrões de vitória (máscaras de 25 bits) ---------- */
+const CENTER = 1 << 12, FULL = (1 << 25) - 1;
+const LINES = [];
+for(let r=0;r<5;r++){ let m = 0; for(let c=0;c<5;c++) m |= 1 << (r*5 + c); LINES.push(m); }
+for(let c=0;c<5;c++){ let m = 0; for(let r=0;r<5;r++) m |= 1 << (r*5 + c); LINES.push(m); }
+LINES.push([0,6,12,18,24].reduce((m, i) => m | 1 << i, 0), [4,8,12,16,20].reduce((m, i) => m | 1 << i, 0));
+const pop = m => { let c = 0; while(m){ m &= m - 1; c++; } return c; };
+const faltam = (mk, premio) => premio === 'cheia' ? pop(FULL & ~mk) : Math.min(...LINES.map(L => pop(L & ~mk)));
+const padrao = (mk, premio) => premio === 'cheia' ? (mk === FULL ? FULL : 0) : (LINES.find(L => (L & mk) === L) || 0);
+
+/* ---------- locução ---------- */
+const UN = ['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','catorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+const DZ = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta'];
+const extenso = n => n < 20 ? UN[n] : DZ[Math.floor(n/10)] + (n % 10 ? ' e ' + UN[n % 10] : '');
+const APELIDO = {1:'começou o jogo!', 7:'conta de mentiroso', 10:'camisa dez, craque do time', 11:'um atrás do outro', 12:'uma dúzia', 15:'debutante',
+  18:'maioridade', 22:'dois patinhos na lagoa', 25:'dia de Natal', 31:'virada do ano', 33:'idade de Cristo', 44:'quatro quatro', 45:'fim do primeiro tempo',
+  50:'meio século', 51:'uma boa ideia', 55:'dois cincos', 60:'sessentão', 66:'dois seis', 70:'setentão', 75:'a última bola!'};
+
+/* ---------- cartelas ---------- */
+function novaCartela(){
+  const c = Array(25).fill(0);
+  for(let col=0; col<5; col++){
+    const nums = shuffle(Array.from({length:15}, (_, i) => col*15 + i + 1)).slice(0, 5).sort((a, b) => a - b);
+    for(let r=0;r<5;r++) c[r*5 + col] = nums[r];
+  }
+  c[12] = 0;
+  return c;
+}
+function cartelaGanha(st, s, premio){
+  for(let c=0;c<st.nc;c++) if(padrao(st.mk[s][c], premio)) return c;
+  return -1;
+}
+const faltaSeat = (st, s) => Math.min(...st.mk[s].map(m => faltam(m, st.premio)));
+
+/* ---------- motor ---------- */
+function sorteia(st, now){
+  const x = st.bolas[st.k];
+  st.at[x] = st.k; st.tb[st.k] = now; st.k++;
+  st.prox = now + st.ms * TS();
+  if(st.auto) for(let s=0;s<st.n;s++) st.cards[s].forEach((c, ci) => { const i = c.indexOf(x); if(i >= 0) st.mk[s][ci] |= 1 << i; });
+  return [{k:'bola', x}, {k:'snd', s:'card'}];
+}
+function grita(st, s, now){
+  if(st.fase === 'fim') return {err:'A partida acabou.'};
+  if(st.fase === 'conf' && st.conf.win.includes(s)) return {err:'Você já gritou — aguarde a conferência.'};
+  if(st.blq[s] > st.k) return {err:`Depois de um bingo falso, você só pode gritar de novo a partir da bola ${st.blq[s] + 1}.`};
+  const c = cartelaGanha(st, s, st.premio);
+  if(c < 0){
+    st.blq[s] = st.k + 3; st.falsos[s]++;
+    return {events:[{k:'say', seat:s, text:'BINGO!'}, {k:'falso', seat:s}, {k:'log', text:`❌ Bingo falso de <b>${nm(st, s)}</b> — fica 3 bolas sem poder gritar.`}]};
+  }
+  const nome = st.premio === 'linha' ? 'LINHA' : 'BINGO';
+  if(st.fase === 'jogo'){ st.fase = 'conf'; st.conf = {premio:st.premio, ate:now + 4000 * TS(), win:[s], wc:[c]}; }
+  else { st.conf.win.push(s); st.conf.wc.push(c); }
+  return {events:[{k:'say', seat:s, text:nome + '!'}, {k:'banner', text:`${nome}! ${st.names[s]}`}, {k:'grito', seat:s},
+    {k:'log', text:`🎉 <b>${nm(st, s)}</b> fez ${st.premio === 'linha' ? 'uma linha' : 'cartela cheia'} na bola ${st.k}.`}]};
+}
+function confere(st, now){
+  const c = st.conf; st.ganh[c.premio] = c.win.slice(); st.wcard[c.premio] = c.win.map((s, j) => ({s, c:c.wc[j]}));
+  st.conf = null;
+  if(c.premio === 'linha' && st.modo === 'ambas'){
+    st.premio = 'cheia'; st.fase = 'jogo'; st.prox = now + 2500 * TS();
+    return [{k:'banner', text:'Agora vale cartela cheia!'}, {k:'log', text:'Linha conferida. Agora vale <b>cartela cheia</b>!'}];
+  }
+  st.fase = 'fim';
+  return [];
+}
+/* bots: marcam cada número com tempo de reação humano e gritam quando fecham */
+const REACT = {facil:[1300, 2600, 0.08], normal:[750, 1500, 0.025], dificil:[380, 700, 0]};
+const SHOUT = {facil:[900, 1700], normal:[500, 900], dificil:[220, 420]};
+const nivel = (st, s) => (st.dseat && st.dseat[s]) || st.diff;      // dseat: nível por lugar (testes)
+function reacao(st, s, j, c){
+  const [a, b, miss] = REACT[nivel(st, s)] || REACT.normal, r = rnd(st, s, j, c);
+  let t = a + b * r;
+  if(rnd(st, s, j, c + 9) < miss) t += st.ms;                   // distraiu: só marca na bola seguinte
+  return t * TS();
+}
+function botPasso(st, s, now){
+  let ch = false; const ev = [];
+  if(!st.auto) st.cards[s].forEach((card, c) => {
+    for(let i=0;i<25;i++){
+      if(i === 12 || st.mk[s][c] & (1 << i)) continue;
+      const j = st.at[card[i]];
+      if(j >= 0 && now >= st.tb[j] + reacao(st, s, j, c)){ st.mk[s][c] |= 1 << i; ch = true; }
+    }
+  });
+  const pode = (st.fase === 'jogo' || (st.fase === 'conf' && !st.conf.win.includes(s))) && st.blq[s] <= st.k && cartelaGanha(st, s, st.premio) >= 0;
+  if(!pode) st.bc[s] = 0;
+  else if(!st.bc[s]){ const [a, b] = SHOUT[nivel(st, s)] || SHOUT.normal; st.bc[s] = now + (a + b * rnd(st, s, st.k, 77)) * TS(); }
+  else if(now >= st.bc[s]){ st.bc[s] = 0; const r = grita(st, s, now); if(r.events){ ev.push(...r.events); ch = true; } }
+  return {ch, ev};
+}
+
+Mesa.run({
+  id:'bingo', name:'Bingo', icon:'🎱', tagline:'B-I-N-G-O: marque e grite primeiro!',
+  seats: o => clamp(+o.jogadores || 6, 2, 12),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'6', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['8','8'],['10','10'],['12','12']]},
+    {key:'cartelas', label:'Cartelas', default:'1', choices:[['1','1'],['2','2'],['3','3']]},
+    {key:'vitoria', label:'Vale', default:'ambas', choices:[['linha','Linha'],['cheia','Cheia'],['ambas','Linha e cheia']]},
+    {key:'ritmo', label:'Sorteio a cada', default:'5', choices:[['3','3 s'],['5','5 s'],['8','8 s']]},
+    {key:'marcar', label:'Marcação', default:'manual', choices:[['manual','Manual'],['auto','Automática']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${({linha:'LINHA', cheia:'CHEIA', ambas:'LINHA E CHEIA'})[o.vitoria] || 'LINHA E CHEIA'} · ${o.cartelas || 1} CART. · BOT ${({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'})[o.diff] || 'NORMAL'}`,
+  seatLabel: s => 'Jogador ' + (s + 1),
+  tickMs: 200,
+  setup(players, o){
+    const n = players.length, nc = clamp(+o.cartelas || 1, 1, 3), now = clock();
+    const modo = ['linha','cheia','ambas'].includes(o.vitoria) ? o.vitoria : 'ambas';
+    const st = {n, names:players.map(p => p.name), hum:players.map(p => !!p.human), nc, modo, premio: modo === 'cheia' ? 'cheia' : 'linha',
+      ms:clamp(+o.ritmo || 5, 2, 10) * 1000, auto:o.marcar === 'auto', diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal',
+      bolas:shuffle(Array.from({length:75}, (_, i) => i + 1)), k:0, at:Array(76).fill(-1), tb:[], fase:'jogo', prox:now + 2500 * TS(),
+      cards:[], mk:[], blq:Array(n).fill(0), falsos:Array(n).fill(0), bc:Array(n).fill(0), conf:null, ganh:{linha:[], cheia:[]}, wcard:{}, seed:(Math.random() * 1e9) | 0};
+    for(let s=0;s<n;s++){ st.cards.push(Array.from({length:nc}, novaCartela)); st.mk.push(Array(nc).fill(CENTER)); }
+    return st;
+  },
+  startEvents(){ return [{k:'banner', text:'Boa sorte!'}, {k:'snd', s:'deal'}]; },
+  // humanos podem marcar e gritar a qualquer momento; os bots agem pelo relógio (tick)
+  waiting(st){ if(st.fase === 'fim') return []; const w = []; for(let s=0;s<st.n;s++) if(!isBot(st, s)) w.push(s); return w; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || !st.cards[seat]) return {ok:false, err:'Jogada inválida.'};
+    if(st.fase === 'fim') return {ok:false, err:'A partida acabou.'};
+    const now = clock();
+    if(a.t === 'm'){
+      const c = a.c, i = a.i;
+      if(!Number.isInteger(c) || c < 0 || c >= st.nc || !Number.isInteger(i) || i < 0 || i > 24 || i === 12) return {ok:false, err:'Casa inválida.'};
+      const x = st.cards[seat][c][i];
+      if(st.at[x] < 0) return {ok:false, err:`O ${LET[letra(x)]} ${x} ainda não saiu.`};
+      st.mk[seat][c] ^= 1 << i;
+      return {events:[]};
+    }
+    if(a.t === 'b'){ const r = grita(st, seat, now); return r.err ? {ok:false, err:r.err} : r; }
+    if(a.t === 'nada') return {events:[]};
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, agora){
+    const now = window.BG_CLOCK ? clock() : agora;
+    if(st.fase === 'fim') return null;
+    let ch = false; const ev = [];
+    if(st.fase === 'conf' && now >= st.conf.ate){ ev.push(...confere(st, now)); ch = true; }
+    if(st.fase === 'jogo'){
+      if(st.k < 75 && now >= st.prox){ ev.push(...sorteia(st, now)); ch = true; }
+      else if(st.k >= 75 && now >= st.prox + 25000 * TS()){ st.fase = 'fim'; st.semGanhador = true; ch = true; }
+    }
+    for(let s=0;s<st.n && st.fase !== 'fim';s++){
+      if(!isBot(st, s)) continue;
+      const r = botPasso(st, s, now);
+      if(r.ch){ ch = true; ev.push(...r.ev); }
+    }
+    return ch ? {changed:true, events:ev} : null;
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    const fin = st.modo === 'linha' ? 'linha' : 'cheia', w = st.ganh[fin] || [];
+    const lista = ss => ss.map(s => `<b>${nm(st, s)}</b>`).join(', ');
+    let t = '';
+    if(st.ganh.cheia.length) t += `🏆 Cartela cheia: ${lista(st.ganh.cheia)}<br>`;
+    if(st.ganh.linha.length) t += `➖ Linha: ${lista(st.ganh.linha)}<br>`;
+    t += `Bolas sorteadas: ${st.k} de 75.`;
+    if(st.semGanhador) t = 'As 75 bolas saíram e ninguém gritou BINGO!<br>' + t;
+    return {winners:w.slice(), draw:!w.length, text:t};
+  },
+  bot(st, s){
+    if(cartelaGanha(st, s, st.premio) >= 0 && st.blq[s] <= st.k && st.fase !== 'fim') return {t:'b'};
+    for(let c=0;c<st.nc;c++) for(let i=0;i<25;i++) if(i !== 12 && !(st.mk[s][c] & 1 << i) && st.at[st.cards[s][c][i]] >= 0) return {t:'m', c, i};
+    return {t:'nada'};
+  },
+  botFallback(){ return {t:'nada'}; },
+  view(st, seat){
+    const now = clock(), ok = !!st.cards[seat];
+    const conf = st.conf ? {premio:st.conf.premio, left:Math.max(0, st.conf.ate - now), win:st.conf.win.map((s, j) => ({s, card:st.cards[s][st.conf.wc[j]], mk:st.mk[s][st.conf.wc[j]]}))} : null;
+    const fimc = st.fase === 'fim' ? Object.keys(st.wcard).map(p => ({p, l:st.wcard[p].map(w => ({s:w.s, card:st.cards[w.s][w.c], mk:st.mk[w.s][w.c]}))})) : null;
+    return {
+      n:st.n, names:st.names, nc:st.nc, modo:st.modo, premio:st.premio, fase:st.fase, k:st.k, auto:st.auto, ms:st.ms,
+      bolas:st.bolas.slice(0, st.k), left:st.fase === 'jogo' && st.k < 75 ? Math.max(0, st.prox - now) : 0, tsd:TS(),
+      cards:ok ? st.cards[seat] : [], mk:ok ? st.mk[seat].slice() : [], blq:ok ? Math.max(0, st.blq[seat] - st.k) : 0,
+      jog:st.names.map((x, i) => ({f:faltaSeat(st, i), l:st.ganh.linha.includes(i), c:st.ganh.cheia.includes(i)})),
+      conf, fimc, ganh:st.ganh
+    };
+  },
+  topInfo(g){ return `<div class="status">Bola ${g.k}/75 · Vale ${g.premio === 'linha' ? 'LINHA' : 'CARTELA CHEIA'}</div>`; },
+  render(g, v, ui){ desenha(g, v, ui); },
+  onEvent(e, v){
+    const me = v ? v.me : -1, g = v && v.game;
+    if(e.k === 'bola'){
+      if(g && g.cards && g.cards.some(c => c.includes(e.x))) beep(880, 0.07, 'sine', 0.05, 0.12);
+    } else if(e.k === 'grito'){ if(e.seat === me) Snd.win(); else Snd.alert(); }
+    else if(e.k === 'falso'){ if(e.seat === me){ toast('Bingo falso! Confira as marcações — 3 bolas sem gritar.'); Snd.error(); } else Snd.msg(); }
+  },
+  rules: o => `<h3>Objetivo</h3><p>Completar primeiro o padrão que está valendo na sua cartela e gritar <b>BINGO!</b></p>
+<h3>Como jogar</h3><ul>
+<li>São 75 bolas: <b>B</b> 1–15, <b>I</b> 16–30, <b>N</b> 31–45, <b>G</b> 46–60 e <b>O</b> 61–75. A cartela tem 5×5 números (uma coluna por letra) e o centro é <b>livre</b> (já vem marcado).</li>
+<li>O anfitrião sorteia uma bola a cada poucos segundos (opção “Sorteio a cada”). A bola aparece grande, com a letra, o número e o número por extenso.</li>
+<li>Toque nos números sorteados para marcar (toque de novo para desmarcar). Só dá para marcar o que já saiu. Na marcação <b>Automática</b> o jogo marca para você — mas o grito continua por sua conta!</li>
+<li>Você pode ter de 1 a 3 cartelas (opção “Cartelas”). No celular, com 3 cartelas, use as abas para trocar de cartela.</li></ul>
+<h3>O que vale</h3><ul>
+<li><b>Linha</b>: 5 marcados em linha — horizontal, vertical ou diagonal (o centro livre conta).</li>
+<li><b>Cheia</b>: todos os 25 números da cartela marcados.</li>
+<li><b>Linha e cheia</b>: primeiro vale a linha; depois de conferida, o jogo continua valendo cartela cheia. Quem fez a linha também pode fazer a cheia.</li></ul>
+<h3>Gritar BINGO!</h3><ul>
+<li>Quando completar, aperte <b>BINGO!</b>. O anfitrião confere as <b>suas marcações</b>. Se estiver certo, o sorteio para por alguns segundos: quem também completar e gritar <b>antes da próxima bola</b> divide o prêmio.</li>
+<li><b>Bingo falso</b> (sem padrão completo marcado): você fica <b>3 bolas</b> sem poder gritar.</li>
+<li>Ao lado de cada jogador aparece quanto falta para o prêmio da vez. “<b>Por uma!</b>” = falta um número.</li></ul>
+<h3>Bots</h3><p>Marcam os números com tempo de reação de gente e gritam quando fecham. O <b>Fácil</b> é lento e às vezes se distrai (só marca na bola seguinte); o <b>Normal</b> é atento; o <b>Difícil</b> marca e grita muito rápido. Bots nunca gritam bingo falso.</p>`
+});
+
+/* ================================ TELA ================================ */
+const LOC = {key:'', k:-1, tab:0, end:0, fase:'', layout:null};
+const ballHtml = (x, cls = '') => x ? `<div class="ball L${letra(x)} ${cls}"><div class="in"><b>${LET[letra(x)]}</b><span>${x}</span></div></div>`
+  : `<div class="ball empty ${cls}"><div class="in"><span style="font-size:calc(var(--bs)*.16)">🎱</span></div></div>`;
+const miniBall = x => `<div class="mb L${letra(x)}"><span>${x}</span></div>`;
+function cardHtml(card, mk, ci, {mini = false, win = 0, tag = ''} = {}){
+  const head = [...LET].map((l, i) => `<span class="L${i}">${l}</span>`).join('');
+  const cells = card.map((x, i) => {
+    if(i === 12) return `<div class="cl fr ${win & CENTER ? 'win' : ''}">${mini ? '★' : '★<br>LIVRE'}</div>`;
+    const m = mk & (1 << i);
+    return `<${mini ? 'div' : 'button'} class="cl ${m ? 'mk' : ''} ${win & (1 << i) ? 'win' : ''}" data-c="${ci}" data-i="${i}"><span>${x}</span></${mini ? 'div' : 'button'}>`;
+  }).join('');
+  return `<div class="ct ${mini ? 'mini' : ''}" data-c="${ci}">${tag ? `<span class="tag">${tag}</span>` : ''}<div class="ch">${head}</div><div class="cg">${cells}</div></div>`;
+}
+function calcLayout(S){
+  const W = S.clientWidth, H = S.clientHeight, mob = W < 600;
+  return {W, H, mob, side:W >= 860 ? 270 : 0, th:mob ? 92 : 124, bs:mob ? 76 : 104};
+}
+// tamanho das casas a partir da área livre medida (com 3 cartelas no celular, vira abas)
+function cabeCartelas(AW, AH, nc){
+  let best = {c:0, cols:1};
+  for(let cols=1; cols<=nc; cols++){
+    const rows = Math.ceil(nc / cols);
+    const c = Math.min(((AW - (cols - 1) * 10) / cols - 24) / 5, ((AH - (rows - 1) * 10) / rows - 27) / 5.7);
+    if(c > best.c) best = {c, cols};
+  }
+  let pager = false;
+  if(nc > 1 && best.c < 36){ pager = true; best = {c:Math.min((AW - 24) / 5, (AH - 46 - 27) / 5.7), cols:1}; }
+  return {c:Math.floor(clamp(best.c, 20, 66)), cols:best.cols, pager};
+}
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me;
+  const L = calcLayout(S), key = [v.gameNo, L.W, L.H, g.nc].join(':');
+  if(LOC.key !== key){
+    LOC.key = key; LOC.k = -1; LOC.bk = -1; LOC.layout = L; if(LOC.tab >= g.nc) LOC.tab = 0;
+    S.style.setProperty('--th', L.th + 'px'); S.style.setProperty('--bsz', L.bs + 'px'); S.style.setProperty('--cf', (L.mob ? 22 : 30) + 'px');
+    S.innerHTML = `<div class="bg-top"><div class="ballbox"><div id="ballSlot"></div><div class="call" id="call"></div></div>
+        <div class="meta"><span class="prem" id="prem"></span><span id="cnt"></span><div class="pbar"><i id="pb"></i></div><div class="recent" id="recent"></div></div></div>
+      <div class="bg-mid"><div class="cardsw" id="cardsw"><div class="tabs" id="tabs"></div><div class="cards" id="cards"></div></div>
+        ${L.side ? '<div class="side"><div class="board" id="board"></div><div class="plist" id="plist"></div></div>' : ''}</div>
+      ${L.side ? '' : '<div class="plist" id="plist"></div>'}
+      <div class="bg-bot">${L.side ? '' : '<button class="sq" id="bBoard" title="Bolas sorteadas">📋</button>'}<button class="bingo" id="bBingo">BINGO!<small id="bSub"></small></button></div>
+      <div id="ovSlot"></div>`;
+    $('#bBingo', S).onclick = () => ui.act({t:'b'});
+    if($('#bBoard', S)) $('#bBoard', S).onclick = () => modal(`<h2>Bolas sorteadas (${(Mesa.ui.view.game || g).k})</h2><div class="board" style="margin-top:6px">${boardHtml(Mesa.ui.view.game || g)}</div>`, [{label:'Fechar'}]);
+    $('#cards', S).addEventListener('click', ev => {
+      const b = ev.target.closest('button.cl'); if(!b) return;
+      const c = +b.dataset.c, i = +b.dataset.i, gg = Mesa.ui.view.game, x = gg.cards[c][i];
+      if(!gg.bolas.includes(x)){ toast(`O ${LET[letra(x)]} ${x} ainda não saiu.`); Snd.error(); return; }
+      b.classList.toggle('mk'); Snd.move();                     // marca já na tela; o anfitrião confirma
+      ui.act({t:'m', c, i});
+    });
+  }
+  // bola atual
+  if(LOC.k !== g.k){
+    const novo = LOC.k >= 0 && g.k > LOC.k, x = g.bolas[g.k - 1];
+    $('#ballSlot', S).innerHTML = ballHtml(x, novo ? 'roll' : '');
+    $('#call', S).innerHTML = x ? `<span class="big1">${LET[letra(x)]} ${x}</span><span class="sub">${extenso(x)}${APELIDO[x] ? ` · <i>${APELIDO[x]}</i>` : ''}</span>`
+      : `<span class="big1" style="font-size:18px">Preparando o globo...</span><span class="sub">A primeira bola já vai sair</span>`;
+    if(novo){ const c = $('#call', S); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
+    $('#recent', S).innerHTML = g.bolas.slice(Math.max(0, g.k - (L.mob ? 4 : 6)), Math.max(0, g.k - 1)).reverse().map(miniBall).join('');
+    LOC.k = g.k;
+  }
+  LOC.end = Date.now() + g.left; LOC.dur = g.ms * (g.tsd || 1);
+  $('#prem', S).textContent = g.fase === 'fim' ? 'FIM DE JOGO' : 'VALE ' + (g.premio === 'linha' ? 'LINHA' : 'CARTELA CHEIA');
+  $('#cnt', S).textContent = `Bola ${g.k} de 75`;
+  if($('#board', S) && LOC.bk !== g.k){ $('#board', S).innerHTML = boardHtml(g); LOC.bk = g.k; }
+  // jogadores
+  $('#plist', S).innerHTML = g.jog.map((p, i) => {
+    const tr = (p.l ? '➖' : '') + (p.c ? '🏆' : '');
+    const f = g.fase === 'fim' ? '' : p.f === 0 ? '<span class="f u">fechou!</span>' : p.f === 1 ? '<span class="f u">por uma!</span>' : `<span class="f">falta ${p.f}</span>`;
+    return `<div class="pc ${i === me ? 'me' : ''} ${p.f <= 1 && g.fase !== 'fim' ? 'p1' : ''}" data-seat="${i}"><span>${tr}${esc(v.seats[i] ? v.seats[i].name : g.names[i])}${i === me ? ' (você)' : ''}</span>${f}</div>`;
+  }).join('');
+  // cartelas: monta uma vez e depois só atualiza as marcações (não reinicia as animações)
+  const box = $('#cards', S), ck = key + ':' + LOC.tab;
+  if(LOC.ck !== ck){
+    LOC.ck = ck;
+    const cw = $('#cardsw', S); LOC.fit = cabeCartelas(cw.clientWidth, cw.clientHeight, g.nc);
+    Object.assign(L, LOC.fit);
+    box.style.gridTemplateColumns = `repeat(${LOC.fit.pager ? 1 : LOC.fit.cols}, auto)`;
+    const show = LOC.fit.pager ? [LOC.tab] : g.cards.map((_, i) => i);
+    box.innerHTML = show.map(ci => cardHtml(g.cards[ci], g.mk[ci], ci)).join('');
+    $$('.ct', box).forEach(el => el.style.setProperty('--c', LOC.fit.c + 'px'));
+  } else $$('button.cl', box).forEach(b => { const on = !!(g.mk[+b.dataset.c] & (1 << +b.dataset.i)); if(b.classList.contains('mk') !== on) b.classList.toggle('mk', on); });
+  if(LOC.fit.pager){
+    $('#tabs', S).innerHTML = g.cards.map((c, i) => { const f = faltam(g.mk[i], g.premio);
+      return `<button data-t="${i}" class="${i === LOC.tab ? 'on' : ''} ${f === 1 ? 'p1' : ''}">Cartela ${i + 1} · falta ${f}</button>`; }).join('');
+    $$('#tabs button', S).forEach(b => b.onclick = () => { LOC.tab = +b.dataset.t; ui.rerender(); });
+  }
+  // botão BINGO
+  const bb = $('#bBingo', S), jaGritei = g.conf && g.conf.win.some(w => w.s === me), tenho = g.mk.some(m => padrao(m, g.premio));
+  bb.disabled = g.fase === 'fim' || g.blq > 0 || !!jaGritei || !v.waiting.includes(me);
+  bb.classList.toggle('glow', !bb.disabled && g.auto && tenho);
+  $('#bSub', S).textContent = g.blq > 0 ? `bloqueado por ${g.blq} bola${g.blq > 1 ? 's' : ''}` : g.fase === 'fim' ? 'fim de jogo' : (g.premio === 'linha' ? 'vale linha' : 'vale cartela cheia');
+  // conferência / fim
+  const ov = $('#ovSlot', S);
+  const ovk = key + '|' + (g.conf ? 'c' + g.conf.premio + g.conf.win.map(w => w.s).join(',') + (jaGritei ? 'j' : '') + g.blq : g.fase === 'fim' ? 'f' : '');
+  if(LOC.ovk === ovk){ relogio(); return; }                   // não recria (a animação de entrada não reinicia)
+  LOC.ovk = ovk;
+  if(g.conf){
+    const nomes = g.conf.win.map(w => esc(g.names[w.s])).join(' e ');
+    const euTb = !jaGritei && g.blq === 0;
+    ov.innerHTML = `<div class="ov"><div class="ovb"><h3>${g.conf.premio === 'linha' ? 'LINHA' : 'BINGO'}! ${nomes}</h3><p>Conferindo... quem também fechou e gritar agora divide o prêmio.</p>
+      <div class="wins">${g.conf.win.map(w => `<div class="wn">${esc(g.names[w.s])}${cardHtml(w.card, w.mk, 0, {mini:true, win:padrao(w.mk, g.conf.premio)})}</div>`).join('')}</div>
+      ${euTb ? '<button class="bingo" id="bBingo2">BINGO!</button>' : ''}</div></div>`;
+    if($('#bBingo2', S)) $('#bBingo2', S).onclick = () => ui.act({t:'b'});
+  } else if(g.fase === 'fim' && g.fimc){
+    ov.innerHTML = `<div class="ov"><div class="ovb"><h3>Fim de jogo!</h3>${g.fimc.length ? g.fimc.map(p => `<p><b>${p.p === 'linha' ? 'Linha' : 'Cartela cheia'}</b></p>
+      <div class="wins">${p.l.map(w => `<div class="wn">${esc(g.names[w.s])}${cardHtml(w.card, w.mk, 0, {mini:true, win:padrao(w.mk, p.p)})}</div>`).join('')}</div>`).join('') : '<p>Ninguém gritou BINGO.</p>'}</div></div>`;
+  } else ov.innerHTML = '';
+  relogio();
+}
+function boardHtml(g){
+  const saiu = new Set(g.bolas), last = g.bolas[g.k - 1];
+  let h = '';
+  for(let r=0;r<5;r++){
+    h += `<div class="bl L${r}">${LET[r]}</div>`;
+    for(let k=1;k<=15;k++){ const x = r*15 + k; h += `<span class="L${r} ${saiu.has(x) ? 'on' : ''} ${x === last ? 'last' : ''}">${x}</span>`; }
+  }
+  return h;
+}
+function relogio(){
+  const pb = $('#pb'); if(!pb) return;
+  const left = Math.max(0, LOC.end - Date.now());
+  pb.style.width = (LOC.dur ? clamp(1 - left / LOC.dur, 0, 1) * 100 : 0) + '%';
+}
+setInterval(relogio, 150);
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); }, 120); });
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Pontinho</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;gap:6px;padding:6px 8px;overflow:auto}
+.opps{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.opp{background:rgba(0,0,0,.3);border:2px solid transparent;border-radius:12px;padding:4px 10px;font-weight:800;font-size:12.5px;text-align:center;min-width:80px}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.opp.out{opacity:.45;filter:grayscale(1)}
+.opp .pt{font-size:11.5px;color:#ffe6a6}
+.opp .pt.hot{color:#ff8f8f}
+.area{background:rgba(0,0,0,.22);border-radius:12px;padding:6px 8px;min-height:60px;flex:1 1 auto;overflow:auto}
+.area h4{font-size:12px;letter-spacing:1px;margin-bottom:4px;color:#cfe}
+.mrow{display:flex;gap:12px 14px;flex-wrap:wrap}
+.meld{display:flex;align-items:flex-end;position:relative;padding:3px;border-radius:8px;border:2px solid transparent}
+.meld .card{--cw:30px;--ch:43px;margin-left:-15px} .meld .card:first-child{margin-left:0}
+.meld .card .mid{display:none}
+.meld.can{border-color:var(--blue);cursor:pointer;background:rgba(90,176,255,.14)}
+.meld.new .card{animation:pop .35s}
+.meld.new{border-color:rgba(231,180,58,.7)}
+.meld .own{position:absolute;top:-9px;left:2px;font-size:9px;font-weight:900;border-radius:6px;padding:1px 4px;background:#2f4f3f;color:#dff;max-width:70px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mid{display:flex;gap:18px;justify-content:center;align-items:flex-end}
+.pilebox{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:#cfe;font-weight:700}
+.pilebox .card{--cw:48px;--ch:69px}
+.pilebox .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.wb{position:absolute;top:calc(var(--cw)*.04);right:calc(var(--cw)*.06);font-size:calc(var(--cw)*.24);color:#d79b00;text-shadow:0 0 2px #fff;line-height:1;font-style:normal}
+.myhand{display:flex;overflow-x:auto;padding:16px 4px 4px;justify-content:safe center;min-height:calc(var(--ch) + 22px);flex:none}
+.myhand .card{margin-left:calc(var(--cw)*-.36);cursor:pointer} .myhand .card:first-child{margin-left:0}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:42px}
+.ctl button{padding:10px 14px;border-radius:12px;border:none;font-weight:900;font-size:14.5px;cursor:pointer}
+.ctl button:disabled{opacity:.4}
+.sc{font-weight:800;font-size:13px;color:#ffe6a6;text-align:center}
+.mine{font-size:12.5px;font-weight:800;color:#ffe6a6;text-align:center}
+.rlog{text-align:center;font-weight:800;color:var(--gold);font-size:13.5px;background:rgba(0,0,0,.25);border-radius:10px;padding:6px}
+.rlog small{display:block;color:#e8fff2;font-weight:700;font-size:12px;margin-top:2px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/melds.js"></script>
+<script src="pontinho-ai.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =============================== PONTINHO ===============================
+   2 baralhos + 4 coringas (108 cartas); os 2 e os coringas são curingas. 9 cartas
+   para cada um. Na sua vez: compra (monte, ou a carta do lixo se usá-la na hora num
+   jogo), baixa jogos, encaixa cartas nos jogos de qualquer um e descarta. Bate quem
+   ficar sem cartas. Os outros somam os pontos da mão; estoura quem passar do limite
+   (100 ou 150). O último que não estourou vence. */
+function newRound(st){
+  st.deck = shuffle(makeDeck({ranks:RANKS13, decks:2, jokers:4}));
+  st.hands = st.names.map((_, i) => st.alive[i] ? st.deck.splice(0, 9) : []);
+  let c = st.deck.pop(); while(pIsW(c)){ st.deck.unshift(c); c = st.deck.pop(); }
+  st.lixo = [c]; st.melds = []; st.phase = 'draw'; st.res = null; st.lastDraw = null; st.lastMeld = -1; st.reshuf = 0;
+  st.pub = st.names.map(() => []);     // cartas que cada um pegou do lixo
+  st.disc = st.names.map(() => []);    // o que cada um descartou nesta rodada
+  st.starter = pNext(st, st.starter); st.turn = st.starter;
+}
+const aliveN = st => st.alive.filter(Boolean).length;
+const SO = {'♣':0,'♥':1,'♠':2,'♦':3};
+const sortH = h => h.slice().sort((a,b) => pIsW(a) - pIsW(b) || SO[a.s] - SO[b.s] || RV13(a.r) - RV13(b.r));
+function takeIds(h, ids){
+  if(!Array.isArray(ids) || ids.length > h.length || new Set(ids).size !== ids.length) return null;
+  const cs = ids.map(id => h.find(c => c.id === id));
+  return cs.some(c => !c) ? null : cs;
+}
+function endRound(st, seat){
+  const ev = [], add = st.names.map(() => 0), out = [];
+  if(seat < 0){
+    ev.push({k:'banner', text:'Rodada anulada'}, {k:'log', text:'O monte acabou de vez: ninguém soma pontos.'});
+  } else {
+    st.names.forEach((_, i) => { if(!st.alive[i] || i === seat) return; add[i] = handPts(st.hands[i]); st.score[i] += add[i]; });
+    st.names.forEach((_, i) => { if(st.alive[i] && st.score[i] > st.limit){ st.alive[i] = false; out.push(i); } });
+    if(!aliveN(st)) st.alive[seat] = true;
+    out.forEach(i => st.outOrder.push(i));
+    st.wins[seat]++;
+    ev.push({k:'banner', text:`${st.names[seat]} BATEU!`}, {k:'snd', s:'win'}, {k:'log', text:`<b>${esc(st.names[seat])}</b> bateu! ` + add.map((p,i) => p ? `${esc(st.names[i])} +${p}` : '').filter(Boolean).join(', ')});
+    out.forEach(i => ev.push({k:'log', text:`💥 ${esc(st.names[i])} estourou (${st.score[i]}).`}));
+  }
+  st.res = {seat, add, out, hands: st.hands.map(h => sortH(h))};
+  st.phase = 'roundEnd'; st.lastDraw = null;
+  return ev;
+}
+function afterPlay(st, seat, ev){
+  if(!st.hands[seat].length) return ev.concat(endRound(st, seat));
+  return ev;
+}
+Mesa.run({
+  id:'pontinho', name:'Pontinho', icon:'🔴', tagline:'Baixe, encaixe e não estoure!',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'limite', label:'Estoura com', default:'100', choices:[['100','+100'],['150','+150']]},
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => clamp(+o.seats || 4, 2, 6),
+  seatLabel: s => 'Jogador ' + (s+1),
+  modeLabel: o => 'ATÉ ' + (o.limite === '150' ? 150 : 100) + ' · BOT ' + (DIFF[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length;
+    const st = {names:players.map(p => p.name), humans:players.map(p => !!p.human), n, score:Array(n).fill(0), limit:o.limite === '150' ? 150 : 100,
+      alive:Array(n).fill(true), wins:Array(n).fill(0), outOrder:[], round:1, starter:Math.floor(Math.random()*n) - 1};
+    if(st.starter < 0) st.starter = n - 1;
+    newRound(st); return st;
+  },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Rodada 1 — começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){
+    if(st.phase === 'draw' || st.phase === 'play') return [st.turn];
+    if(st.phase === 'roundEnd'){ const h = st.names.findIndex((_, i) => st.alive[i] && st.humans[i]); return [h >= 0 ? h : st.alive.indexOf(true)]; }
+    return [];
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = st.alive.map((a,i) => a ? i : -1).filter(i => i >= 0);
+    const order = w.concat(st.outOrder.slice().reverse());
+    return {winners:w, text:'Classificação: ' + order.map((i,k) => `${k+1}º ${esc(st.names[i])} (${st.score[i]})`).join(' · ')};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false};
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(aliveN(st) <= 1){ st.phase = 'end'; return {events:[]}; }
+      st.round++; newRound(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Rodada ${st.round} — começa ${esc(st.names[st.turn])}.`}]};
+    }
+    if((st.phase !== 'draw' && st.phase !== 'play') || seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const h = st.hands[seat], ev = [];
+    st.lastMeld = -1;
+    if(st.phase === 'draw'){
+      if(a.t === 'monte'){
+        if(!st.deck.length){
+          if(st.lixo.length <= 1 || st.reshuf >= 3) return {events:endRound(st, -1)};
+          const top = st.lixo.pop(); st.deck = shuffle(st.lixo); st.lixo = [top]; st.reshuf++;
+          ev.push({k:'log', text:'O monte acabou: o lixo foi embaralhado.'});
+        }
+        const c = st.deck.pop(); h.push(c); st.lastDraw = {from:'monte', id:c.id};
+        st.phase = 'play';
+        return {events:ev.concat([{k:'snd', s:'card'}])};
+      }
+      if(a.t === 'lixo'){
+        const top = st.lixo[st.lixo.length-1];
+        if(!top) return {ok:false, err:'O lixo está vazio.'};
+        const ids = a.ids == null ? [] : a.ids;
+        const cards = takeIds(h, ids); if(!cards) return {ok:false, err:'Cartas inválidas.'};
+        if(a.m != null){
+          const mi = a.m, m = st.melds[mi];
+          if(!Number.isInteger(mi) || !m) return {ok:false, err:'Jogo inválido.'};
+          const md = meldInfo(m.c.concat([top], cards), pIsW);
+          if(!md) return {ok:false, err:'A carta do lixo não encaixa nesse jogo.'};
+          m.c = md.order; st.lastMeld = mi;
+        } else {
+          if(cards.length < 2) return {ok:false, err:'Para pegar o lixo, use a carta de cima num jogo: selecione 2 ou mais cartas da mão que formem jogo com ela, ou toque num jogo da mesa onde ela encaixe.'};
+          const md = meldInfo([top].concat(cards), pIsW);
+          if(!md) return {ok:false, err:'Essas cartas não formam jogo com a carta do lixo.'};
+          st.melds.push({o:seat, c:md.order}); st.lastMeld = st.melds.length - 1;
+        }
+        st.lixo.pop();
+        cards.forEach(c => h.splice(h.indexOf(c), 1));
+        st.pub[seat].push(top);
+        st.lastDraw = {from:'lixo', id:top.id};
+        st.phase = 'play';
+        ev.push({k:'snd', s:'capture'}, {k:'log', text:`${esc(st.names[seat])} pegou ${top.r === 'JK' ? 'o coringa' : top.r + top.s} do lixo e baixou.`});
+        return {events:afterPlay(st, seat, ev)};
+      }
+      return {ok:false, err:'Primeiro compre: do monte, ou use a carta do lixo num jogo.'};
+    }
+    // fase de jogar
+    if(a.t === 'meld'){
+      const cards = takeIds(h, a.ids); if(!cards || cards.length < 3) return {ok:false, err:'Selecione 3 ou mais cartas.'};
+      const md = meldInfo(cards, pIsW);
+      if(!md) return {ok:false, err:'Jogo inválido: 3+ do mesmo valor (naipes diferentes) ou 3+ seguidas do mesmo naipe, com pelo menos 2 cartas de verdade.'};
+      cards.forEach(c => h.splice(h.indexOf(c), 1));
+      st.melds.push({o:seat, c:md.order}); st.lastMeld = st.melds.length - 1;
+      ev.push({k:'snd', s:'card'}, {k:'log', text:`${esc(st.names[seat])} baixou um jogo.`});
+      return {events:afterPlay(st, seat, ev)};
+    }
+    if(a.t === 'add'){
+      const mi = a.m, m = Number.isInteger(mi) ? st.melds[mi] : null; if(!m) return {ok:false, err:'Escolha um jogo da mesa.'};
+      const cards = takeIds(h, a.ids); if(!cards || !cards.length) return {ok:false, err:'Selecione as cartas.'};
+      const md = meldInfo(m.c.concat(cards), pIsW);
+      if(!md) return {ok:false, err:'Essas cartas não encaixam nesse jogo.'};
+      cards.forEach(c => h.splice(h.indexOf(c), 1));
+      m.c = md.order; st.lastMeld = mi;
+      ev.push({k:'snd', s:'card'});
+      return {events:afterPlay(st, seat, ev)};
+    }
+    if(a.t === 'discard'){
+      const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false, err:'Escolha uma carta para descartar.'};
+      const [c] = h.splice(i,1); st.lixo.push(c); ev.push({k:'snd', s:'card'});
+      st.disc[seat].push(c); st.pub[seat] = st.pub[seat].filter(x => x.id !== c.id);
+      if(!h.length) return {events:ev.concat(endRound(st, seat))};
+      st.phase = 'draw'; st.turn = pNext(st, st.turn); st.lastDraw = null;
+      if(h.length <= 2) ev.push({k:'say', seat, text: h.length === 1 ? 'Só uma!' : 'Duas cartas!'});
+      return {events:ev};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, seat, o){ return pontinhoBot(st, seat, (o && o.diff) || 'normal'); },
+  botFallback(st, seat){
+    if(st.phase === 'roundEnd') return {t:'next'};
+    if(st.phase === 'draw') return {t:'monte'};
+    return {t:'discard', id:st.hands[seat][0].id};
+  },
+  botDelay(st){ return st.phase === 'roundEnd' ? 4200 : st.phase === 'draw' ? 700 : 600; },
+  view(st, seat){
+    const me = seat >= 0 && seat < st.n ? seat : -1, end = st.phase === 'roundEnd';
+    return {names:st.names, score:st.score, limit:st.limit, alive:st.alive, turn:st.turn, phase:st.phase, round:st.round,
+      hand: me >= 0 ? st.hands[me] : [], counts:st.hands.map(h => h.length), deck:st.deck.length,
+      melds:st.melds, lixo:st.lixo.slice(-1), lixoN:st.lixo.length, lastMeld:st.lastMeld,
+      res: end ? st.res : null, lastDraw: me === st.turn ? st.lastDraw : null};
+  },
+  topInfo(g){ return `<div class="sc">Rodada ${g.round} · estoura acima de ${g.limit}</div>`; },
+  rules:`<h3>Objetivo</h3><p>Ser o <b>último que não estourou</b>. Quem não bate soma os pontos das cartas que ficaram na mão; quem passar de <b>100</b> pontos (ou 150, se escolhido) estoura e sai.</p>
+  <h3>Cartas</h3><p>Dois baralhos com <b>4 coringas</b> (108 cartas), de 2 a 6 jogadores. Cada um recebe <b>9 cartas</b> e uma carta abre o lixo. Os <b>coringas</b> 🃏 e os <b>2</b> são curingas (marcados com ★).</p>
+  <h3>Jogos</h3><ul><li><b>Trinca</b>: 3 ou 4 cartas do mesmo valor e naipes diferentes (ex.: 7♣ 7♥ 7♠).</li>
+  <li><b>Sequência</b>: 3 ou mais cartas seguidas do mesmo naipe (ex.: 4♦ 5♦ 6♦). O Ás vale antes do 2 (A-2-3) ou depois do Rei (Q-K-A), mas não vira.</li>
+  <li>O <b>curinga</b> substitui qualquer carta. Cada jogo precisa de pelo menos 2 cartas de verdade e não pode ter mais curingas que cartas de verdade. O 2 também pode valer como ele mesmo (A♥ 2♥ 3♥).</li></ul>
+  <h3>Sua vez</h3><ol><li><b>Compre</b> uma carta do monte <b>ou</b> pegue a carta de cima do lixo — mas só se usá-la na hora: formando um jogo novo com 2 ou mais cartas da mão (selecione-as e toque no lixo) ou encaixando-a num jogo da mesa (toque no jogo azul).</li>
+  <li>Se quiser, <b>baixe jogos</b> novos e <b>encaixe cartas nos jogos de qualquer jogador</b> (selecione e toque no jogo azul).</li>
+  <li><b>Descarte</b> uma carta.</li></ol>
+  <h3>Bater</h3><p>Bate quem <b>ficar sem cartas</b> — baixando e encaixando tudo, com ou sem o descarte final. A rodada acaba na hora.</p>
+  <h3>Pontos da mão (para quem não bateu)</h3><table><tr><td>Curinga (🃏 ou 2)</td><td>20</td></tr><tr><td>Ás</td><td>15</td></tr><tr><td>10, J, Q, K</td><td>10</td></tr><tr><td>3 a 9</td><td>o próprio valor</td></tr></table>
+  <p>Cartas já baixadas não contam. Quem passa do limite <b>estoura</b> e sai; o último que sobrar vence. Se o monte acabar, o lixo é embaralhado (até 3 vezes); depois disso a rodada é anulada.</p>
+  <h3>Bots</h3><p><b>Fácil</b>: baixa o que tem e descarta sem muito cálculo. <b>Normal</b>: conta as cartas que ainda podem sair, pega o lixo quando vale a pena, encaixa nos jogos de todos e evita dar ao próximo a carta que ele quer. <b>Difícil</b>: além disso, lembra o que cada um pegou e descartou, se livra dos curingas e das cartas altas quando alguém está para bater e cuida de não estourar.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me < 0 ? 0 : v.me;
+    const W = st.clientWidth;
+    const cw = Math.floor(clamp((W - 24) / (Math.max(g.hand.length, 9) * 0.64 + 0.5), 38, 70)); st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.opps')){
+      st.innerHTML = `<div class="opps" id="opps"></div>
+        <div class="mid"><div class="pilebox"><div id="pM"></div><span id="nM"></span></div><div class="pilebox"><div id="pL"></div><span id="nL"></span></div></div>
+        <div class="area"><h4>JOGOS NA MESA</h4><div class="mrow" id="mT"></div></div>
+        <div id="res"></div>
+        <div class="status" id="st"></div><div class="mine" id="mine"></div><div class="myhand" id="mh" data-seat="${me}"></div><div class="ctl" id="ctl"></div>`;
+      csel = new Set();
+    }
+    const n = g.names.length;
+    const myTurn = v.me >= 0 && v.waiting.includes(me) && (g.phase === 'draw' || g.phase === 'play');
+    csel = new Set([...csel].filter(id => g.hand.some(c => c.id === id)));
+    if(!myTurn) csel.clear();
+    let oh = '';
+    for(let k=1;k<n;k++){ const i = (me + k) % n;
+      oh += `<div class="opp ${g.turn === i && (g.phase === 'draw' || g.phase === 'play') ? 'vez' : ''} ${g.alive[i] ? '' : 'out'}" data-seat="${i}">${esc(g.names[i])}
+        <div class="pt ${g.score[i] > g.limit * 0.75 ? 'hot' : ''}">${g.alive[i] ? `${g.score[i]} pts · 🂠 ${g.counts[i]}` : `💥 estourou (${g.score[i]})`}</div></div>`; }
+    $('#opps').innerHTML = oh;
+    const wild = c => pIsW(c) ? '<i class="wb">★</i>' : '';
+    const ce = c => { const e = cardEl(c); if(pIsW(c)) e.insertAdjacentHTML('beforeend', wild(c)); return e; };
+    // jogos da mesa
+    const top = g.lixo[g.lixo.length-1];
+    const selCards = g.hand.filter(c => csel.has(c.id));
+    $('#mT').innerHTML = g.melds.map((m,mi) => `<div class="meld ${g.lastMeld === mi ? 'new' : ''}" data-m="${mi}"><span class="own">${esc(g.names[m.o] || '')}</span>${m.c.map(c => ce(c).outerHTML).join('')}</div>`).join('') || '<span style="font-size:12px;opacity:.5">nenhum jogo ainda</span>';
+    $$('#mT .meld').forEach(el => { const mi = +el.dataset.m, m = g.melds[mi];
+      if(myTurn && g.phase === 'play' && selCards.length && meldInfo(m.c.concat(selCards), pIsW)){ el.classList.add('can'); el.onclick = () => { ui.act({t:'add', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); }; }
+      else if(myTurn && g.phase === 'draw' && top && meldInfo(m.c.concat([top], selCards), pIsW)){ el.classList.add('can'); el.onclick = () => { ui.act({t:'lixo', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); }; } });
+    // monte e lixo
+    const pm = $('#pM'); pm.innerHTML = ''; const mc = cardEl(null, {back:true}); if(myTurn && g.phase === 'draw'){ mc.classList.add('go'); mc.onclick = () => { csel.clear(); ui.act({t:'monte'}); }; } pm.appendChild(mc);
+    $('#nM').textContent = `Monte (${g.deck})`;
+    const pl = $('#pL'); pl.innerHTML = '';
+    const canLixo = top && (g.melds.some(m => meldInfo(m.c.concat([top]), pIsW)) || g.hand.some((a,i) => g.hand.some((b,j) => j > i && meldInfo([top, a, b], pIsW))));
+    const takeLixo = () => {
+      if(selCards.length){
+        if(selCards.length >= 2 && meldInfo([top].concat(selCards), pIsW)){ ui.act({t:'lixo', ids:selCards.map(c => c.id)}); csel.clear(); return; }
+        const mi = g.melds.findIndex(m => meldInfo(m.c.concat([top], selCards), pIsW));
+        if(mi >= 0){ ui.act({t:'lixo', m:mi, ids:selCards.map(c => c.id)}); csel.clear(); return; }
+        toast('Essas cartas não formam jogo com a carta do lixo.'); return;
+      }
+      const mi = g.melds.findIndex(m => meldInfo(m.c.concat([top]), pIsW));
+      if(mi >= 0){ ui.act({t:'lixo', m:mi}); return; }
+      toast('Para pegar o lixo, selecione na mão as cartas que fazem jogo com a carta de cima e toque nele.');
+    };
+    if(top){ const el = ce(top); if(myTurn && g.phase === 'draw'){ if(canLixo) el.classList.add('go'); el.style.cursor = 'pointer'; el.onclick = takeLixo; } pl.appendChild(el); }
+    else pl.appendChild(Object.assign(document.createElement('div'), {className:'card slot'}));
+    $('#nL').textContent = `Lixo (${g.lixoN})`;
+    // resultado da rodada
+    const rs = $('#res');
+    if(g.phase === 'roundEnd' && g.res){
+      const r = g.res;
+      rs.innerHTML = r.seat < 0 ? `<div class="rlog">Rodada anulada: o monte acabou e ninguém somou pontos.</div>` :
+        `<div class="rlog">${esc(g.names[r.seat])} bateu!<small>${r.add.map((p,i) => g.alive[i] || r.out.includes(i) ? (i === r.seat ? '' : `${esc(g.names[i])} +${p} → ${g.score[i]}`) : '').filter(Boolean).join(' · ')}</small>${r.out.length ? `<small>💥 Estourou: ${r.out.map(i => esc(g.names[i])).join(', ')}</small>` : ''}</div>`;
+    } else rs.innerHTML = '';
+    // minha mão
+    const mh = $('#mh'); const prev = new Set($$('.card', mh).map(e => e.dataset.id)); mh.innerHTML = '';
+    sortH(g.hand).forEach(c => {
+      const el = ce(c); el.dataset.id = c.id;
+      if(csel.has(c.id)) el.classList.add('sel');
+      if(g.lastDraw && g.lastDraw.id === c.id) el.classList.add('hl');
+      el.onclick = () => { if(!myTurn) return; csel.has(c.id) ? csel.delete(c.id) : csel.add(c.id); ui.rerender(); };
+      mh.appendChild(el);
+      if(prev.size && !prev.has(c.id)) flyFrom(el, $('#pM').getBoundingClientRect());
+    });
+    $('#mine').innerHTML = v.me >= 0 ? (g.alive[me] ? `Seus pontos: <b>${g.score[me]}</b> / ${g.limit} · na mão: ${handPts(g.hand)}` : `💥 Você estourou (${g.score[me]}) — assista ao final`) : '';
+    let s = '';
+    if(g.phase === 'roundEnd') s = 'Fim da rodada';
+    else if(g.phase === 'draw') s = myTurn ? (csel.size ? 'Toque no lixo (ou num jogo azul) para usar a carta de cima' : 'Sua vez: compre do monte ou use a carta do lixo num jogo') : 'Vez de ' + g.names[g.turn];
+    else if(g.phase === 'play') s = myTurn ? (csel.size ? `${csel.size} selecionada(s): baixe, toque num jogo azul ou descarte` : 'Baixe jogos, encaixe cartas ou descarte uma') : 'Vez de ' + g.names[g.turn];
+    $('#st').textContent = s;
+    let ch = '';
+    if(myTurn && g.phase === 'play'){
+      const valid = selCards.length >= 3 && !!meldInfo(selCards, pIsW);
+      ch += `<button class="b-ok" id="bMeld" ${valid ? '' : 'disabled'}>Baixar jogo</button>`;
+      ch += `<button class="b-no" id="bDisc" ${selCards.length === 1 ? '' : 'disabled'}>Descartar</button>`;
+      if(csel.size) ch += `<button class="tbtn" id="bClr">Limpar</button>`;
+    } else if(myTurn && g.phase === 'draw' && csel.size) ch += `<button class="tbtn" id="bClr">Limpar seleção</button>`;
+    if(g.phase === 'roundEnd' && v.waiting.includes(me) && v.me >= 0) ch += `<button class="b-ok" id="bNext">${g.alive.filter(Boolean).length <= 1 ? 'Ver resultado ▶' : 'Próxima rodada ▶'}</button>`;
+    $('#ctl').innerHTML = ch;
+    if($('#bMeld')) $('#bMeld').onclick = () => { ui.act({t:'meld', ids:selCards.map(c => c.id)}); csel.clear(); };
+    if($('#bDisc')) $('#bDisc').onclick = () => { ui.act({t:'discard', id:selCards[0].id}); csel.clear(); };
+    if($('#bClr')) $('#bClr').onclick = () => { csel.clear(); ui.rerender(); };
+    if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+  }
+});
+let csel = new Set();
+</script>
+</body>
+</html>

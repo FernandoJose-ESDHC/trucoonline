@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Truco Gaúcho com baralho espanhol: envido, flor, truco, retruco e vale quatro. Online sem cadastro ou contra bots.">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Truco Gaúcho</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+/* ---------- cartas espanholas ---------- */
+.gc{--w:64px;--sc:#1a1a1a;width:var(--w);height:calc(var(--w)*1.5);border-radius:calc(var(--w)*.12);position:relative;flex:none;color:var(--sc);font-weight:900;
+  background:linear-gradient(160deg,#fffef8,#f0e8d4);box-shadow:0 3px 8px rgba(0,0,0,.45);transition:transform .15s,box-shadow .15s,opacity .2s,filter .2s}
+.gc::before{content:"";position:absolute;inset:calc(var(--w)*.06);border:1.5px solid var(--sc);border-radius:calc(var(--w)*.07);opacity:.28}
+.gc.s-e{--sc:#1f4fa8} .gc.s-b{--sc:#2a7a2a} .gc.s-c{--sc:#c0182b} .gc.s-o{--sc:#c27c00}
+.gc .ix{position:absolute;top:calc(var(--w)*.09);left:calc(var(--w)*.1);font-size:calc(var(--w)*.22);line-height:.95;display:flex;flex-direction:column;align-items:center;letter-spacing:-.5px}
+.gc .ix svg{width:calc(var(--w)*.17);height:calc(var(--w)*.17);margin-top:1px}
+.gc .ix.b{top:auto;left:auto;bottom:calc(var(--w)*.09);right:calc(var(--w)*.1);transform:rotate(180deg)}
+.gc .cm{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);width:calc(var(--w)*.56);height:calc(var(--w)*.56);display:grid;place-items:center}
+.gc .cm svg{width:100%;height:100%;filter:drop-shadow(0 1px 0 rgba(0,0,0,.18))}
+.gc.fig .cm{top:42%;width:calc(var(--w)*.46);height:calc(var(--w)*.46)}
+.gc .nm{position:absolute;left:8%;right:8%;bottom:calc(var(--w)*.22);text-align:center;font-size:calc(var(--w)*.115);letter-spacing:.2px;line-height:1.05;white-space:nowrap;
+  background:rgba(255,255,255,.75);border-radius:4px;padding:1px 0}
+.gc.mata{box-shadow:0 0 0 3px var(--gold),0 0 14px rgba(231,180,58,.7),0 3px 8px rgba(0,0,0,.45)}
+.gc.mata .nm{background:var(--gold);color:#3a2600}
+.gc.back{background:repeating-linear-gradient(45deg,rgba(255,255,255,.13) 0 3px,transparent 3px 7px),linear-gradient(135deg,#1f3f8a,#0f224f);border:2px solid #f4ead2}
+.gc.back::before{border-color:rgba(255,255,255,.4);opacity:.6}
+.gc.back::after{content:"";position:absolute;left:50%;top:50%;width:calc(var(--w)*.34);height:calc(var(--w)*.34);transform:translate(-50%,-50%) rotate(45deg);border:2px solid rgba(231,180,58,.7);border-radius:4px}
+.gc.playable{cursor:pointer;animation:gglow 1.6s infinite}
+@media (hover:hover){ .gc.playable:hover{transform:translateY(-14px) rotate(-2deg)} }
+.gc.playable:active{transform:translateY(-8px) scale(1.04)}
+@keyframes gglow{0%,100%{box-shadow:0 3px 8px rgba(0,0,0,.45)}50%{box-shadow:0 0 0 2px rgba(231,180,58,.85),0 3px 12px rgba(0,0,0,.5)}}
+.gc.mata.playable{animation:none}
+.gc.win{box-shadow:0 0 0 4px var(--gold),0 0 24px rgba(231,180,58,.95);transform:scale(1.07);z-index:3}
+.gc.lose{opacity:.55;transform:scale(.95)}
+.gc.dim{filter:brightness(.7)}
+/* ---------- mesa ---------- */
+#stage{overflow:hidden}
+.gfelt{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.07);box-shadow:inset 0 0 60px rgba(0,0,0,.28);pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,255,255,.05),transparent 70%)}
+.gseat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:4px;transform:translate(-50%,-50%);z-index:4}
+.gtag{background:rgba(0,0,0,.45);border-radius:20px;padding:4px 11px;font-size:13px;font-weight:800;display:flex;align-items:center;gap:5px;
+  border:2px solid transparent;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;transition:border-color .2s}
+.gtag.t0{color:#bff5d4} .gtag.t1{color:#ffd0d0}
+.gtag.vez{border-color:var(--gold);animation:pulse 1.2s ease-in-out infinite}
+.gtag .ch{background:var(--gold);color:#3a2600;border-radius:9px;min-width:18px;height:18px;padding:0 4px;font-size:10px;display:inline-grid;place-items:center;font-weight:900;flex:none}
+.gtag .ch.m{background:#5ab0ff;color:#04203d}
+.gtag .nmx{overflow:hidden;text-overflow:ellipsis}
+.gfan{display:flex;justify-content:center;min-height:calc(var(--fw)*1.5)}
+.gfan .gc{--w:var(--fw);margin-left:calc(var(--fw)*-.45);box-shadow:0 2px 4px rgba(0,0,0,.4)} .gfan .gc:first-child{margin-left:0}
+.gfan .gc.back::after{border-width:1px}
+.gslot{position:absolute;transform:translate(-50%,-50%);z-index:2}
+.gslot .gc{--w:var(--tw)}
+.ginfo{position:absolute;left:8px;top:8px;z-index:5;background:rgba(0,0,0,.3);border-radius:10px;padding:6px 9px;font-size:12px;line-height:1.45;color:#dff5e7;max-width:var(--iw)}
+.ginfo b{color:#ffe6a6} .ginfo .r{color:#ffb3b3} .ginfo .g{color:#9ff0c0}
+.ginfo div{overflow-wrap:anywhere}
+.gmsg{position:absolute;left:50%;transform:translate(-50%,-50%);z-index:6;background:rgba(0,0,0,.6);border:1px solid rgba(231,180,58,.6);border-radius:14px;
+  padding:8px 14px;font-weight:900;font-size:15px;text-align:center;pointer-events:none;max-width:86%;animation:pop .3s}
+.gmsg small{display:block;font-weight:700;font-size:12px;color:#cfe;margin-top:2px}
+.gme{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;z-index:5}
+.ghand{display:flex;gap:8px;align-items:flex-end}
+.ghand .gc{--w:var(--cw)}
+.gstat{font-size:13px;font-weight:800;color:var(--gold);min-height:17px;text-shadow:0 1px 3px #000;white-space:nowrap}
+.gstat.go{animation:gblink 1s ease-in-out infinite}
+@keyframes gblink{50%{opacity:.45}}
+.gtruco{position:absolute;right:16px;bottom:18px;z-index:10;background:linear-gradient(180deg,#e2283b,#9d1020);color:#fff;border:3px solid #ffd6a0;border-radius:50%;
+  width:92px;height:92px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.5);letter-spacing:.5px;transition:.15s;line-height:1.05;padding:4px}
+.gtruco:not(:disabled){animation:gready 1.8s ease-in-out infinite}
+.gtruco:hover:not(:disabled){transform:scale(1.07) rotate(-4deg)}
+@keyframes gready{50%{box-shadow:0 0 0 6px rgba(226,40,59,.35),0 6px 16px rgba(0,0,0,.5)}}
+.gtruco.long{font-size:12.5px}
+.gtruco:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
+.gleft{position:absolute;left:12px;bottom:14px;z-index:10;display:flex;flex-direction:column;gap:6px;width:128px}
+.gbtn{border:2px solid rgba(255,255,255,.35);border-radius:20px;padding:8px 10px;font-weight:900;font-size:13.5px;cursor:pointer;color:#fff;background:rgba(0,0,0,.45);transition:.12s;line-height:1.1}
+.gbtn:active{transform:scale(.96)}
+.gbtn.env{background:linear-gradient(180deg,#e7b43a,#b8861a);color:#3a2600;border-color:#ffe6a6}
+.gbtn.mazo{background:rgba(0,0,0,.5)}
+.gbtn:disabled{opacity:.35;cursor:not-allowed}
+.gask{position:absolute;left:50%;transform:translateX(-50%);z-index:30;width:min(470px,calc(100% - 16px));background:linear-gradient(180deg,rgba(23,61,43,.97),rgba(13,42,29,.97));
+  border:2px solid var(--gold);border-radius:16px;padding:12px 14px;box-shadow:0 14px 34px rgba(0,0,0,.6);animation:pop .25s}
+.gask h3{color:var(--gold);font-size:19px;margin-bottom:4px}
+.gask p{font-size:13.5px;color:#e3f3ea;line-height:1.4;margin-bottom:8px}
+.gask .bt{display:flex;flex-wrap:wrap;gap:6px}
+.gask .bt button{flex:1 1 auto;min-width:96px;padding:11px 8px;border-radius:10px;border:none;font-size:14.5px;font-weight:900;cursor:pointer}
+.gask .bt button:active{transform:scale(.96)}
+.gask .q{background:var(--nos);color:#06301a} .gask .n{background:#555;color:#fff} .gask .u{background:var(--red);color:#fff} .gask .e{background:var(--gold);color:#3a2600}
+.bubble.grito{background:var(--red);color:#fff;font-size:18px;letter-spacing:.5px;border:2px solid #ffd6a0}
+#banner .bn.truco{color:#fff;font-size:64px;text-shadow:0 5px 0 #7a0a15,0 0 40px rgba(226,40,59,.9);-webkit-text-stroke:2px #c0182b}
+#banner .bn.env{color:#ffe6a6;font-size:56px;text-shadow:0 5px 0 #6b4a00,0 0 40px rgba(231,180,58,.8)}
+/* placar */
+.gpl{display:flex;align-items:center;gap:12px}
+.gpl .tm{display:flex;flex-direction:column;align-items:center;min-width:64px;line-height:1}
+.gpl .tm .l{font-size:10.5px;font-weight:800;letter-spacing:1.5px;opacity:.85}
+.gpl .tm b{font-size:26px;font-weight:900;display:inline-block}
+.gpl .tm.nos b{color:var(--nos)} .gpl .tm.eles b{color:var(--eles)}
+.gpl .tm .mb{font-size:10px;color:#cfe;font-weight:700;margin-top:2px}
+.gpl .bar{width:58px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin-top:3px;position:relative;overflow:hidden}
+.gpl .bar i{position:absolute;left:0;top:0;bottom:0}
+.gpl .bar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.6)}
+.gpl .nos .bar i{background:var(--nos)} .gpl .eles .bar i{background:var(--eles)}
+.gpl .mid{display:flex;flex-direction:column;align-items:center;gap:4px}
+.gpl .vale{background:var(--gold);color:#3a2600;font-weight:900;border-radius:20px;padding:2px 11px;font-size:12.5px;white-space:nowrap;display:inline-block}
+.gpl .dots{display:flex;gap:5px}
+.gpl .dots span{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.4)}
+.gpl .dots .n{background:var(--nos);border-color:var(--nos)} .gpl .dots .e{background:var(--eles);border-color:var(--eles)} .gpl .dots .t{background:#aaa;border-color:#aaa}
+.box .hier{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;align-items:flex-end}
+.box .hier .gc{--w:40px}
+.box .hier .eq{font-size:12px;color:#cfe;font-weight:800;align-self:center}
+@media (max-width:720px){
+  .gtag{font-size:11.5px;padding:3px 8px;max-width:96px} .gme .gtag{max-width:200px}
+  .gtag .ch{min-width:16px;height:16px;font-size:9px}
+  .gtruco{width:72px;height:72px;font-size:12.5px;right:8px;bottom:14px} .gtruco.long{font-size:10px}
+  .gleft{left:6px;bottom:10px;width:86px;gap:5px}
+  .gbtn{font-size:12px;padding:7px 6px}
+  .ginfo{font-size:10.5px;padding:4px 7px;left:5px;top:5px}
+  .gpl{gap:8px} .gpl .tm{min-width:50px} .gpl .tm b{font-size:21px} .gpl .tm .l{font-size:9.5px;letter-spacing:1px}
+  .gpl .bar{width:46px}
+  .gstat{font-size:12px}
+  .gask h3{font-size:17px} .gask p{font-size:13px}
+  #banner .bn.truco{font-size:42px} #banner .bn.env{font-size:36px}
+  .bubble.grito{font-size:15px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="gaucho-ai.js"></script>
+<script>
+"use strict";
+/* ============================ TRUCO GAÚCHO — interface ============================ */
+const G_SVG = {
+  e:'<svg viewBox="0 0 24 24"><path d="M12 1.2l1.8 2.4V15h-3.6V3.6z" fill="#dfe6f2" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 4v10" stroke="currentColor" stroke-width=".7" opacity=".6"/><rect x="5.8" y="14.6" width="12.4" height="2.3" rx="1.1" fill="currentColor"/><rect x="10.8" y="16.8" width="2.4" height="4.3" rx=".6" fill="#8a5a2b"/><circle cx="12" cy="22" r="1.5" fill="currentColor"/></svg>',
+  b:'<svg viewBox="0 0 24 24"><path d="M8.6 3.6C8.6 1.5 15.4 1.5 15.4 3.6L13.9 21c0 1.4-3.8 1.4-3.8 0z" fill="currentColor"/><path d="M9.4 3.4c1.2-.9 4-.9 5.2 0" stroke="#d6f0c6" stroke-width=".9" fill="none"/><circle cx="11" cy="8" r="1" fill="#d6f0c6"/><circle cx="13.1" cy="12.2" r=".9" fill="#d6f0c6"/><circle cx="11.4" cy="16.4" r=".8" fill="#d6f0c6"/><path d="M15 6.5l2.8-1.6M8.9 10.5l-2.6-1.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  c:'<svg viewBox="0 0 24 24"><path d="M4.6 2.8h14.8c0 6.4-3.1 9.6-5.8 10.1V17h3.1v3.4H7.3V17h3.1v-4.1C7.7 12.4 4.6 9.2 4.6 2.8z" fill="currentColor"/><path d="M7 4.8h10" stroke="#ffe0e0" stroke-width="1" opacity=".75"/><circle cx="12" cy="8" r="1.2" fill="#ffe0e0" opacity=".8"/></svg>',
+  o:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.8" fill="currentColor"/><circle cx="12" cy="12" r="6.6" fill="none" stroke="#fff1bf" stroke-width="1.3"/><path d="M12 7.2l1.3 3.5 3.5 1.3-3.5 1.3L12 16.8l-1.3-3.5L7.2 12l3.5-1.3z" fill="#fff1bf"/></svg>'
+};
+const G_DIFF = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+function gCard(c, cls=''){
+  const d = document.createElement('div');
+  if(!c){ d.className = 'gc back ' + cls; return d; }
+  const mata = GA.MATA[c.id], fig = GA.FIG[c.r], nm = mata || fig || '';
+  d.className = `gc s-${c.s}${mata ? ' mata' : ''}${fig ? ' fig' : ''} ${cls}`;
+  const lab = c.r === 1 ? 'A' : c.r, sv = G_SVG[c.s];
+  d.innerHTML = `<span class="ix">${lab}${sv}</span><span class="cm">${sv}</span><span class="ix b">${lab}${sv}</span>${nm ? `<span class="nm">${nm}</span>` : ''}`;
+  d.title = GA.cardName(c);
+  return d;
+}
+const R = {n:0, me:-1, tableKey:'', shownIds:new Set(), dealHand:0, dealAnim:null, lock:'', lastScore:null};
+const tName = (g, t) => g.n === 2 ? (t === g.me % 2 ? 'Você' : (g.names[1 - g.me % 2] || 'Ele')) : (t === g.me % 2 ? 'Nós' : 'Eles');
+const malasBoas = (s, T) => s < T/2 ? 'malas' : 'boas ' + (s - T/2);
+const posOf = (g, s) => (s - g.me + g.n) % g.n;
+const angOf = (pos, n) => (90 - pos * 360 / n) * Math.PI / 180;
+function lockKey(g){ return [g.handNo, g.phase, g.turn, g.hand.length, g.tr.lv, g.tr.pend ? g.tr.pend.lv : 0, g.env.chain.length, g.env.done].join('|'); }
+
+function gritar(seat, text){
+  const st = $('#stage'), el = st && st.querySelector(`[data-seat="${seat}"]`);
+  const env = /envido|flor/i.test(text);
+  banner(text); const bn = $('#banner .bn'); if(bn) bn.classList.add(env ? 'env' : 'truco');
+  if(env) Snd.msg(); else Snd.alert();
+  try{ st && st.animate([{transform:'translate(0,0)'},{transform:'translate(-7px,3px)'},{transform:'translate(6px,-3px)'},{transform:'translate(-4px,1px)'},{transform:'translate(0,0)'}], {duration:420}); }catch(_){}
+  if(!el) return;
+  const r = el.getBoundingClientRect(), sr = st.getBoundingClientRect();
+  const b = document.createElement('div'); b.className = 'bubble grito'; b.textContent = text;
+  st.appendChild(b);
+  b.style.left = clamp(r.left - sr.left + r.width/2 - b.offsetWidth/2, 4, sr.width - b.offsetWidth - 4) + 'px';
+  b.style.top = Math.max(4, r.top - sr.top - b.offsetHeight - 6) + 'px';
+  setTimeout(() => b.remove(), 2200);
+}
+
+function gRender(g, v, ui){
+  const S = ui.stage, n = g.n, me = g.me < 0 ? 0 : g.me, mt = me % 2;
+  if(R.n !== n || R.me !== me || !S.querySelector('#gHand')){
+    R.n = n; R.me = me; R.tableKey = ''; R.shownIds = new Set();
+    let seats = '';
+    for(let pos=1; pos<n; pos++) seats += `<div class="gseat" id="gSeat${pos}"><div class="gtag" id="gTag${pos}"></div><div class="gfan" id="gFan${pos}"></div></div>`;
+    S.innerHTML = `<div class="gfelt" id="gFelt"></div><div class="ginfo" id="gInfo"></div>${seats}<div id="gTable"></div><div id="gMsgW"></div>
+      <div class="gme"><div class="gstat" id="gSt"></div><div class="gtag" id="gTag0"></div><div class="ghand" id="gHand"></div></div>
+      <div class="gleft" id="gLeft"></div><button class="gtruco" id="gTruco" disabled>TRUCO!</button><div id="gAskW"></div>`;
+  }
+  // ---------- medidas a partir do tamanho do palco ----------
+  const W = S.clientWidth, H = S.clientHeight, narrow = W < 640;
+  const cw = Math.round(clamp(Math.min((W - (narrow ? 196 : 330)) / 3.3, H * 0.15), 48, 96)), ch = cw * 1.5;
+  const B = ch + (narrow ? 56 : 64);
+  const tw = Math.round(clamp(Math.min(W * (narrow ? 0.15 : 0.12), H * (narrow ? 0.085 : 0.105)), 38, 76) * (n === 6 ? 0.86 : 1)), th = tw * 1.5;
+  const seatW = narrow ? 92 : 150, seatH = narrow ? 58 : 70, fw = narrow ? 18 : 24;
+  const cy = Math.round((H - B) / 2 + 6);
+  S.style.setProperty('--cw', cw + 'px'); S.style.setProperty('--tw', tw + 'px'); S.style.setProperty('--fw', fw + 'px');
+  S.style.setProperty('--iw', Math.max(110, W/2 - seatW/2 - 18) + 'px');
+  const rx = Math.max(tw * 1.1, Math.min(W/2 - seatW - tw/2 - 6, tw * 2.7));
+  const ry = clamp(Math.min(cy - seatH - th/2 - 6, (H - B) - cy - th/2 - 4), th * 0.55, th * 1.25);
+  const felt = $('#gFelt');
+  Object.assign(felt.style, {left:(W/2 - rx - tw) + 'px', top:(cy - ry - th*0.6) + 'px', width:(2*rx + 2*tw) + 'px', height:(2*ry + th*1.2) + 'px'});
+
+  // ---------- outros jogadores ----------
+  const waitingMe = v.waiting.includes(me);
+  const turnSeat = g.phase === 'play' ? g.turn : -1;
+  const respT = g.phase === 'respTruco' ? 1 - g.tr.pend.team : g.phase === 'respEnv' ? 1 - g.env.seat % 2 : -1;
+  const tagHTML = s => {
+    const x = v.seats[s], icon = !x ? '' : (!x.human ? (x.online ? ' 🤖' : ' 📴') : '');
+    return (s === g.mano ? '<span class="ch m" title="É mão: joga primeiro e ganha os empates">M</span>' : '') +
+      (s === g.dealer ? '<span class="ch" title="Pé: deu as cartas e joga por último">P</span>' : '') +
+      `<span class="nmx">${esc(g.names[s] || '?')}${s === me ? ' (você)' : ''}${icon}</span>`;
+  };
+  for(let pos=1; pos<n; pos++){
+    const s = (me + pos) % n, a = angOf(pos, n), el = $('#gSeat' + pos);
+    let sx = W/2 + (W/2 - seatW/2 - 6) * Math.cos(a), sy = cy + (cy - seatH/2 - 6) * Math.sin(a);
+    sx = clamp(sx, seatW/2 + 4, W - seatW/2 - 4);
+    el.style.left = sx + 'px'; el.style.top = sy + 'px'; el.dataset.seat = s;
+    const tg = $('#gTag' + pos);
+    tg.className = 'gtag t' + (s % 2 === mt ? 0 : 1) + ((turnSeat === s || (respT >= 0 && s % 2 === respT && v.waiting.includes(s))) ? ' vez' : '');
+    const th2 = tagHTML(s); if(tg.innerHTML !== th2) tg.innerHTML = th2;
+    const fan = $('#gFan' + pos), fk = g.handNo + ':' + g.counts[s];
+    if(fan.dataset.k !== fk){
+      fan.dataset.k = fk; fan.innerHTML = '';
+      for(let i=0;i<g.counts[s];i++) fan.appendChild(gCard(null));
+    }
+  }
+  const t0 = $('#gTag0');
+  t0.dataset.seat = me;
+  t0.className = 'gtag t0' + ((turnSeat === me || (respT === mt && waitingMe)) ? ' vez' : '');
+  const th0 = tagHTML(me); if(t0.innerHTML !== th0) t0.innerHTML = th0;
+
+  // ---------- mesa (vaza atual, ou a que acabou de fechar) ----------
+  const closing = !g.table.length && g.lastVaza && (!v.waiting.length || g.phase === 'handEnd' || g.phase === 'end');
+  const cards = closing ? g.lastVaza.cards : g.table;
+  const slotXY = pos => pos === 0 ? [W/2, cy + ry] : [W/2 + rx * Math.cos(angOf(pos, n)), cy + ry * Math.sin(angOf(pos, n))];
+  const tkey = (closing ? 'L' + g.handNo + '.' + g.lastVaza.no : 'T' + g.handNo + '.' + g.vazas.length) + ':' + cards.map(e => e.id).join(',');
+  if(tkey !== R.tableKey){
+    const sameGroup = R.tableKey.split(':')[0];
+    const newGroup = tkey.split(':')[0];
+    const prev = R.shownIds;
+    // a vaza que fecha é a mesma que estava na mesa: não anima de novo
+    const keep = (closing && sameGroup === 'T' + g.handNo + '.' + (g.vazas.length - 1)) || sameGroup === newGroup;
+    R.tableKey = tkey; R.shownIds = new Set(cards.map(e => e.id));
+    const tb = $('#gTable'); tb.innerHTML = '';
+    for(const e of cards){
+      const pos = posOf(g, e.p), [x, y] = slotXY(pos);
+      const sl = document.createElement('div'); sl.className = 'gslot'; sl.style.left = x + 'px'; sl.style.top = y + 'px'; sl.dataset.p = e.p;
+      const c = GA.CARDS[GA.ix(e)], el = gCard(c);
+      sl.appendChild(el); tb.appendChild(sl);
+      if(!(keep && prev.has(e.id))){
+        const from = pos === 0 ? (R.lastPlay || $('#gHand').getBoundingClientRect()) : $('#gFan' + pos).getBoundingClientRect();
+        flyFrom(el, from, {dur:360, rot: pos === 0 ? -6 : (pos * 37) % 60 - 30});
+        if(pos === 0) R.lastPlay = null;
+      }
+    }
+  }
+  $$('#gTable .gslot').forEach(sl => {
+    const p = +sl.dataset.p, el = sl.firstChild; if(!el) return;
+    if(closing){ el.classList.toggle('win', g.lastVaza.win === p); el.classList.toggle('lose', g.lastVaza.win !== p); }
+  });
+  // reposiciona (mudou o tamanho da tela)
+  $$('#gTable .gslot').forEach(sl => { const [x, y] = slotXY(posOf(g, +sl.dataset.p)); sl.style.left = x + 'px'; sl.style.top = y + 'px'; });
+
+  // ---------- minha mão ----------
+  const acts = waitingMe ? g.acts : null;
+  if(R.lock && R.lock !== lockKey(g)) R.lock = '';
+  const free = !R.lock;
+  const canPlay = !!(acts && acts.play) && free;
+  const hd = $('#gHand'), hk = g.handNo + ':' + g.hand.map(c => c.id).join(',');
+  if(hd.dataset.k !== hk){
+    hd.dataset.k = hk; hd.innerHTML = '';
+    g.hand.forEach(c => hd.appendChild(gCard(c)));
+    if(R.dealAnim && R.dealAnim.hand === g.handNo && g.hand.length === 3){
+      const dpos = posOf(g, R.dealAnim.dealer), from = dpos === 0 ? null : $('#gSeat' + dpos).getBoundingClientRect();
+      if(from) [...hd.children].forEach((el, j) => flyFrom(el, from, {delay:j * 90, dur:380, rot:-25}));
+      R.dealAnim = null;
+    }
+  }
+  [...hd.children].forEach((el, i) => {
+    const c = g.hand[i];
+    el.classList.toggle('playable', canPlay);
+    el.onclick = canPlay ? () => { R.lastPlay = el.getBoundingClientRect(); R.lock = lockKey(g); ui.act({t:'card', id:c.id}); ui.rerender(); } : null;
+  });
+
+  // ---------- botões ----------
+  const send = a => { R.lock = lockKey(g); ui.act(a); ui.rerender(); };
+  const bt = $('#gTruco');
+  const nextCall = g.tr.lv < 3 ? GA.CALL[g.tr.lv + 1] : 'Vale quatro';
+  bt.textContent = (g.tr.lv < 3 ? nextCall : '—').toUpperCase() + (g.tr.lv < 3 ? '!' : '');
+  bt.classList.toggle('long', g.tr.lv >= 1);
+  bt.disabled = !(acts && acts.truco && free);
+  bt.title = acts && acts.truco ? `Cantar ${acts.truco}` : (g.tr.lv > 0 && g.tr.holder !== mt ? 'O "quero" está com o outro time' : 'Espere a sua vez');
+  bt.onclick = () => { if(!bt.disabled) send({t:'truco'}); };
+  const lf = $('#gLeft');
+  let lh = '';
+  if(acts && acts.play && free){
+    for(const k of acts.env) lh += `<button class="gbtn env" data-k="${k}">${k === 'E' ? 'Envido' : k === 'R' ? 'Real envido' : 'Falta envido'}</button>`;
+    lh += `<button class="gbtn mazo" id="gMazo">🃏 Ir ao mazo</button>`;
+  }
+  if(lf.dataset.h !== lh){
+    lf.dataset.h = lh; lf.innerHTML = lh;
+    $$('.gbtn.env', lf).forEach(b => b.onclick = () => send({t:'env', k:b.dataset.k}));
+    const mz = $('#gMazo');
+    if(mz) mz.onclick = () => modal(`<h2>Ir ao mazo?</h2><p>Você desiste desta mão: ${g.n === 2 ? 'o adversário ganha' : 'eles ganham'} <b>${g.tr.val}</b> ponto(s).</p>`,
+      [{label:'Ir ao mazo', cls:'b-up', fn:() => send({t:'mazo'})}, {label:'Continuar', cls:'b-no'}]);
+  }
+
+  // ---------- pergunta (responder truco / envido) ----------
+  const aw = $('#gAskW');
+  let ah = '';
+  if(acts && acts.resp && free){
+    const who = esc(g.names[acts.by] || '?');
+    if(acts.resp === 'truco'){
+      ah = `<h3>${who} cantou ${acts.call}!</h3><p>Quero: a mão passa a valer <b>${acts.accVal}</b>. Não quero: ${g.n === 2 ? 'ele ganha' : 'eles ganham'} <b>${acts.refVal}</b>.</p>
+        <div class="bt"><button class="q" data-a="quero">Quero!</button><button class="n" data-a="nao">Não quero</button>
+        ${acts.up ? `<button class="u" data-a="truco">${acts.up}!</button>` : ''}
+        ${acts.env.map(k => `<button class="e" data-k="${k}">${GA.EK[k]}</button>`).join('')}</div>
+        ${acts.env.length ? '<p style="margin:6px 0 0;font-size:12px;opacity:.8">O envido está primeiro: dá para cantar envido antes de responder ao truco.</p>' : ''}`;
+    } else {
+      ah = `<h3>${who} cantou ${acts.call}!</h3><p>${esc(acts.label)}. Seu envido: <b>${myEnv(g)}</b>. Não quero: ${g.n === 2 ? 'ele ganha' : 'eles ganham'} <b>${acts.refVal}</b>.</p>
+        <div class="bt"><button class="q" data-a="quero">Quero!</button><button class="n" data-a="nao">Não quero</button>
+        ${acts.up.map(u => `<button class="u" data-k="${u.k}">${u.label}!</button>`).join('')}</div>`;
+    }
+  }
+  if(aw.dataset.h !== ah){
+    aw.dataset.h = ah;
+    aw.innerHTML = ah ? `<div class="gask">${ah}</div>` : '';
+    $$('button', aw).forEach(b => b.onclick = () => send(b.dataset.k ? {t:'env', k:b.dataset.k} : {t:b.dataset.a}));
+  }
+  const ask = aw.firstChild; if(ask) ask.style.bottom = (B + 4) + 'px';
+
+  // ---------- informações ----------
+  const info = [];
+  info.push(`Mão: <b>${esc(g.names[g.mano])}</b> · Pé: <b>${esc(g.names[g.dealer])}</b>`);
+  if(g.me >= 0) info.push(`Seu envido: <b>${myEnv(g)}</b>`);
+  if(g.flr && g.flr.res){
+    const fr = g.flr.res;
+    info.push(`Flor: <span class="${fr.team === mt ? 'g' : 'r'}">${tName(g, fr.team)} +${fr.pts}</span>`);
+  } else if(g.env.res){
+    const er = g.env.res;
+    info.push(er.refused ? `Envido não querido: <span class="${er.team === mt ? 'g' : 'r'}">${tName(g, er.team)} +${er.pts}</span>`
+      : `Envido: ${esc(g.names[er.seat])} ${er.best} → <span class="${er.team === mt ? 'g' : 'r'}">${tName(g, er.team)} +${er.pts}</span>`);
+  } else if(g.env.chain.length) info.push(`<b>${esc(g.env.label)}</b>`);
+  if(g.tr.lv) info.push(`${GA.CALL[g.tr.lv]} · quero: <b>${tName(g, g.tr.holder)}</b>`);
+  const ih = info.map(x => `<div>${x}</div>`).join('');
+  if($('#gInfo').innerHTML !== ih) $('#gInfo').innerHTML = ih;
+
+  // ---------- mensagem central / status ----------
+  let mh = '';
+  if((g.phase === 'handEnd' || g.phase === 'end') && g.summary)
+    mh = `<div class="gmsg" style="top:${cy}px">${tName(g, g.summary.team)} +${g.summary.pts}<small>${g.summary.why}</small></div>`;
+  const mw = $('#gMsgW'); if(mw.dataset.h !== mh){ mw.dataset.h = mh; mw.innerHTML = mh; }
+  let s = '';
+  if(canPlay) s = 'Sua vez! Jogue uma carta' + (acts.truco || acts.env.length ? ' ou cante' : '');
+  else if(acts && acts.resp && free) s = 'Responda!';
+  else if(g.phase === 'play') s = 'Vez de ' + g.names[g.turn];
+  else if(g.phase === 'respTruco' || g.phase === 'respEnv') s = 'Aguardando a resposta de ' + v.waiting.map(x => g.names[x]).join(' / ') + '...';
+  else if(g.phase === 'handEnd') s = 'Próxima mão...';
+  const se = $('#gSt'); if(se.textContent !== s) se.textContent = s; se.classList.toggle('go', canPlay);
+  if(!v.waiting.length && closing && g.phase === 'play') se.textContent = g.lastVaza.win < 0 ? 'Parda!' : 'Vaza de ' + g.names[g.lastVaza.win];
+}
+function myEnv(g){ return g.myEnv; }
+
+const RULES = `<h3>Objetivo</h3><p>Fazer <b>30 pontos</b> (ou 24, conforme a opção) antes do adversário. A contagem é em <b>malas e boas</b>: os primeiros 15 (ou 12) pontos são as "malas", os seguintes as "boas". Joga-se 1 contra 1, em <b>duplas</b> (2×2) ou em <b>trios</b> (3×3); os parceiros sentam alternados.</p>
+<h3>Baralho e força das cartas</h3><p>Baralho espanhol de <b>40 cartas</b> (sem 8, 9 e 10) com os naipes <b>espadas</b> (azul), <b>paus/bastos</b> (verde), <b>copas</b> (vermelho) e <b>ouros</b> (dourado). Figuras: 10 = valete, 11 = cavalo, 12 = rei. A ordem é fixa, da maior para a menor:</p>
+<ol><li><b>Ás de espadas</b> (espadão)</li><li><b>Ás de paus</b> (bastião)</li><li><b>7 de espadas</b></li><li><b>7 de ouros</b></li><li>os 3</li><li>os 2</li><li>Ás de copas e Ás de ouros (ases falsos)</li><li>Reis (12)</li><li>Cavalos (11)</li><li>Valetes (10)</li><li>7 de copas e 7 de paus (setes falsos)</li><li>os 6</li><li>os 5</li><li>os 4</li></ol>
+<p>Cartas de mesma força empatam (não há força de naipe fora das quatro primeiras).</p>
+<h3>Como jogar</h3><ol><li>Cada um recebe <b>3 cartas</b>. Quem está à direita de quem deu (o <b>mão</b>, marcado "M") começa; quem deu as cartas é o <b>pé</b> ("P") e joga por último. A vez segue no sentido anti-horário.</li>
+<li>São até 3 <b>vazas</b>: cada um joga uma carta e a maior leva. Quem ganha 2 vazas ganha a mão (vale 1 ponto sem truco).</li>
+<li><b>Parda</b> (empate na vaza): se a 1ª é parda, quem ganhar a 2ª leva; se ganhou a 1ª e a seguinte empatou, vale a 1ª; se as três empatarem, ganha o time do mão. Depois de uma parda, começa quem jogou primeiro a carta empatada.</li></ol>
+<h3>Envido</h3><p>Só na <b>primeira vaza</b>, na sua vez e antes de jogar sua carta (e antes de aceitarem um truco). Pontos: <b>duas cartas do mesmo naipe somam seus valores + 20</b>; as figuras (10, 11, 12) valem 0. Sem duas do mesmo naipe, vale a carta mais alta (figura = 0). Máximo: 33 (7 + 6 do mesmo naipe).</p>
+<table><tr><th>Canto</th><th>Vale se quiserem</th></tr><tr><td>Envido</td><td>2</td></tr><tr><td>Envido + envido</td><td>4</td></tr><tr><td>Real envido</td><td>3 (somado ao que já estava cantado)</td></tr><tr><td>Falta envido</td><td>os pontos que faltam ao time que está ganhando para fechar a partida; se os dois ainda estão nas malas, vale a partida</td></tr></table>
+<p>Quem responde pode <b>querer</b>, <b>não querer</b> (o outro time ganha o que já estava aceito; 1 ponto se for o primeiro canto) ou aumentar. Quando querem, cada um "canta" seus pontos a partir do mão: quem não supera diz "são boas". Empate: ganha quem está mais perto do mão.</p>
+<p><b>O envido está primeiro</b>: se trucarem na primeira vaza, quem responde pode cantar envido antes; depois do envido, responde ao truco.</p>
+<h3>Flor (opcional)</h3><p>Com a opção ligada, quem recebe <b>3 cartas do mesmo naipe</b> tem flor: canta "Flor!" na hora, ganha <b>3 pontos</b> e não há envido nessa mão. Se os dois times tiverem flor, é <b>contraflor</b>: a maior flor (soma + 20) leva <b>6 pontos</b>.</p>
+<h3>Truco</h3><p>Na sua vez você pode cantar <b>Truco</b> (a mão vale 2). Quem responde: <b>Quero</b>, <b>Não quero</b> (vocês ganham o valor anterior) ou aumenta: <b>Retruco</b> (3) e <b>Vale quatro</b> (4). Só pode aumentar o time que aceitou o último canto (quem tem o "quero").</p>
+<h3>Me vou ao mazo</h3><p>Na sua vez você pode desistir da mão: o outro time ganha o valor atual da mão.</p>
+<h3>Bots</h3><p><b>Fácil</b>: joga pela força das cartas e pelos próprios pontos, com erros leves. <b>Normal</b>: simula centenas de distribuições das cartas escondidas (Monte Carlo) para escolher a carta, trucar e responder, e desconfia de quem canta forte. <b>Difícil</b>: além disso lê a mesa — os pontos cantados no envido, a flor e quem fugiu de uma vaza mostram que cartas cada um pode ter. Todos blefam de vez em quando. Os bots do mesmo time trocam sinais na hora de responder, como as "señas" do truco.</p>`;
+
+Mesa.run({
+  id:'gaucho', name:'Truco Gaúcho', icon:'🗡️', tagline:'Envido, flor e truco — baralho espanhol',
+  options:[
+    {key:'jog', label:'Jogadores', default:'4', choices:[['2','2 jogadores'],['4','4 (duplas)'],['6','6 (trios)']]},
+    {key:'pontos', label:'Partida até', default:'30', choices:[['24','24 pontos'],['30','30 pontos']]},
+    {key:'flor', label:'Flor', default:'sim', choices:[['sim','Com flor'],['nao','Sem flor']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => [2,4,6].includes(+o.jog) ? +o.jog : 4,
+  team: s => s % 2,
+  seatLabel: (s, n) => n === 2 ? 'Jogador ' + (s + 1) : (n === 4 ? 'Dupla ' : 'Trio ') + (s % 2 + 1),
+  modeLabel: o => `ATÉ ${o.pontos || 30}${o.flor === 'nao' ? ' · SEM FLOR' : ' · COM FLOR'} · BOT ${(G_DIFF[o.diff] || 'Normal').toUpperCase()}`,
+  setup: GA.setup, waiting: GA.waiting, apply: GA.apply, over: GA.over, view: GA.view, tick: GA.tick, tickMs: 250,
+  bot: GA.bot, botFallback: GA.botFallback,
+  startEvents(st){ const ev = st._ev || []; delete st._ev; return ev; },
+  botDelay(st, s, o){
+    if(st.phase === 'respTruco' || st.phase === 'respEnv') return 1250;
+    return st.vazas.length === 0 && !st.table.length ? 1100 : 800;
+  },
+  topInfo(g){
+    const mt = g.me < 0 ? 0 : g.me % 2, T = g.T;
+    const tm = (t, cls) => `<div class="tm ${cls}"><span class="l">${tName(g, t).toUpperCase()}</span><b id="gs${cls}">${g.score[t]}</b>
+      <div class="bar"><i style="width:${Math.min(100, g.score[t] / T * 100)}%"></i></div><span class="mb">${malasBoas(g.score[t], T)}</span></div>`;
+    const dots = [0,1,2].map(i => { const x = g.vazas[i]; return `<span class="${x === -1 ? 't' : x === mt ? 'n' : x === 1 - mt ? 'e' : ''}"></span>`; }).join('');
+    return `<div class="gpl">${tm(mt, 'nos')}<div class="mid"><span class="vale" id="gVale">Vale ${g.tr.val}</span><div class="dots">${dots}</div></div>${tm(1 - mt, 'eles')}</div>`;
+  },
+  rules: RULES,
+  render: gRender,
+  onEvent(e, v, ui){
+    const g = v && v.game;
+    if(e.k === 'grito') gritar(e.seat, e.text);
+    else if(e.k === 'deal'){ Snd.deal(9); R.dealAnim = {hand:e.hand, dealer:e.dealer}; }
+    else if(e.k === 'value') setTimeout(() => bump($('#gVale')), 30);
+    else if(e.k === 'pts' && g){
+      const mine = e.team === (g.me < 0 ? 0 : g.me % 2);
+      setTimeout(() => {
+        banner(`+${e.pts} PRA ${g.n === 2 ? (mine ? 'VOCÊ' : 'ELE') : (mine ? 'NÓS' : 'ELES')}`, !mine);
+        bump($(mine ? '#gsnos' : '#gseles'));
+      }, 700);
+      mine ? Snd.win() : Snd.lose();
+    }
+  }
+});
+</script>
+</body>
+</html>

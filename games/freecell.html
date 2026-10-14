@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>FreeCell</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:8px 6px 6px}
+.fcb{width:100%;max-width:var(--bw);display:flex;flex-direction:column;flex:1;min-height:0;touch-action:none}
+.toprow,.tabrow{display:grid;grid-template-columns:repeat(8,var(--cw));justify-content:space-between}
+.toprow{margin-bottom:var(--gap)}
+.slot{position:relative;width:var(--cw);height:var(--ch);border-radius:calc(var(--cw)*.12)}
+.slot::before{content:attr(data-l);position:absolute;inset:0;border:2px dashed rgba(255,255,255,.22);border-radius:inherit;display:grid;place-items:center;
+  color:rgba(255,255,255,.3);font-size:calc(var(--cw)*.42);font-weight:900;background:rgba(0,0,0,.12)}
+.slot.cell::before{border-color:rgba(231,180,58,.35)}
+.slot .card{position:absolute;left:0;top:0}
+.tabrow{flex:1;min-height:0}
+.col{position:relative;width:var(--cw);height:100%}
+.col::before{content:"";position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);border:2px dashed rgba(255,255,255,.12);border-radius:calc(var(--cw)*.12)}
+.col .card{position:absolute;left:0}
+/* cartas compactas: índice numa linha só (lê bem mesmo sobrepostas e pequenas) */
+.card.fc{cursor:grab;touch-action:none}
+.card.fc .ci{position:absolute;top:calc(var(--cw)*.05);left:calc(var(--cw)*.08);font-size:max(11px,calc(var(--cw)*.3));line-height:1;font-weight:900;letter-spacing:-.5px;white-space:nowrap}
+.card.fc .ci i{font-style:normal;font-size:.9em;margin-left:1px}
+.card.fc .cs{position:absolute;left:0;right:0;bottom:calc(var(--ch)*.1);text-align:center;font-size:calc(var(--cw)*.56);line-height:1}
+.card.fc .cs b{display:block;font-size:.5em;line-height:1;margin-bottom:2px}
+.card.drag0{opacity:.25}
+.card.hint{box-shadow:0 0 0 3px #5ab0ff,0 0 16px #5ab0ff;animation:hintP 1s ease-in-out infinite}
+.slot.hint::before,.col.hint::before{border-color:#5ab0ff;border-style:solid;box-shadow:0 0 14px #5ab0ff}
+.col.hint>.card:last-child{box-shadow:0 0 0 3px #5ab0ff}
+@keyframes hintP{50%{box-shadow:0 0 0 3px #bfe0ff,0 0 6px #5ab0ff}}
+.drop-on::before{border-color:var(--gold)!important;border-style:solid!important}
+.col.drop-on>.card:last-child,.slot.drop-on .card{box-shadow:0 0 0 3px var(--gold),0 3px 10px rgba(0,0,0,.5)}
+#ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50}
+#ghost .card{position:absolute;box-shadow:0 10px 24px rgba(0,0,0,.55)}
+.ctrl{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:6px}
+.ctrl .tbtn{font-size:13px;padding:7px 10px}
+.info{display:flex;gap:12px;font-weight:800;font-size:14px;color:#ffe6a6;align-items:center}
+.info b{color:#fff}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (max-width:600px){ .ctrl .tbtn{font-size:12px;padding:7px 8px} .info{gap:9px;font-size:13px} }
+.numf{display:flex;gap:8px;margin:10px 0}
+.numf input{flex:1;min-width:0;font-size:20px;text-align:center;padding:8px;border-radius:10px;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="freecell-ai.js"></script>
+<script>
+"use strict";
+const F = FreeCellAI;
+const MAXN = 32000;
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const isInt = (x, a, b) => Number.isInteger(x) && x >= a && x <= b;
+const nFound = S => S.found.reduce((a, b) => a + b, 0);
+
+/* ------------------------------ estado ------------------------------- */
+function newDeal(st, n){
+  Object.assign(st, {n, cols:F.deal(n), cells:[-1,-1,-1,-1], found:[0,0,0,0], moves:0, hist:[], t0:Date.now(), fin:null, done:false, res:null,
+    hints:0, undos:0, last:null, ver:(st.ver || 0) + 1});
+  if(st.auto) F.autoUp(st);
+}
+const snap = st => JSON.stringify([st.cols, st.cells, st.found, st.moves]);
+function pushHist(st){ st.hist.push(snap(st)); if(st.hist.length > 600) st.hist.shift(); }
+const randN = () => 1 + Math.floor(Math.random() * MAXN);
+
+// melhor destino para um toque: fundação, coluna que encaixa, coluna vazia, célula livre
+function bestTarget(st, from){
+  const tries = [];
+  const single = from.p === 'l' || from.k === st.cols[from.i].length - 1;
+  if(single) tries.push({p:'f'});
+  for(let j=0;j<8;j++) if(st.cols[j].length && !(from.p === 'c' && from.i === j)) tries.push({p:'c', i:j});
+  const wholeCol = from.p === 'c' && from.k === 0;
+  if(!wholeCol) for(let j=0;j<8;j++) if(!st.cols[j].length){ tries.push({p:'c', i:j}); break; }
+  if(single && from.p === 'c'){ const fc = st.cells.indexOf(-1); if(fc >= 0) tries.push({p:'l', i:fc}); }
+  for(const to of tries) if(!F.check(st, {from, to})) return to;
+  return null;
+}
+function validFrom(st, f){
+  if(!f || typeof f !== 'object') return false;
+  if(f.p === 'c') return isInt(f.i, 0, 7) && isInt(f.k, 0, st.cols[f.i].length - 1);
+  if(f.p === 'l') return isInt(f.i, 0, 3) && st.cells[f.i] >= 0;
+  return false;
+}
+function validTo(t){ return t && typeof t === 'object' && (t.p === 'f' || (t.p === 'c' && isInt(t.i, 0, 7)) || (t.p === 'l' && isInt(t.i, 0, 3))); }
+
+function applyAct(st, a){
+  if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+  if(st.done) return {ok:false, err:'A partida já terminou.'};
+  const ev = [];
+  switch(a.t){
+    case 'tap': case 'mv': {
+      if(!validFrom(st, a.from)) return {ok:false, err:'Jogada inválida.'};
+      let to = a.t === 'mv' ? a.to : bestTarget(st, a.from);
+      if(a.t === 'mv' && !validTo(to)) return {ok:false, err:'Jogada inválida.'};
+      if(!to){
+        const seqOk = a.from.p === 'l' || F.runLen(st.cols[a.from.i]) >= st.cols[a.from.i].length - a.from.k;
+        return {ok:false, err: seqOk ? 'Essa carta não tem para onde ir agora.' : 'Só dá para mover cartas em sequência (cores alternadas, descendo).'};
+      }
+      const m = {from:a.from, to};
+      const err = F.check(st, m); if(err) return {ok:false, err};
+      pushHist(st);
+      const cards = m.from.p === 'c' ? st.cols[m.from.i].slice(m.from.k) : [st.cells[m.from.i]];
+      F.exec(st, m); st.moves++;
+      const ups = st.auto ? F.autoUp(st) : [];
+      st.last = {to:m.to.p === 'f' ? {p:'f', i:F.SU(cards[0])} : m.to, cards};
+      st.ver++;
+      ev.push({k:'snd', s:m.to.p === 'f' || ups.length ? 'move' : 'card'});
+      if(nFound(st) === 52){
+        st.done = true; st.res = 'win'; st.fin = Date.now() - st.t0;
+        ev.push({k:'banner', text:'Você venceu!'});
+      }
+      return {events:ev};
+    }
+    case 'undo': {
+      const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
+      [st.cols, st.cells, st.found, st.moves] = JSON.parse(h);
+      st.undos++; st.last = null; st.ver++;
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    case 'hint': st.hints++; return {events:[]};
+    case 'new': {
+      const n = a.n == null ? randN() : a.n;
+      if(!isInt(n, 1, MAXN)) return {ok:false, err:`Escolha um número de 1 a ${MAXN}.`};
+      newDeal(st, n);
+      return {events:[{k:'snd', s:'deal'}, {k:'banner', text:`Jogo nº ${n}`}]};
+    }
+    case 'restart': newDeal(st, st.n); return {events:[{k:'snd', s:'deal'}]};
+    case 'giveup': st.done = true; st.res = 'gave'; st.fin = Date.now() - st.t0; return {events:[]};
+  }
+  return {ok:false, err:'Jogada inválida.'};
+}
+
+/* ------------------------- bot (testes automáticos) ------------------------- */
+// segue a solução do solucionador; se não houver solução, desiste
+const PLAN = {keys:[], list:[]};
+function botMove(st){
+  const S = {cols:st.cols, cells:st.cells, found:st.found}, key = F.keyOf(S);
+  let at = PLAN.keys.indexOf(key);
+  if(at < 0){
+    const sol = F.solve(S, {nodes:150000, ms:3000, auto:st.auto});
+    if(!sol) return {t:'giveup'};
+    const T = F.clone(S); PLAN.keys = []; PLAN.list = sol;
+    for(const mv of sol){ PLAN.keys.push(F.keyOf(T)); F.exec(T, mv); if(st.auto) F.autoUp(T); }
+    at = 0;
+  }
+  const m = PLAN.list[at];
+  return {t:'mv', from:m.from, to:m.to};
+}
+
+Mesa.run({
+  id:'freecell', name:'FreeCell', icon:'🃏', tagline:'Paciência de lógica: quase todo jogo tem solução',
+  solo:true, players:1,
+  options:[
+    {key:'jogo', label:'Jogo', default:'aleatorio', choices:[['aleatorio','Aleatório'],['facil','Fácil'],['dificil','Difícil']]},
+    {key:'auto', label:'Subir sozinho', default:'sim', choices:[['sim','Sim'],['nao','Não']]}
+  ],
+  setup(players, o){
+    const st = {names:players.map(p => p.name), auto:o.auto !== 'nao', gid:Math.floor(Math.random()*1e9)};
+    newDeal(st, pickDeal(o.jogo));
+    return st;
+  },
+  waiting(st){ return st.done ? [] : [0]; },
+  over(st){
+    if(!st.done) return null;
+    if(st.res === 'win') return {winners:[0], text:`Jogo nº <b>${st.n}</b> resolvido em <b>${st.moves}</b> jogadas e <b>${fmt(st.fin)}</b>${st.hints ? ` (${st.hints} dica${st.hints > 1 ? 's' : ''})` : ''}.`};
+    return {winners:[], text:`Você desistiu do jogo nº <b>${st.n}</b> com ${nFound(st)} cartas nas fundações.`};
+  },
+  apply(st, s, a){ return applyAct(st, a); },
+  bot(st){ return botMove(st); },
+  botDelay(){ return 420; },
+  botFallback(){ return {t:'giveup'}; },
+  view(st){
+    return {n:st.n, cols:st.cols, cells:st.cells, found:st.found, moves:st.moves, undo:st.hist.length > 0, el:(st.fin != null ? st.fin : Date.now() - st.t0),
+      running:!st.done, done:st.done, last:st.last, ver:st.ver, gid:st.gid, auto:st.auto, hints:st.hints};
+  },
+  topInfo(g){ return `<div class="info"><span>Jogo nº <b>${g.n}</b></span><span>🃏 ${g.moves}</span><span id="clock">⏱ ${fmt(g.el)}</span></div>`; },
+  modeLabel: o => o.auto === 'nao' ? 'SUBIR À MÃO' : '',
+  onEvent(e){ if(e.k === 'start'){ hint = null; lastVer = null; } },
+  rules: `<h3>Objetivo</h3><p>Levar as 52 cartas para as quatro <b>fundações</b> (canto direito), uma por naipe, do <b>Ás ao Rei</b>.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Todas as cartas começam abertas em 8 colunas. Nas colunas, uma carta só entra sobre outra de <b>cor oposta</b> e <b>um posto acima</b> (ex.: 7♥ sobre 8♠).</li>
+  <li>As 4 <b>células livres</b> (canto esquerdo) guardam uma carta cada, para tirar do caminho.</li>
+  <li>Qualquer carta (ou sequência) pode ir para uma <b>coluna vazia</b>.</li>
+  <li><b>Arraste</b> a carta (ou a sequência) até o destino, ou só <b>toque</b> nela: ela vai para o melhor lugar (fundação, coluna que encaixa, coluna vazia ou célula livre).</li></ul>
+  <h3>Mover várias cartas</h3><p>Oficialmente se move uma carta por vez, mas o jogo faz isso por você: dá para mover uma sequência de até <b>(células livres + 1) × 2<sup>colunas vazias</sup></b> cartas. Se o destino for uma coluna vazia, ela não conta no cálculo.</p>
+  <h3>Recursos</h3><ul>
+  <li><b>Subir sozinho</b> (opção): cartas que não fazem mais falta na mesa sobem para a fundação automaticamente.</li>
+  <li><b>💡 Dica</b>: um solucionador procura uma solução a partir da posição atual e mostra o próximo lance. Se não achar, é sinal de que vale desfazer algumas jogadas.</li>
+  <li><b>↶ Desfazer</b> sem limite, <b>🔁 Reiniciar</b> o mesmo jogo e <b>#️⃣ Nº</b> para escolher um jogo de 1 a 32000.</li></ul>
+  <h3>Jogos numerados</h3><p>Os jogos de 1 a 32000 seguem a distribuição clássica do FreeCell: o jogo nº 1 aqui é igual ao nº 1 de qualquer FreeCell tradicional. Todos têm solução, menos o famoso <b>nº 11982</b>. Na opção <b>Fácil</b>/<b>Difícil</b> o jogo sorteado é um cuja solução encontrada é curta/longa.</p>`,
+  render
+});
+
+// "fácil"/"difícil": sorteia alguns jogos e escolhe pela dificuldade estimada (tamanho da solução encontrada)
+function pickDeal(kind){
+  if(kind !== 'facil' && kind !== 'dificil') return randN();
+  let best = null;
+  for(let i=0;i<6;i++){
+    const n = randN(), sol = F.solve({cols:F.deal(n), cells:[-1,-1,-1,-1], found:[0,0,0,0]}, {nodes:25000, ms:160});
+    if(!sol) continue;
+    const v = sol.length;
+    if(!best || (kind === 'facil' ? v < best.v : v > best.v)) best = {n, v};
+  }
+  return best ? best.n : randN();
+}
+
+/* ------------------------------ interface ------------------------------ */
+let hint = null, lastVer = null, keyUi = null, clk = {el:0, at:0, run:false};
+const CARD_SUIT = s => F.SUITS[s];
+function cardHtml(c, extra){
+  const r = F.RN[F.RK(c)], s = CARD_SUIT(F.SU(c)), face = F.RK(c) > 10;
+  return `<div class="card fc ${F.RED(c) ? 'red' : ''} ${extra || ''}" data-c="${c}"><span class="ci">${r}<i>${s}</i></span><span class="cs">${face ? `<b>${r}</b>` : ''}${s}</span></div>`;
+}
+function layout(st, g){
+  const W = st.clientWidth - 12, H = st.clientHeight - 14;
+  const gap = W < 500 ? 5 : 12;
+  let cw = Math.floor((W - 7*gap) / 8);
+  cw = Math.max(34, Math.min(cw, 104, Math.floor((H - 60) / 4.6)));
+  const ch = Math.round(cw * 1.4);
+  return {cw, ch, gap, bw:cw*8 + gap*7};
+}
+function render(g, v, ui){
+  keyUi = ui;
+  const st = ui.stage, L = layout(st, g);
+  st.style.setProperty('--cw', L.cw + 'px'); st.style.setProperty('--ch', L.ch + 'px');
+  st.style.setProperty('--gap', L.gap + 'px'); st.style.setProperty('--bw', L.bw + 'px');
+  // posições anteriores (para animar as cartas que mudaram de lugar)
+  const prev = {}, animate = lastVer != null && lastVer !== g.ver;
+  if(animate) $$('.card[data-c]', st).forEach(e => prev[e.dataset.c] = e.getBoundingClientRect());
+  Object.assign(prev, dragFrom); dragFrom = {};
+  if(lastVer !== g.ver) hint = null;
+  lastVer = g.ver;
+  const playing = v.phase === 'game' && !g.done;
+  const hs = hint && hint.ver === g.ver ? hint : null;
+  let top = '';
+  for(let i=0;i<4;i++){
+    const c = g.cells[i], hl = hs && hs.to.p === 'l' && hs.to.i === i ? ' hint' : '';
+    top += `<div class="slot cell${hl}" data-drop="l${i}" data-l="">${c >= 0 ? cardHtml(c, (hs && hs.from.p === 'l' && hs.from.i === i ? 'hint' : '')).replace('class="card', `data-src="l${i}" class="card`) : ''}</div>`;
+  }
+  for(let s=0;s<4;s++){
+    const r = g.found[s], hl = hs && hs.to.p === 'f' && hs.suit === s ? ' hint' : '';
+    top += `<div class="slot found${hl}" data-drop="f${s}" data-l="${F.SUITS[s]}">${r ? cardHtml((r - 1) * 4 + s) : ''}</div>`;
+  }
+  // colunas: espaçamento encolhe para caber na altura
+  const colH = st.clientHeight - L.ch - L.gap - 70;
+  let cols = '';
+  for(let i=0;i<8;i++){
+    const col = g.cols[i], n = col.length;
+    const off = n > 1 ? Math.max(Math.round(L.ch * 0.16), Math.min(Math.round(L.ch * 0.3), Math.floor((colH - L.ch) / (n - 1)))) : 0;
+    const run = F.runLen(col), hl = hs && hs.to.p === 'c' && hs.to.i === i ? ' hint' : '';
+    let cards = '';
+    col.forEach((c, k) => {
+      const isH = hs && hs.from.p === 'c' && hs.from.i === i && k >= hs.from.k;
+      cards += cardHtml(c, isH ? 'hint' : '').replace('class="card', `data-src="c${i}:${k}" style="top:${k * off}px" class="card`);
+    });
+    cols += `<div class="col${hl}" data-drop="c${i}" data-run="${run}">${cards}</div>`;
+  }
+  st.innerHTML = `<div class="fcb"><div class="toprow">${top}</div><div class="tabrow">${cols}</div>
+    <div class="ctrl"><button class="tbtn" id="bUndo" ${g.undo && playing ? '' : 'disabled'}>↶ Desfazer</button>
+    <button class="tbtn" id="bHint" ${playing ? '' : 'disabled'}>💡 Dica</button>
+    <button class="tbtn" id="bRe" ${playing ? '' : 'disabled'}>🔁 Reiniciar</button>
+    <button class="tbtn" id="bNew" ${playing ? '' : 'disabled'}>🔀 Novo</button><button class="tbtn" id="bNum" ${playing ? '' : 'disabled'}>#️⃣ Nº</button>
+    <button class="tbtn" id="bGive" ${playing ? '' : 'disabled'}>🏳️</button></div></div>`;
+  // animação das cartas que mudaram de lugar
+  if(animate || Object.keys(prev).length) $$('.card[data-c]', st).forEach(e => {
+    const p = prev[e.dataset.c]; if(!p) return; const r = e.getBoundingClientRect();
+    if(Math.abs(p.left - r.left) + Math.abs(p.top - r.top) > 3) flyFrom(e, p, {dur:230});
+  });
+  if(g !== clk.g){ clk = {g, el:g.el, at:Date.now(), run:g.running && v.phase === 'game'}; }
+  paintClock();
+  $('#bUndo').onclick = () => ui.act({t:'undo'});
+  $('#bHint').onclick = () => showHint(ui);
+  $('#bRe').onclick = () => modal('<h2>Reiniciar?</h2><p>Volta ao começo deste mesmo jogo.</p>', [{label:'Reiniciar', fn:() => ui.act({t:'restart'})}, {label:'Continuar', cls:'b-no'}]);
+  $('#bNew').onclick = () => askNew(ui, null);
+  $('#bNum').onclick = () => {
+    const box = modal(`<h2>Escolher jogo</h2><p>Digite um número de 1 a ${MAXN}. O mesmo número sempre dá as mesmas cartas.</p>
+      <div class="numf"><input id="numIn" type="number" inputmode="numeric" min="1" max="${MAXN}" placeholder="${g.n}"></div>`,
+      [{label:'Jogar', keep:true, fn:() => { const n = +$('#numIn').value; if(!isInt(n, 1, MAXN)){ toast(`Escolha um número de 1 a ${MAXN}.`); return; } closeModal(); startNew(ui, n); }}, {label:'Cancelar', cls:'b-no'}]);
+    setTimeout(() => { const i = $('#numIn'); i && i.focus(); }, 60);
+    box.querySelector('#numIn').onkeydown = e => { if(e.key === 'Enter') box.querySelector('.b-ok').click(); };
+  };
+  $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A partida termina e conta como derrota.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  setupDrag(st, ui);
+}
+function startNew(ui, n){ ui.act({t:'new', n}); }
+function askNew(ui, n){
+  const g = ui.view && ui.view.game;
+  if(g && g.moves && !g.done) modal('<h2>Novo jogo?</h2><p>O jogo atual será abandonado.</p>', [{label:'Novo jogo', fn:() => startNew(ui, n)}, {label:'Continuar', cls:'b-no'}]);
+  else startNew(ui, n);
+}
+function paintClock(){ const c = $('#clock'); if(c) c.textContent = '⏱ ' + fmt(clk.el + (clk.run ? Date.now() - clk.at : 0)); }
+setInterval(paintClock, 1000);
+
+// dica: o solucionador procura uma solução a partir daqui (guarda o plano para as próximas)
+let plan = null;
+function showHint(ui){
+  const g = ui.view.game, S = {cols:g.cols.map(c => c.slice()), cells:g.cells.slice(), found:g.found.slice()}, key = F.keyOf(S);
+  let m = null;
+  const at = plan ? plan.keys.indexOf(key, plan.i) : -1;
+  if(at >= 0){ plan.i = at; m = plan.list[at]; }
+  else {
+    toast('Procurando solução…', 900);
+    setTimeout(() => {
+      const sol = F.solve(S, {nodes:150000, ms:2500, auto:g.auto});
+      if(!sol){
+        plan = null;
+        const any = F.gen(S).length;
+        modal(`<h2>💡 Sem solução daqui</h2><p>${any ? 'Não encontrei um caminho até o fim a partir desta posição. Tente <b>desfazer</b> algumas jogadas.' : 'Não há mais jogadas possíveis. Desfaça algumas jogadas ou reinicie.'}</p>`, [{label:'OK'}]);
+        return;
+      }
+      // guarda as posições esperadas ao longo do plano
+      const keys = [], T = F.clone(S);
+      for(const mv of sol){ keys.push(F.keyOf(T)); F.exec(T, mv); if(g.auto) F.autoUp(T); }
+      plan = {list:sol, keys, i:0};
+      showHint(ui);
+    }, 30);
+    return;
+  }
+  const suit = m.to.p === 'f' ? F.SU(m.from.p === 'l' ? g.cells[m.from.i] : g.cols[m.from.i][m.from.k]) : -1;
+  hint = {from:m.from, to:m.to, suit, ver:g.ver};
+  ui.act({t:'hint'});
+  ui.rerender();
+}
+
+/* ------------------------------ arrastar ------------------------------ */
+let dragFrom = {};
+const parseSrc = s => s[0] === 'l' ? {p:'l', i:+s.slice(1)} : {p:'c', i:+s.slice(1).split(':')[0], k:+s.split(':')[1]};
+const parseDrop = s => s[0] === 'f' ? {p:'f'} : {p:s[0] === 'l' ? 'l' : 'c', i:+s.slice(1)};
+function setupDrag(stage, ui){
+  if(stage._drag) return; stage._drag = true;
+  let D = null;
+  const cleanup = () => { if(!D) return; $$('.drag0', stage).forEach(e => e.classList.remove('drag0')); $$('.drop-on', stage).forEach(e => e.classList.remove('drop-on'));
+    const gh = $('#ghost'); gh && gh.remove(); D = null; };
+  stage.addEventListener('pointerdown', e => {
+    if(e.button > 0 || D) return;
+    const el = e.target.closest('[data-src]'); if(!el) return;
+    const v = ui.view; if(!v || v.phase !== 'game' || !v.game || v.game.done) return;
+    const from = parseSrc(el.dataset.src);
+    let els = [el];
+    if(from.p === 'c'){ const colEl = el.parentElement; els = [...colEl.querySelectorAll('.card')].slice(from.k); }
+    D = {x:e.clientX, y:e.clientY, id:e.pointerId, from, els, moved:false};
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', e => {
+    if(!D || e.pointerId !== D.id) return;
+    const dx = e.clientX - D.x, dy = e.clientY - D.y;
+    if(!D.moved){
+      if(Math.hypot(dx, dy) < 8) return;
+      // só sequências válidas podem ser arrastadas
+      if(D.from.p === 'c'){ const run = +D.els[0].parentElement.dataset.run, len = D.els[0].parentElement.querySelectorAll('.card').length;
+        if(len - D.from.k > run){ D.els[0].classList.add('shake'); setTimeout(() => D && D.els[0].classList.remove('shake'), 300); D.dead = true; } }
+      D.moved = true;
+      if(D.dead) return;
+      const gh = document.createElement('div'); gh.id = 'ghost';
+      gh.style.setProperty('--cw', stage.style.getPropertyValue('--cw')); gh.style.setProperty('--ch', stage.style.getPropertyValue('--ch'));
+      D.rects = D.els.map(x => x.getBoundingClientRect());
+      D.els.forEach((x, j) => { const c = x.cloneNode(true); c.classList.remove('hint'); c.style.left = D.rects[j].left + 'px'; c.style.top = D.rects[j].top + 'px'; gh.appendChild(c); x.classList.add('drag0'); });
+      document.body.appendChild(gh); D.gh = gh;
+    }
+    if(D.dead) return;
+    D.gh.style.transform = `translate(${dx}px,${dy}px)`; D.px = e.clientX; D.py = e.clientY;
+    D.dx = dx; D.dy = dy;
+    const z = zoneAt(stage, D);
+    $$('.drop-on', stage).forEach(x => x !== z && x.classList.remove('drop-on'));
+    if(z) z.classList.add('drop-on');
+  });
+  const up = e => {
+    if(!D || e.pointerId !== D.id) return;
+    const d = D;
+    if(!d.moved){ cleanup(); ui.act({t:'tap', from:d.from}); return; }
+    if(d.dead){ cleanup(); return; }
+    const z = zoneAt(stage, d);
+    if(z){
+      d.els.forEach((x, j) => { const r = d.rects[j]; dragFrom[x.dataset.c] = {left:r.left + d.dx, top:r.top + d.dy, width:r.width, height:r.height}; });
+      const to = parseDrop(z.dataset.drop);
+      cleanup();
+      if(to.p === 'f' && d.from.p === 'c' && d.els.length > 1){ toast('Só uma carta por vez vai para a fundação.'); dragFrom = {}; return; }
+      ui.act({t:'mv', from:d.from, to});
+      setTimeout(() => { dragFrom = {}; }, 50);
+    } else cleanup();
+  };
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', () => cleanup());
+}
+// destino: a área (coluna, célula, fundação) que mais se sobrepõe à carta arrastada
+function zoneAt(stage, D){
+  const r0 = D.rects[0], a = {l:r0.left + D.dx, t:r0.top + D.dy, r:r0.right + D.dx, b:r0.bottom + D.dy};
+  // primeiro: a área debaixo do dedo/ponteiro
+  for(const z of $$('[data-drop]', stage)){
+    const r = z.getBoundingClientRect(), bottom = z.classList.contains('col') ? r.top + 9999 : r.bottom;
+    if(D.px >= r.left && D.px <= r.right && D.py >= r.top && D.py <= bottom) return z;
+  }
+  let best = null, bestA = 0;
+  for(const z of $$('[data-drop]', stage)){
+    const r = z.getBoundingClientRect(), bottom = z.classList.contains('col') ? Math.max(r.bottom, r.top + 9999) : r.bottom;
+    const w = Math.min(a.r, r.right) - Math.max(a.l, r.left), h = Math.min(a.b, bottom) - Math.max(a.t, r.top);
+    if(w > 0 && h > 0 && w*h > bestA){ bestA = w*h; best = z; }
+  }
+  return best;
+}
+document.addEventListener('keydown', e => {
+  const ui = keyUi, v = ui && ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show')) return;
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); ui.act({t:'undo'}); }
+  else if(e.key === 'h' || e.key === 'H') showHint(ui);
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

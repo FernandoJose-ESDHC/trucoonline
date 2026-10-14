@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Imobiliário</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px}
+#stage.port{flex-direction:column;justify-content:flex-start;gap:6px;padding:5px}
+/* ---------- tabuleiro ---------- */
+.ib{position:relative;width:var(--B);height:var(--B);flex:none;background:#d9ecd9;border:4px solid #26402c;border-radius:10px;box-shadow:0 14px 30px rgba(0,0,0,.5);box-sizing:content-box;--u:calc(var(--B)/13)}
+.cq{position:absolute;background:#f7f3e6;border:1px solid #6d7d6a;color:#1f2a20;overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center}
+.cq .bar{position:absolute;background:var(--c)}
+.cq .tx{position:relative;font-size:max(6.5px,calc(var(--u)*.2));font-weight:800;line-height:1.05;padding:1px;overflow-wrap:anywhere;hyphens:auto;letter-spacing:-.2px}
+.cq.l .tx,.cq.r .tx{font-size:max(6.5px,calc(var(--u)*.23))}
+.cq .pr{display:block;font-weight:700;font-size:calc(var(--u)*.2);color:#4a5a48;margin-top:1px}
+.cq .ic{display:block;font-size:calc(var(--u)*.42);line-height:1}
+.cq.b .bar{left:0;right:0;top:0;height:22%} .cq.b .tx{margin-top:22%}
+.cq.t .bar{left:0;right:0;bottom:0;height:22%} .cq.t .tx{margin-bottom:22%}
+.cq.l .bar{top:0;bottom:0;right:0;width:22%} .cq.l .tx{margin-right:22%}
+.cq.r .bar{top:0;bottom:0;left:0;width:22%} .cq.r .tx{margin-left:22%}
+.cq.cor{background:#efe6c8}
+.cq.cor .tx{font-size:calc(var(--u)*.3)} .cq.cor .ic{font-size:calc(var(--u)*.8)}
+.cq .own{position:absolute;width:calc(var(--u)*.28);height:calc(var(--u)*.28);border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cq.b .own{bottom:2px;right:2px} .cq.t .own{top:2px;right:2px} .cq.l .own{top:2px;left:2px} .cq.r .own{top:2px;right:2px}
+.cq .hs{position:absolute;display:flex;gap:1px;z-index:2}
+.cq.b .hs{top:1px;left:0;right:0;justify-content:center} .cq.t .hs{bottom:1px;left:0;right:0;justify-content:center}
+.cq.l .hs{right:1px;top:0;bottom:0;flex-direction:column;justify-content:center} .cq.r .hs{left:1px;top:0;bottom:0;flex-direction:column;justify-content:center}
+.cq .hs i{width:calc(var(--u)*.17);height:calc(var(--u)*.17);background:#1f9a4a;border:1px solid #0b4b22;border-radius:2px}
+.cq .hs i.ht{width:calc(var(--u)*.34);background:#d4282f;border-color:#6b0b10}
+.cq.hip{background:repeating-linear-gradient(45deg,#e4ded0 0 5px,#cfc8b6 5px 10px)}
+.cq.hip .tx{opacity:.6}
+.cq.ult{box-shadow:inset 0 0 0 3px var(--gold)}
+.cq.sel{box-shadow:inset 0 0 0 3px #2f7fd8}
+.tok{position:absolute;width:calc(var(--u)*.46);height:calc(var(--u)*.46);border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.6);z-index:5;pointer-events:none;transition:left .09s linear,top .09s linear;display:grid;place-items:center;font-size:calc(var(--u)*.26);font-weight:900;color:#fff}
+.tok.vez{box-shadow:0 0 0 2px var(--gold),0 0 10px var(--gold)}
+/* ---------- centro ---------- */
+.ctr{position:absolute;left:calc(var(--u)*2);top:calc(var(--u)*2);width:calc(var(--u)*9);height:calc(var(--u)*9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--u)*.18);padding:calc(var(--u)*.25);text-align:center;color:#13301c}
+.logo{font-weight:900;font-size:calc(var(--u)*.62);color:#1d5c34;letter-spacing:2px;transform:rotate(-8deg);text-shadow:0 2px 0 rgba(255,255,255,.7);opacity:.85}
+.dados{display:flex;gap:calc(var(--u)*.3)}
+.dado{width:calc(var(--u)*1.05);height:calc(var(--u)*1.05);background:#fff;border-radius:18%;box-shadow:0 3px 0 #a9a08c,0 4px 8px rgba(0,0,0,.35);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:12%}
+.dado i{border-radius:50%;margin:12%} .dado i.on{background:#222}
+.dado.rol{animation:rol .5s ease-out}
+@keyframes rol{0%{transform:rotate(-200deg) scale(.6)}100%{transform:none}}
+.cmsg{font-size:calc(var(--u)*.31);font-weight:800;line-height:1.25;max-width:100%;min-height:1.2em}
+.carta{background:#fff8dc;border:2px solid #b08a2a;border-radius:10px;padding:calc(var(--u)*.15) calc(var(--u)*.25);font-size:calc(var(--u)*.29);font-weight:700;max-width:96%;box-shadow:0 3px 8px rgba(0,0,0,.3);animation:pop .3s}
+.carta b{display:block;color:#8a5a00;font-size:calc(var(--u)*.26);letter-spacing:1px}
+.carta.rv{background:#ffe9e4;border-color:#b0392a} .carta.rv b{color:#a02a1a}
+.btns2{display:flex;flex-wrap:wrap;gap:calc(var(--u)*.15);justify-content:center}
+.btns2 button{padding:calc(var(--u)*.17) calc(var(--u)*.3);border-radius:9px;border:none;font-weight:900;font-size:calc(var(--u)*.31);cursor:pointer;background:var(--gold);color:#3a2600;box-shadow:0 3px 0 var(--gold2);min-height:34px}
+.btns2 button.g{background:var(--nos);color:#06301a;box-shadow:0 3px 0 #0f6b3a}
+.btns2 button.c{background:#5b5b5b;color:#fff;box-shadow:0 3px 0 #2a2a2a}
+.btns2 button.r{background:var(--red);color:#fff;box-shadow:0 3px 0 #5a0e14}
+.btns2 button:disabled{opacity:.45}
+/* ---------- lado: jogadores ---------- */
+.iside{width:270px;display:flex;flex-direction:column;gap:6px;max-height:100%;min-height:0}
+#stage.port .iside{width:100%;max-width:var(--B);flex:1;min-height:0}
+.ipl{display:flex;flex-direction:column;gap:5px}
+#stage.port .ipl{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ip{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.35);border:2px solid transparent;border-radius:11px;padding:5px 9px;font-weight:800;font-size:14px;min-width:0}
+.ip.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.ip.fora{opacity:.45;text-decoration:line-through}
+.ip .sw{width:16px;height:16px;border-radius:50%;flex:none;border:2px solid #fff}
+.ip .nmx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ip .cash{color:#9ff0c0;white-space:nowrap}
+.ip .cash small{color:#cfe;font-weight:600;font-size:11px;margin-left:3px}
+#stage.port .ip{padding:3px 7px;font-size:12.5px;gap:5px}
+.ilog{flex:1;min-height:60px;overflow:auto;background:rgba(0,0,0,.28);border-radius:10px;padding:6px 9px;font-size:12.5px;line-height:1.45;color:#e3f3ea}
+.ilog div{padding:1px 0}
+.itools{display:flex;gap:6px}
+.itools button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer}
+/* ---------- modais ---------- */
+.pcard{border-radius:10px;overflow:hidden;border:2px solid #333;background:#fffdf3;color:#222;margin:4px 0 10px}
+.pcard .hd{padding:8px;text-align:center;font-weight:900;font-size:18px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.pcard table{width:100%;font-size:14px;color:#222;margin:0}
+.pcard td{border:none;border-bottom:1px solid #e5dfcc;padding:3px 10px}
+.pcard td:last-child{text-align:right;font-weight:800}
+.pcard tr.on td{background:#ffe9a8}
+.tr-g{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.tr-g button{padding:6px 9px;border-radius:9px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.tr-g button i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.tr-g button.on{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.tr-m{display:flex;align-items:center;gap:8px;margin:4px 0 8px;font-size:14px}
+.tr-m input{width:110px;padding:8px;border-radius:8px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;font-size:16px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ================================ IMOBILIÁRIO ================================
+   Tabuleiro próprio de 40 casas com bairros de cidades brasileiras, 8 grupos de cores,
+   4 transportes, 2 companhias, Sorte/Revés com cartas próprias, prisão, impostos,
+   hipoteca, casas/hotéis, negociação entre jogadores, leilão opcional e falência. */
+const GRUPOS = [
+  {n:'Marrom', c:'#8b5a2b', h:50}, {n:'Celeste', c:'#7cc8ef', h:50}, {n:'Rosa', c:'#d6458f', h:100}, {n:'Laranja', c:'#f08a1c', h:100},
+  {n:'Vermelho', c:'#d8262e', h:150}, {n:'Amarelo', c:'#f2d024', h:150}, {n:'Verde', c:'#1e9a4a', h:200}, {n:'Azul', c:'#1d4fae', h:200}
+];
+const MULT = [1, 5, 14, 38, 50, 60];          // aluguel = base × MULT[casas] (5 = hotel)
+const P = (n, g, p) => ({t:'prop', n, g, p, base:Math.max(2, Math.round(p * 0.08))});
+const SQ = [
+  {t:'partida', n:'Partida', ic:'➡️'}, P('Vila Nova',0,60), {t:'reves', n:'Revés', ic:'❗'}, P('Bairro Alto',0,60), {t:'imp', n:'Imposto de Renda', ic:'💸', v:200},
+  {t:'trans', n:'Rodoviária', ic:'🚌', p:200}, P('Pampulha',1,100), {t:'sorte', n:'Sorte', ic:'❓'}, P('Savassi',1,100), P('Lourdes',1,120),
+  {t:'prisao', n:'Prisão', ic:'🚔'}, P('Pelourinho',2,140), {t:'util', n:'Cia. de Luz', ic:'💡', p:150}, P('Rio Vermelho',2,140), P('Ondina',2,160),
+  {t:'trans', n:'Ferrovia', ic:'🚆', p:200}, P('Boa Viagem',3,180), {t:'reves', n:'Revés', ic:'❗'}, P('Olinda',3,180), P('Casa Forte',3,200),
+  {t:'livre', n:'Feriado', ic:'🏖️'}, P('Meireles',4,220), {t:'sorte', n:'Sorte', ic:'❓'}, P('Iracema',4,220), P('Aldeota',4,240),
+  {t:'trans', n:'Aeroporto', ic:'✈️', p:200}, P('Moinhos',5,260), P('Bela Vista',5,260), {t:'util', n:'Cia. de Água', ic:'🚰', p:150}, P('Cidade Baixa',5,280),
+  {t:'vaprisao', n:'Vá para a prisão', ic:'👮'}, P('Batel',6,300), P('Ecoville',6,300), {t:'reves', n:'Revés', ic:'❗'}, P('Água Verde',6,320),
+  {t:'trans', n:'Porto', ic:'⚓', p:200}, {t:'sorte', n:'Sorte', ic:'❓'}, P('Lago Sul',7,350), {t:'imp', n:'IPTU', ic:'🏛️', v:100}, P('Jurerê',7,400)
+];
+const COMPRAVEL = i => ['prop','trans','util'].includes(SQ[i].t);
+const GSQ = GRUPOS.map((g,k) => SQ.map((q,i) => i).filter(i => SQ[i].t === 'prop' && SQ[i].g === k));
+const TRANS = SQ.map((q,i) => i).filter(i => SQ[i].t === 'trans'), UTILS = SQ.map((q,i) => i).filter(i => SQ[i].t === 'util');
+const SALARIO = 200, INICIAL = 1500, FIANCA = 50;
+const CORES_J = ['#e53935','#1e88e5','#fdd835','#43a047','#8e24aa','#fb8c00'];
+const SORTE = [
+  {x:'Avance até a Partida e receba R$ 200.', f:'vai', i:0},
+  {x:'Seu bolo ganhou o concurso da quermesse! Receba R$ 50.', f:'ganha', v:50},
+  {x:'Restituição do imposto de renda: receba R$ 80.', f:'ganha', v:80},
+  {x:'Você vendeu seu carro antigo. Receba R$ 120.', f:'ganha', v:120},
+  {x:'É seu aniversário! Cada jogador te dá R$ 20.', f:'deCada', v:20},
+  {x:'Viagem a Fortaleza: avance até Aldeota.', f:'vai', i:24},
+  {x:'Pegue o transporte mais próximo (avance até ele).', f:'transp'},
+  {x:'Passeio em BH: avance até Pampulha.', f:'vai', i:6},
+  {x:'Habeas corpus: saia da prisão de graça. Guarde esta carta.', f:'saida'},
+  {x:'Herança de uma tia distante: receba R$ 100.', f:'ganha', v:100},
+  {x:'Rendimento da poupança: receba R$ 50.', f:'ganha', v:50},
+  {x:'Férias no litoral: avance até Jurerê.', f:'vai', i:39},
+  {x:'Você acertou a quina! Receba R$ 150.', f:'ganha', v:150},
+  {x:'Pegue um voo: avance até o Aeroporto.', f:'vai', i:25},
+  {x:'Bônus de produtividade no trabalho: receba R$ 100.', f:'ganha', v:100},
+  {x:'Esqueceu a carteira: volte 3 casas.', f:'volta', v:3}
+];
+const REVES = [
+  {x:'Vá direto para a prisão, sem passar pela Partida.', f:'prisao'},
+  {x:'Multa por excesso de velocidade: pague R$ 30.', f:'paga', v:30},
+  {x:'O carro quebrou na estrada: pague R$ 100.', f:'paga', v:100},
+  {x:'Mensalidade da escola: pague R$ 150.', f:'paga', v:150},
+  {x:'Reforma geral: pague R$ 25 por casa e R$ 100 por hotel.', f:'reparos', a:25, b:100},
+  {x:'Consulta no dentista: pague R$ 50.', f:'paga', v:50},
+  {x:'Você foi eleito síndico: pague R$ 30 a cada jogador.', f:'paraCada', v:30},
+  {x:'Um amigo devolveu o empréstimo: receba R$ 100.', f:'ganha', v:100},
+  {x:'IPTU atrasado: pague R$ 40 por casa e R$ 115 por hotel.', f:'reparos', a:40, b:115},
+  {x:'Seu celular caiu no rio: pague R$ 60.', f:'paga', v:60},
+  {x:'Conta de luz do verão: pague R$ 45.', f:'paga', v:45},
+  {x:'Taxa extra do condomínio: pague R$ 70.', f:'paga', v:70},
+  {x:'Presente de aniversário da sogra: pague R$ 35.', f:'paga', v:35},
+  {x:'Ganhou uma rifa da escola: receba R$ 25.', f:'ganha', v:25},
+  {x:'Habeas corpus: saia da prisão de graça. Guarde esta carta.', f:'saida'},
+  {x:'Perdeu o ônibus: volte 3 casas.', f:'volta', v:3}
+];
+const fmt = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const ativos = st => st.names.map((x,i) => i).filter(i => !st.fora[i]);
+const SPD = () => clamp((typeof CFG !== 'undefined' && CFG.speed) || 1, 0.002, 2);
+const clock = () => Date.now();
+
+/* ================================ regras ================================ */
+const donoGrupo = (st, g) => { const o = st.dono[GSQ[g][0]]; return o >= 0 && GSQ[g].every(i => st.dono[i] === o) ? o : -1; };
+const qtd = (st, p, lista) => lista.filter(i => st.dono[i] === p).length;
+function aluguel(st, i, soma){
+  const q = SQ[i], o = st.dono[i];
+  if(o < 0 || st.hip[i]) return 0;
+  if(q.t === 'prop') return st.casas[i] ? q.base * MULT[st.casas[i]] : q.base * (donoGrupo(st, q.g) === o ? 2 : 1);
+  if(q.t === 'trans') return 25 * Math.pow(2, qtd(st, o, TRANS) - 1);
+  if(q.t === 'util') return (soma || 7) * (qtd(st, o, UTILS) === 2 ? 10 : 4);
+  return 0;
+}
+const hipVal = i => SQ[i].p / 2, resgVal = i => Math.ceil(SQ[i].p * 0.55);
+const grupoTemCasa = (st, g) => GSQ[g].some(i => st.casas[i] > 0);
+function podeConstruir(st, p, i){
+  const q = SQ[i]; if(q.t !== 'prop' || st.dono[i] !== p) return 'Não é sua.';
+  if(donoGrupo(st, q.g) !== p) return 'Precisa ter o grupo inteiro.';
+  if(GSQ[q.g].some(j => st.hip[j])) return 'Há imóvel hipotecado no grupo.';
+  if(st.casas[i] >= 5) return 'Já tem hotel.';
+  if(GSQ[q.g].some(j => st.casas[j] < st.casas[i])) return 'Construa por igual no grupo.';
+  if(st.cash[p] < GRUPOS[q.g].h) return 'Dinheiro insuficiente.';
+  return null;
+}
+function podeVender(st, p, i){
+  const q = SQ[i]; if(q.t !== 'prop' || st.dono[i] !== p || !st.casas[i]) return 'Não há casa para vender.';
+  if(GSQ[q.g].some(j => st.casas[j] > st.casas[i])) return 'Venda por igual no grupo.';
+  return null;
+}
+function podeHipotecar(st, p, i){
+  if(!COMPRAVEL(i) || st.dono[i] !== p) return 'Não é sua.';
+  if(st.hip[i]) return 'Já está hipotecada.';
+  if(SQ[i].t === 'prop' && grupoTemCasa(st, SQ[i].g)) return 'Venda as casas do grupo antes.';
+  return null;
+}
+function podeResgatar(st, p, i){
+  if(!COMPRAVEL(i) || st.dono[i] !== p || !st.hip[i]) return 'Não está hipotecada.';
+  if(st.cash[p] < resgVal(i)) return 'Dinheiro insuficiente.';
+  return null;
+}
+// quanto o jogador consegue levantar vendendo tudo
+function liquidez(st, p){
+  let v = st.cash[p];
+  SQ.forEach((q,i) => { if(st.dono[i] === p){ if(q.t === 'prop') v += st.casas[i] * GRUPOS[q.g].h / 2; if(!st.hip[i]) v += hipVal(i); } });
+  return v;
+}
+function patrimonio(st, p){
+  let v = st.cash[p];
+  SQ.forEach((q,i) => { if(st.dono[i] === p){ v += st.hip[i] ? q.p / 2 : q.p; if(q.t === 'prop') v += st.casas[i] * GRUPOS[q.g].h; } });
+  return v;
+}
+const nome = (st, p) => st.names[p];
+function log(st, x){ st.log.push(x); if(st.log.length > 40) st.log.shift(); }
+
+/* ----- dinheiro e dívidas ----- */
+function cobra(st, p, v, cred, ev, motivo){
+  v = Math.round(v); if(v <= 0) return;
+  if(st.cash[p] >= v){ paga(st, p, v, cred); log(st, `${esc(nome(st,p))} pagou ${fmt(v)}${motivo ? ' ' + motivo : ''}.`); ev.push({k:'snd', s:'card'}); return; }
+  st.divida = {p, v, cred, motivo:motivo || ''};
+  st.fase = 'divida';
+  log(st, `${esc(nome(st,p))} deve ${fmt(v)}${motivo ? ' ' + motivo : ''} e precisa levantar dinheiro.`);
+  ev.push({k:'toast', seat:p, text:`Você deve ${fmt(v)}: hipoteque ou venda casas, ou declare falência.`}, {k:'snd', s:'alert'});
+}
+function paga(st, p, v, cred){
+  st.cash[p] -= v;
+  if(cred >= 0) st.cash[cred] += v;
+  else if(cred === -2){ const o = ativos(st).filter(x => x !== p); o.forEach(x => st.cash[x] += Math.floor(v / o.length)); }
+}
+function falir(st, p, ev){
+  const d = st.divida, cred = d && d.p === p ? d.cred : -1;
+  // casas voltam ao banco pela metade do preço
+  SQ.forEach((q,i) => { if(st.dono[i] === p && st.casas[i]){ st.cash[p] += st.casas[i] * GRUPOS[q.g].h / 2; st.casas[i] = 0; } });
+  if(cred >= 0){
+    st.cash[cred] += Math.max(0, st.cash[p]);
+    SQ.forEach((q,i) => { if(st.dono[i] === p) st.dono[i] = cred; });
+    log(st, `💥 ${esc(nome(st,p))} faliu! Tudo vai para ${esc(nome(st,cred))}.`);
+  } else {
+    if(cred === -2){ const o = ativos(st).filter(x => x !== p); o.forEach(x => st.cash[x] += Math.floor(Math.max(0, st.cash[p]) / o.length)); }
+    SQ.forEach((q,i) => { if(st.dono[i] === p){ st.dono[i] = -1; st.hip[i] = false; } });
+    log(st, `💥 ${esc(nome(st,p))} faliu! Os imóveis voltam para o banco.`);
+  }
+  st.cash[p] = 0; st.fora[p] = true; st.divida = null;
+  st.saida[p].forEach(dk => st[dk].push(dk === 'dsorte' ? 8 : 14)); st.saida[p] = [];
+  ev.push({k:'banner', text:`${nome(st,p)} faliu!`, bad:true}, {k:'snd', s:'lose'});
+  if(st.vez === p) proxVez(st, ev);
+  else st.fase = st.aposDiv || 'pos';
+}
+
+/* ----- movimento ----- */
+function anda(st, p, para, ev, salario = true){
+  if(salario && para < st.pos[p] && para !== st.pos[p]){ st.cash[p] += SALARIO; log(st, `${esc(nome(st,p))} passou pela Partida: +${fmt(SALARIO)}.`); }
+  st.pos[p] = para; st.ult = para;
+}
+function prende(st, p, ev){
+  st.pos[p] = 10; st.preso[p] = 1; st.dup = 0; st.ult = 10;
+  log(st, `🚔 ${esc(nome(st,p))} foi para a prisão.`);
+  ev.push({k:'banner', text:'Prisão!', bad:true}, {k:'snd', s:'alert'});
+}
+// o que acontece ao parar na casa
+function cai(st, p, ev, soma){
+  const i = st.pos[p], q = SQ[i];
+  if(COMPRAVEL(i)){
+    const o = st.dono[i];
+    if(o < 0){ st.fase = 'compra'; st.compra = i; return; }
+    if(o !== p){
+      if(st.hip[i]) { log(st, `${esc(q.n)} está hipotecado: sem aluguel.`); return; }
+      const v = aluguel(st, i, soma);
+      cobra(st, p, v, o, ev, `de aluguel a ${esc(nome(st,o))} (${esc(q.n)})`);
+      if(st.fase !== 'divida') ev.push({k:'aluguel', seat:p, v});
+    }
+    return;
+  }
+  if(q.t === 'imp') cobra(st, p, q.v, -1, ev, `de ${q.n}`);
+  else if(q.t === 'vaprisao') prende(st, p, ev);
+  else if(q.t === 'sorte' || q.t === 'reves') carta(st, p, q.t, ev, soma);
+}
+function carta(st, p, tipo, ev, soma){
+  const dk = tipo === 'sorte' ? 'dsorte' : 'dreves', deck = tipo === 'sorte' ? SORTE : REVES;
+  const k = st[dk].shift(), c = deck[k];
+  if(c.f !== 'saida') st[dk].push(k);
+  st.carta = {tipo, x:c.x, seq:++st.seq};
+  log(st, `${tipo === 'sorte' ? '🍀 Sorte' : '⚡ Revés'} para ${esc(nome(st,p))}: ${esc(c.x)}`);
+  ev.push({k:'snd', s:'deal'});
+  switch(c.f){
+    case 'ganha': st.cash[p] += c.v; break;
+    case 'paga': cobra(st, p, c.v, -1, ev, ''); break;
+    case 'deCada': ativos(st).forEach(x => { if(x !== p){ const v = Math.min(c.v, Math.max(0, st.cash[x])); st.cash[x] -= v; st.cash[p] += v; } }); break;
+    case 'paraCada': { const o = ativos(st).filter(x => x !== p); cobra(st, p, c.v * o.length, -2, ev, 'aos outros jogadores'); break; }
+    case 'reparos': { let v = 0; SQ.forEach((q,i) => { if(st.dono[i] === p && st.casas[i]) v += st.casas[i] === 5 ? c.b : st.casas[i] * c.a; }); cobra(st, p, v, -1, ev, 'de reforma'); break; }
+    case 'saida': st.saida[p].push(dk); break;
+    case 'prisao': prende(st, p, ev); break;
+    case 'vai': anda(st, p, c.i, ev); cai(st, p, ev, soma); break;
+    case 'transp': { const t = TRANS.find(i => i > st.pos[p]); anda(st, p, t == null ? TRANS[0] : t, ev); cai(st, p, ev, soma); break; }
+    case 'volta': { st.pos[p] = (st.pos[p] + 40 - c.v) % 40; st.ult = st.pos[p]; cai(st, p, ev, soma); break; }
+  }
+}
+// depois de resolver a casa: joga de novo (dupla) ou fica na fase de encerrar
+function posResolucao(st){
+  const prox = st.dup > 0 && !st.preso[st.vez] && !st.fora[st.vez] ? 'rolar' : 'pos';
+  if(st.fase === 'divida' || st.fase === 'compra' || st.fase === 'leilao'){ st.aposDiv = prox; return; }
+  st.fase = prox;
+}
+function proxVez(st, ev){
+  const at = ativos(st); if(at.length <= 1){ st.fase = 'fim'; return; }
+  let v = st.vez;
+  do { v = (v + 1) % st.n; } while(st.fora[v]);
+  if(v <= st.vez) st.rodada++;
+  st.vez = v; st.dup = 0; st.fase = 'rolar'; st.tentou = 0; st.carta = null; st.turnos++;
+  if(st.limR && st.rodada > st.limR) st.acabou = true;
+  if(st.limT && clock() >= st.limT) st.acabou = true;
+  if(st.acabou) st.fase = 'fim';
+}
+function rola(st, p, ev){
+  const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+  st.dados = [a, b, ++st.seq]; ev.push({k:'snd', s:'card'});
+  const dupla = a === b, soma = a + b;
+  if(st.preso[p]){
+    if(dupla){ st.preso[p] = 0; st.dup = 0; log(st, `${esc(nome(st,p))} tirou dupla e saiu da prisão!`); }
+    else if(st.preso[p] >= 3){ st.preso[p] = 0; log(st, `${esc(nome(st,p))} cumpriu a pena e paga a fiança.`); cobra(st, p, FIANCA, -1, ev, 'de fiança');
+      if(st.fase === 'divida'){ st.aposDiv = 'pos'; return; } }
+    else { st.preso[p]++; log(st, `${esc(nome(st,p))} tirou ${a} e ${b} e continua preso.`); st.fase = 'pos'; return; }
+    anda(st, p, (st.pos[p] + soma) % 40, ev); cai(st, p, ev, soma);
+    st.dup = 0; posResolucao(st); return;
+  }
+  if(dupla){ st.dup++; if(st.dup >= 3){ log(st, `${esc(nome(st,p))} tirou três duplas seguidas!`); prende(st, p, ev); st.fase = 'pos'; return; } }
+  else st.dup = 0;
+  log(st, `${esc(nome(st,p))} tirou ${a} + ${b}${dupla ? ' (dupla!)' : ''}.`);
+  anda(st, p, (st.pos[p] + soma) % 40, ev);
+  cai(st, p, ev, soma);
+  posResolucao(st);
+}
+function compra(st, p, i, preco, ev){
+  st.cash[p] -= preco; st.dono[i] = p;
+  log(st, `🏠 ${esc(nome(st,p))} comprou ${esc(SQ[i].n)} por ${fmt(preco)}.`);
+  ev.push({k:'snd', s:'win'});
+  if(SQ[i].t === 'prop' && donoGrupo(st, SQ[i].g) === p) ev.push({k:'banner', text:`Grupo ${GRUPOS[SQ[i].g].n} completo!`});
+}
+function iniciaLeilao(st, i, ev){
+  const vez = st.vez, at = ativos(st), k = at.indexOf(vez);
+  const ordem = at.slice(k + 1).concat(at.slice(0, k + 1));
+  st.leilao = {i, lance:0, quem:-1, at:ordem, k:0};
+  st.fase = 'leilao';
+  log(st, `🔨 Leilão de ${esc(SQ[i].n)}!`);
+  ev.push({k:'snd', s:'alert'});
+}
+function fimLeilao(st, ev){
+  const L = st.leilao;
+  if(L.quem >= 0){ compra(st, L.quem, L.i, L.lance, ev); }
+  else log(st, `Ninguém quis ${esc(SQ[L.i].n)}.`);
+  st.leilao = null; st.fase = st.aposDiv || 'pos'; st.aposDiv = null;
+}
+function trocaValida(st, o){
+  const ok = (lst, p) => Array.isArray(lst) && lst.length <= 28 && new Set(lst).size === lst.length && lst.every(i => Number.isInteger(i) && i >= 0 && i < 40 && COMPRAVEL(i) && st.dono[i] === p && !(SQ[i].t === 'prop' && grupoTemCasa(st, SQ[i].g)));
+  if(!ok(o.dP, o.de) || !ok(o.pP, o.para)) return 'Imóvel inválido (só sem casas no grupo).';
+  if(![o.dM, o.pM].every(v => Number.isInteger(v) && v >= 0)) return 'Valor inválido.';
+  if(o.dM > st.cash[o.de]) return 'Você não tem esse dinheiro.';
+  if(o.pM > st.cash[o.para]) return `${nome(st, o.para)} não tem esse dinheiro.`;
+  if(!o.dP.length && !o.pP.length) return 'A troca precisa ter algum imóvel.';
+  return null;
+}
+function fazTroca(st, o){
+  o.dP.forEach(i => st.dono[i] = o.para); o.pP.forEach(i => st.dono[i] = o.de);
+  st.cash[o.de] += o.pM - o.dM; st.cash[o.para] += o.dM - o.pM;
+}
+
+/* ================================ ações ================================ */
+function doAct(st, s, a){
+  if(!a || typeof a !== 'object') return {ok:false, err:'Ação inválida.'};
+  const ev = [], i = a.i;
+  if(st.fase === 'fim') return {ok:false, err:'A partida acabou.'};
+  // gestão de imóveis: na sua vez (ou em dívida)
+  const gerindo = (st.fase === 'divida' && st.divida.p === s) || (s === st.vez && ['rolar','pos','compra'].includes(st.fase));
+  switch(a.t){
+    case 'rolar':
+      if(s !== st.vez || st.fase !== 'rolar') return {ok:false, err:'Agora não dá para rolar.'};
+      rola(st, s, ev); return {events:ev, pause:900};
+    case 'fianca':
+      if(s !== st.vez || st.fase !== 'rolar' || !st.preso[s]) return {ok:false, err:'Você não está preso.'};
+      if(st.cash[s] < FIANCA) return {ok:false, err:'Dinheiro insuficiente.'};
+      st.cash[s] -= FIANCA; st.preso[s] = 0; log(st, `${esc(nome(st,s))} pagou a fiança.`); return {events:[{k:'snd', s:'card'}]};
+    case 'carta':
+      if(s !== st.vez || st.fase !== 'rolar' || !st.preso[s] || !st.saida[s].length) return {ok:false, err:'Sem carta para usar.'};
+      { const dk = st.saida[s].shift(); st[dk].push(dk === 'dsorte' ? 8 : 14); }
+      st.preso[s] = 0; log(st, `${esc(nome(st,s))} usou o habeas corpus.`); return {events:[{k:'snd', s:'card'}]};
+    case 'comprar':
+      if(s !== st.vez || st.fase !== 'compra') return {ok:false, err:'Nada para comprar.'};
+      if(st.cash[s] < SQ[st.compra].p) return {ok:false, err:'Dinheiro insuficiente (hipoteque algo antes).'};
+      compra(st, s, st.compra, SQ[st.compra].p, ev); st.compra = null; st.fase = st.aposDiv || 'pos'; st.aposDiv = null; return {events:ev};
+    case 'recusar':
+      if(s !== st.vez || st.fase !== 'compra') return {ok:false, err:'Nada para recusar.'};
+      { const c = st.compra; st.compra = null;
+        if(st.leilaoOn) iniciaLeilao(st, c, ev); else { log(st, `${esc(nome(st,s))} não comprou ${esc(SQ[c].n)}.`); st.fase = st.aposDiv || 'pos'; st.aposDiv = null; } }
+      return {events:ev};
+    case 'lance': case 'passar': {
+      const L = st.leilao;
+      if(st.fase !== 'leilao' || !L || L.at[L.k] !== s) return {ok:false, err:'Não é sua vez no leilão.'};
+      if(a.t === 'lance'){
+        const v = a.v;
+        if(!Number.isInteger(v) || v <= L.lance || v > st.cash[s]) return {ok:false, err:'Lance inválido.'};
+        L.lance = v; L.quem = s; L.k = (L.k + 1) % L.at.length;
+        log(st, `${esc(nome(st,s))} deu ${fmt(v)}.`); ev.push({k:'say', seat:s, text:fmt(v)}, {k:'snd', s:'card'});
+      } else {
+        L.at.splice(L.k, 1); if(L.k >= L.at.length) L.k = 0;
+        ev.push({k:'say', seat:s, text:'Passo'});
+      }
+      if(!L.at.length || (L.at.length === 1 && L.quem === L.at[0])) fimLeilao(st, ev);
+      else if(L.at[L.k] === L.quem && L.at.length === 1) fimLeilao(st, ev);
+      return {events:ev};
+    }
+    case 'construir': case 'vender': case 'hipotecar': case 'resgatar': {
+      if(!gerindo) return {ok:false, err:'Só na sua vez.'};
+      if(!Number.isInteger(i) || i < 0 || i >= 40) return {ok:false, err:'Casa inválida.'};
+      const q = SQ[i];
+      if(a.t === 'construir'){ const e = st.fase === 'divida' ? 'Pague a dívida antes.' : podeConstruir(st, s, i); if(e) return {ok:false, err:e};
+        st.cash[s] -= GRUPOS[q.g].h; st.casas[i]++; log(st, `🔨 ${esc(nome(st,s))} construiu ${st.casas[i] === 5 ? 'um hotel' : 'uma casa'} em ${esc(q.n)}.`); ev.push({k:'snd', s:'move'}); }
+      else if(a.t === 'vender'){ const e = podeVender(st, s, i); if(e) return {ok:false, err:e};
+        st.casas[i]--; st.cash[s] += GRUPOS[q.g].h / 2; log(st, `${esc(nome(st,s))} vendeu uma construção em ${esc(q.n)}.`); }
+      else if(a.t === 'hipotecar'){ const e = podeHipotecar(st, s, i); if(e) return {ok:false, err:e};
+        st.hip[i] = true; st.cash[s] += hipVal(i); log(st, `${esc(nome(st,s))} hipotecou ${esc(q.n)} (+${fmt(hipVal(i))}).`); }
+      else { const e = st.fase === 'divida' ? 'Pague a dívida antes.' : podeResgatar(st, s, i); if(e) return {ok:false, err:e};
+        st.hip[i] = false; st.cash[s] -= resgVal(i); log(st, `${esc(nome(st,s))} resgatou ${esc(q.n)}.`); }
+      return {events:ev};
+    }
+    case 'pagar': {
+      const d = st.divida;
+      if(st.fase !== 'divida' || !d || d.p !== s) return {ok:false, err:'Você não tem dívida.'};
+      if(st.cash[s] < d.v) return {ok:false, err:'Ainda falta dinheiro.'};
+      paga(st, s, d.v, d.cred); log(st, `${esc(nome(st,s))} quitou a dívida de ${fmt(d.v)}.`);
+      st.divida = null; st.fase = st.aposDiv || 'pos'; st.aposDiv = null;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    case 'falir':
+      if(st.fase !== 'divida' || !st.divida || st.divida.p !== s) return {ok:false, err:'Só com dívida.'};
+      falir(st, s, ev); return {events:ev};
+    case 'propor': {
+      if(s !== st.vez || !['rolar','pos'].includes(st.fase)) return {ok:false, err:'Só na sua vez.'};
+      const para = a.para;
+      if(!Number.isInteger(para) || para === s || para < 0 || para >= st.n || st.fora[para]) return {ok:false, err:'Escolha um jogador.'};
+      if(st.tentou >= 3) return {ok:false, err:'Máximo de 3 propostas por vez.'};
+      const o = {de:s, para, dP:a.dP, dM:a.dM | 0, pP:a.pP, pM:a.pM | 0, volta:st.fase};
+      if(a.dM !== o.dM || a.pM !== o.pM) return {ok:false, err:'Valor inválido.'};
+      const e = trocaValida(st, o); if(e) return {ok:false, err:e};
+      st.tentou++; st.oferta = o; st.fase = 'oferta';
+      log(st, `🤝 ${esc(nome(st,s))} propôs uma troca a ${esc(nome(st,para))}.`);
+      return {events:[{k:'snd', s:'alert'}]};
+    }
+    case 'responder': {
+      const o = st.oferta;
+      if(st.fase !== 'oferta' || !o || o.para !== s) return {ok:false, err:'Nenhuma proposta para você.'};
+      st.fase = o.volta; st.oferta = null;
+      if(a.ok && !trocaValida(st, o)){ fazTroca(st, o); log(st, `✅ ${esc(nome(st,s))} aceitou a troca.`); ev.push({k:'say', seat:s, text:'Negócio fechado!'}, {k:'snd', s:'win'}); }
+      else { log(st, `❌ ${esc(nome(st,s))} recusou a troca.`); ev.push({k:'say', seat:s, text:'Não, obrigado.'});
+        st.recusas[o.de + '>' + o.para + ':' + o.pP.join(',')] = st.turnos; }
+      return {events:ev};
+    }
+    case 'encerrar':
+      if(s !== st.vez || st.fase !== 'pos') return {ok:false, err:'Agora não dá para passar a vez.'};
+      proxVez(st, ev); return {events:ev};
+  }
+  return {ok:false, err:'Ação inválida.'};
+}
+
+/* ================================ bots ================================ */
+// valor de um imóvel para o jogador p (considera grupos e bloqueios)
+const PESO_G = [0.8, 1.0, 1.05, 1.25, 1.2, 1.05, 1.0, 1.05];
+function valor(st, p, i, d, semI){
+  const q = SQ[i]; let v = q.p;
+  if(q.t === 'prop'){
+    const g = GSQ[q.g], meus = g.filter(j => j !== i && st.dono[j] === p && !(semI && semI.includes(j))).length, outros = g.filter(j => j !== i && st.dono[j] >= 0 && st.dono[j] !== p);
+    if(meus === g.length - 1) v *= d === 'facil' ? 1.6 : 2.6 * PESO_G[q.g];
+    else if(meus > 0 && !outros.length) v *= 1.35;
+    const op = outros.length && outros.every(j => st.dono[j] === st.dono[outros[0]]) && outros.length === g.length - 1;
+    if(op) v *= d === 'facil' ? 1.1 : 1.7;            // impede o grupo de alguém
+  } else if(q.t === 'trans') v *= 1 + 0.25 * qtd(st, p, TRANS);
+  else v *= 0.75 + 0.2 * qtd(st, p, UTILS);
+  return v;
+}
+// maior aluguel que o jogador pode pagar ao andar (perigo do tabuleiro)
+function perigo(st, p){
+  let m = 0; SQ.forEach((q,i) => { if(st.dono[i] >= 0 && st.dono[i] !== p) m = Math.max(m, aluguel(st, i, 8)); }); return m;
+}
+function reserva(st, p, d){
+  const pg = perigo(st, p);
+  if(d === 'facil') return 60;
+  return 40 + pg * (d === 'dificil' ? 0.35 : 0.3) * 0.5;
+  return Math.min(450, 50 + pg * 0.55 + (st.rodada > 8 ? 60 : 0));
+}
+const dif = (st, s) => (st.dl ? st.dl[s] : st.diff);
+function botHipotecaPara(st, s, alvo){
+  // ordem: imóveis soltos baratos → casas (do maior para o menor) → grupos completos
+  const meus = SQ.map((q,i) => i).filter(i => st.dono[i] === s);
+  const soltos = meus.filter(i => !st.hip[i] && !podeHipotecar(st, s, i) && !(SQ[i].t === 'prop' && donoGrupo(st, SQ[i].g) === s)).sort((a,b) => valor(st, s, a, 'normal') - valor(st, s, b, 'normal'));
+  if(soltos.length) return {t:'hipotecar', i:soltos[0]};
+  const casas = meus.filter(i => !podeVender(st, s, i)).sort((a,b) => st.casas[b] - st.casas[a] || SQ[a].p - SQ[b].p);
+  if(casas.length) return {t:'vender', i:casas[0]};
+  const resto = meus.filter(i => !podeHipotecar(st, s, i)).sort((a,b) => SQ[a].p - SQ[b].p);
+  if(resto.length) return {t:'hipotecar', i:resto[0]};
+  return null;
+}
+function botGestao(st, s, d){
+  // resgata hipotecas quando sobra dinheiro (grupos completos primeiro)
+  const res = reserva(st, s, d);
+  if(d !== 'facil' || Math.random() < 0.5){
+    const hip = SQ.map((q,i) => i).filter(i => st.dono[i] === s && st.hip[i] && st.cash[s] - resgVal(i) > res + (d === 'dificil' ? 400 : 150))
+      .sort((a,b) => (SQ[b].t === 'prop' && donoGrupo(st, SQ[b].g) === s) - (SQ[a].t === 'prop' && donoGrupo(st, SQ[a].g) === s));
+    if(hip.length) return {t:'resgatar', i:hip[0]};
+  }
+  // constrói por igual, priorizando até 3 casas nos melhores grupos
+  const opts = SQ.map((q,i) => i).filter(i => !podeConstruir(st, s, i) && st.cash[s] - GRUPOS[SQ[i].g].h >= (d === 'facil' ? 250 + Math.random() * 300 : res));
+  if(opts.length){
+    const sc = i => (st.casas[i] < 3 ? 10 : 0) - st.casas[i] + PESO_G[SQ[i].g] * (d === 'dificil' ? 3 : 1) + SQ[i].p / 400;
+    return {t:'construir', i:argmax(opts, sc)};
+  }
+  // difícil: hipoteca imóveis soltos para erguer casas num grupo completo (até 3 casas)
+  if(d === 'dificil'){
+    const alvo = SQ.map((q,i) => i).filter(i => SQ[i].t === 'prop' && donoGrupo(st, SQ[i].g) === s && st.casas[i] < 3 && !GSQ[SQ[i].g].some(j => st.hip[j]) && !GSQ[SQ[i].g].some(j => st.casas[j] < st.casas[i]));
+    if(alvo.length){
+      const h = GRUPOS[SQ[alvo[0]].g].h;
+      const soltos = SQ.map((q,i) => i).filter(i => st.dono[i] === s && !st.hip[i] && !podeHipotecar(st, s, i)
+        && !(SQ[i].t === 'prop' && (donoGrupo(st, SQ[i].g) === s || GSQ[SQ[i].g].filter(j => st.dono[j] === s).length >= GSQ[SQ[i].g].length - 1)));
+      if(soltos.length && st.cash[s] + hipVal(soltos[0]) - h >= res * 0.6) return {t:'hipotecar', i:argmax(soltos, i => -valor(st, s, i, d))};
+    }
+  }
+  return null;
+}
+const argmax = (xs, f) => { let b = null, bv = -Infinity; xs.forEach(x => { const v = f(x); if(v > bv){ bv = v; b = x; } }); return b; };
+// proposta de troca: comprar o imóvel que falta para fechar um grupo
+function botProposta(st, s, d){
+  if(d === 'facil' || st.tentou >= 1 || st.cash[s] < 150) return null;
+  for(let g=0; g<GSQ.length; g++){
+    const G = GSQ[g], meus = G.filter(j => st.dono[j] === s);
+    if(meus.length !== G.length - 1) continue;
+    const falta = G.find(j => st.dono[j] !== s), o = st.dono[falta];
+    if(o < 0 || st.fora[o] || grupoTemCasa(st, g)) continue;
+    const key = s + '>' + o + ':' + falta;
+    if(st.recusas[key] != null && st.turnos - st.recusas[key] < 4 * st.n) continue;
+    // oferece dinheiro (sobe a oferta a cada recusa); troca casada daria o grupo ao rival
+    const dP = [], dM = Math.min(st.cash[s] - (d === 'dificil' ? 60 : 120), Math.round(SQ[falta].p * (d === 'dificil' ? 1.8 + 0.3 * Object.keys(st.recusas).filter(k => k.startsWith(s + '>' + o + ':')).length : 2.2) / 10) * 10);
+    if(dM < SQ[falta].p) continue;
+    return {t:'propor', para:o, dP, dM, pP:[falta], pM:0};
+  }
+  return null;
+}
+// avaliar proposta recebida
+function botAceita(st, s, o, d){
+  const ganhoEu = o.pP.reduce((a,i) => a - valor(st, s, i, d), 0) + o.dP.reduce((a,i) => a + valor(st, s, i, d, o.pP), 0) + o.dM - o.pM;
+  if(d === 'facil') return ganhoEu > -20;
+  // quanto o outro ganha (completar grupo vale muito)
+  const ganhoEle = o.pP.reduce((a,i) => a + valor(st, o.de, i, d, o.dP), 0) - o.dP.reduce((a,i) => a + SQ[i].p, 0) - o.dM + o.pM;
+  const fechaEle = o.pP.some(i => SQ[i].t === 'prop' && GSQ[SQ[i].g].every(j => j === i || (st.dono[j] === o.de && !o.dP.includes(j))));
+  const fechaEu = o.dP.some(i => SQ[i].t === 'prop' && GSQ[SQ[i].g].every(j => j === i || (st.dono[j] === s && !o.pP.includes(j))));
+  if(fechaEle && !fechaEu){
+    const preco = o.pP.reduce((a,i) => a + SQ[i].p, 0);
+    return o.dM - o.pM >= preco * (d === 'dificil' ? 3.0 : 2.0) && st.cash[s] + o.dM < 2000;
+  }
+  return ganhoEu > (d === 'dificil' ? Math.max(30, ganhoEle * 0.4) : 10);
+}
+function botLance(st, s, d){
+  const L = st.leilao, i = L.i;
+  let lim = valor(st, s, i, d) * (d === 'facil' ? 0.6 + Math.random() * 0.4 : d === 'normal' ? 0.85 : 0.92);
+  lim = Math.min(lim, SQ[i].p * 1.3);                 // leilão: nunca paga muito acima do preço
+  lim = Math.min(lim, st.cash[s] - (d === 'facil' ? 50 : reserva(st, s, d) * 0.6));
+  const passo = L.lance < 100 ? 10 : 20, v = Math.max(L.lance + passo, d === 'facil' ? 10 : Math.round(SQ[i].p * 0.3 / 10) * 10);
+  if(L.quem === s || v > lim) return {t:'passar'};
+  return {t:'lance', v:Math.floor(v)};
+}
+function botAcao(st, s){
+  const d = dif(st, s);
+  if(st.fase === 'divida'){
+    if(st.cash[s] >= st.divida.v) return {t:'pagar'};
+    if(liquidez(st, s) < st.divida.v) return {t:'falir'};
+    return botHipotecaPara(st, s, st.divida.v) || {t:'falir'};
+  }
+  if(st.fase === 'oferta') return {t:'responder', ok:botAceita(st, s, st.oferta, d)};
+  if(st.fase === 'leilao') return botLance(st, s, d);
+  if(st.fase === 'compra'){
+    const i = st.compra, pr = SQ[i].p, v = valor(st, s, i, d);
+    if(st.cash[s] >= pr){
+      const sobra = st.cash[s] - pr;
+      if(d === 'facil') return {t:Math.random() < 0.75 && sobra >= 40 ? 'comprar' : 'recusar'};
+      if(sobra >= reserva(st, s, d) || (v >= pr * 1.6 && sobra >= 20)) return {t:'comprar'};
+      // difícil hipoteca imóvel solto para fechar grupo
+    } else if(d === 'dificil' && v >= pr * 1.6 && liquidez(st, s) - pr > 100){
+      const h = botHipotecaPara(st, s, pr); if(h && h.t === 'hipotecar') return h;
+    }
+    return {t:'recusar'};
+  }
+  if(st.fase === 'rolar' || st.fase === 'pos'){
+    if(st.fase === 'rolar' && st.preso[s]){
+      // no começo sai logo; com o tabuleiro construído, ficar preso protege (difícil)
+      const ficar = d === 'dificil' && perigo(st, s) > 300;
+      if(!ficar){ if(st.saida[s].length) return {t:'carta'}; if(st.cash[s] >= FIANCA + 100) return {t:'fianca'}; }
+      return {t:'rolar'};
+    }
+    const g = botGestao(st, s, d); if(g) return g;
+    const pr = botProposta(st, s, d); if(pr) return pr;
+    return {t:st.fase === 'rolar' ? 'rolar' : 'encerrar'};
+  }
+  return {t:'encerrar'};
+}
+
+/* ================================ cliente: tela ================================ */
+const CL = {disp:null, seq:0, ui:null, v:null, g:null, timer:null, cseq:0};
+const PIPS = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const dadoH = (n, rol) => `<div class="dado ${rol ? 'rol' : ''}">${[...Array(9)].map((_,k) => `<i class="${PIPS[n].includes(k) ? 'on' : ''}"></i>`).join('')}</div>`;
+function geo(i){
+  // unidades de 13: cantos 2×2, laterais 1×2
+  if(i === 0) return {x:11, y:11, w:2, h:2, s:'cor'};
+  if(i < 10) return {x:11 - i, y:11, w:1, h:2, s:'b'};
+  if(i === 10) return {x:0, y:11, w:2, h:2, s:'cor'};
+  if(i < 20) return {x:0, y:11 - (i - 10), w:2, h:1, s:'l'};
+  if(i === 20) return {x:0, y:0, w:2, h:2, s:'cor'};
+  if(i < 30) return {x:2 + (i - 21), y:0, w:1, h:2, s:'t'};
+  if(i === 30) return {x:11, y:0, w:2, h:2, s:'cor'};
+  return {x:11, y:2 + (i - 31), w:2, h:1, s:'r'};
+}
+function fitBoard(stage){
+  const W = stage.clientWidth, H = stage.clientHeight, port = W < 760 || W < H * 1.05;
+  stage.classList.toggle('port', port);
+  const B = port ? Math.min(W - 18, H * 0.62, 560) : Math.min(H - 24, W - 300, 720);
+  stage.style.setProperty('--B', Math.max(240, Math.floor(B)) + 'px');
+}
+function cellHTML(g, i, v){
+  const q = SQ[i], G = geo(i), dn = g.dono[i];
+  const st = `left:${G.x/13*100}%;top:${G.y/13*100}%;width:${G.w/13*100}%;height:${G.h/13*100}%`;
+  const bar = q.t === 'prop' ? `<span class="bar" style="--c:${GRUPOS[q.g].c}"></span>` : '';
+  const hs = q.t === 'prop' && g.casas[i] ? `<span class="hs">${g.casas[i] === 5 ? '<i class="ht"></i>' : '<i></i>'.repeat(g.casas[i])}</span>` : '';
+  const own = dn >= 0 ? `<span class="own" style="background:${CORES_J[dn]}"></span>` : '';
+  const ic = q.t !== 'prop' ? `<span class="ic">${q.ic}</span>` : '';
+  const nm = G.s === 'cor' ? '' : (q.t === 'prop' || q.t === 'trans' || q.t === 'util' ? q.n : '');
+  const pr = q.p && dn < 0 ? `<span class="pr">${fmt(q.p)}</span>` : q.v ? `<span class="pr">${fmt(q.v)}</span>` : '';
+  const cnt = G.s === 'cor' ? `<span class="ic">${q.ic}</span>${q.n}` : `${ic}${esc(nm)}${pr}`;
+  return `<div class="cq ${G.s} ${g.hip[i] ? 'hip' : ''} ${g.ult === i ? 'ult' : ''}" data-i="${i}" style="${st}">${bar}${hs}${own}<span class="tx">${cnt}</span></div>`;
+}
+function tokPos(i, k, n){
+  const G = geo(i), cx = (G.x + G.w/2) / 13 * 100, cy = (G.y + G.h/2) / 13 * 100;
+  const off = [[-1,-1],[1,-1],[-1,1],[1,1],[0,0],[0,1.7]][k] || [0,0];
+  const sx = G.s === 'cor' ? 3.6 : G.w === 2 ? 3.6 : 1.9, sy = G.s === 'cor' ? 3.6 : G.h === 2 ? 3.6 : 1.9;
+  return {l:cx + off[0] * sx, t:cy + off[1] * sy};
+}
+function centroHTML(g, v){
+  const me = v.me, vez = g.vez, minha = vez === me, nmv = esc(v.seats[vez] ? v.seats[vez].name : '?');
+  let msg = '', bt = '';
+  const B = (a, t, c, dis) => `<button data-a="${a}" class="${c || ''}" ${dis ? 'disabled' : ''}>${t}</button>`;
+  if(g.fase === 'fim') msg = '🏁 Fim de jogo!';
+  else if(g.fase === 'divida'){
+    const d = g.divida, eu = d.p === me;
+    msg = eu ? `Você deve <b>${fmt(d.v)}</b>. Toque nos seus imóveis para hipotecar ou vender casas.` : `${esc(v.seats[d.p].name)} está levantando ${fmt(d.v)}...`;
+    if(eu) bt = B('pagar', `Pagar ${fmt(d.v)}`, 'g', g.cash[me] < d.v) + B('falir', 'Declarar falência', 'r');
+  } else if(g.fase === 'oferta'){
+    const o = g.oferta, nmo = s => esc(v.seats[s].name);
+    const lista = (P, M) => [...P.map(i => esc(SQ[i].n)), M ? fmt(M) : ''].filter(Boolean).join(', ') || 'nada';
+    msg = `🤝 ${nmo(o.de)} oferece <b>${lista(o.dP, o.dM)}</b> por <b>${lista(o.pP, o.pM)}</b>${o.para === me ? '' : ` a ${nmo(o.para)}`}.`;
+    if(o.para === me) bt = B('aceitar', 'Aceitar', 'g') + B('recusar2', 'Recusar', 'c');
+  } else if(g.fase === 'leilao'){
+    const L = g.leilao, q = SQ[L.i];
+    msg = `🔨 Leilão: <b>${esc(q.n)}</b> (vale ${fmt(q.p)})<br>Lance: <b>${L.lance ? fmt(L.lance) + ' — ' + esc(v.seats[L.quem].name) : 'nenhum'}</b> · vez de ${esc(v.seats[L.at[L.k]].name)}`;
+    if(L.at[L.k] === me) bt = [10, 50, 100].map(x => B('lance' + x, '+' + x, '', L.lance + x > g.cash[me])).join('') + B('passar', 'Passar', 'c');
+  } else if(g.fase === 'compra'){
+    const q = SQ[g.compra];
+    msg = minha ? `Comprar <b>${esc(q.n)}</b> por <b>${fmt(q.p)}</b>?` : `${nmv} está pensando em comprar ${esc(q.n)}...`;
+    if(minha) bt = B('comprar', `Comprar ${fmt(q.p)}`, 'g', g.cash[me] < q.p) + B('recusar', g.leilaoOn ? 'Leiloar' : 'Não comprar', 'c') + B('ver' + g.compra, 'Ver');
+  } else if(g.fase === 'rolar'){
+    msg = minha ? (g.preso[me] ? `Você está preso (tentativa ${g.preso[me]}/3).` : g.dup ? 'Dupla! Jogue de novo.' : 'Sua vez!') : `Vez de ${nmv}`;
+    if(minha){ bt = B('rolar', '🎲 Rolar dados', 'g');
+      if(g.preso[me]){ bt += B('fianca', `Pagar ${fmt(FIANCA)}`, '', g.cash[me] < FIANCA); if(g.saida[me]) bt += B('carta', 'Usar habeas corpus'); }
+      bt += B('negociar', '🤝 Negociar', 'c'); }
+  } else if(g.fase === 'pos'){
+    msg = minha ? 'Construa, negocie ou passe a vez.' : `Vez de ${nmv}`;
+    if(minha) bt = B('encerrar', 'Passar a vez ➜', 'g') + B('negociar', '🤝 Negociar', 'c');
+  }
+  const c = g.carta && g.fase !== 'fim' ? `<div class="carta ${g.carta.tipo === 'reves' ? 'rv' : ''}"><b>${g.carta.tipo === 'sorte' ? '🍀 SORTE' : '⚡ REVÉS'}</b>${esc(g.carta.x)}</div>` : '';
+  const rol = g.dados && g.dados[2] !== CL.seq; if(g.dados) CL.seq = g.dados[2];
+  return `<div class="logo">IMOBILIÁRIO</div>${g.dados ? `<div class="dados">${dadoH(g.dados[0], rol)}${dadoH(g.dados[1], rol)}</div>` : ''}${c}<div class="cmsg">${msg}</div><div class="btns2">${bt}</div>`;
+}
+function renderTokens(g){
+  const b = $('.ib'); if(!b) return;
+  if(!CL.disp || CL.disp.length !== g.pos.length || CL.game !== CL.v.gameNo){ CL.disp = g.pos.slice(); CL.game = CL.v.gameNo; }
+  const draw = () => {
+    g.pos.forEach((p, k) => {
+      let el = b.querySelector(`.tok[data-k="${k}"]`);
+      if(g.fora[k]){ if(el) el.remove(); return; }
+      if(!el){ el = document.createElement('div'); el.className = 'tok'; el.dataset.k = k; el.style.background = CORES_J[k]; el.textContent = (CL.v.seats[k] ? CL.v.seats[k].name : '?')[0].toUpperCase(); b.appendChild(el); }
+      const tp = tokPos(CL.disp[k], k); el.style.left = `calc(${tp.l}% - var(--u)*.23)`; el.style.top = `calc(${tp.t}% - var(--u)*.23)`;
+      el.classList.toggle('vez', k === g.vez);
+    });
+  };
+  draw();
+  clearInterval(CL.timer);
+  CL.timer = setInterval(() => {
+    let mov = false;
+    CL.disp.forEach((d, k) => { const alvo = CL.g.pos[k]; if(d !== alvo){ mov = true;
+      const fwd = (alvo - d + 40) % 40; CL.disp[k] = fwd <= 12 ? (d + 1) % 40 : alvo; } });
+    if(mov){ draw(); } else clearInterval(CL.timer);
+  }, 110);
+}
+function renderAll(g, v, ui){
+  CL.ui = ui; CL.v = v; CL.g = g;
+  const st = ui.stage;
+  if(!$('.ib', st)){
+    st.innerHTML = `<div class="ib"><div class="cells"></div><div class="ctr"></div></div><div class="iside"><div class="ipl"></div><div class="itools"><button data-a="meus">🏘️ Meus imóveis</button><button data-a="negociar">🤝 Negociar</button></div><div class="ilog"></div></div>`;
+    st.addEventListener('click', onClick);
+    window.addEventListener('resize', () => fitBoard(ui.stage));
+  }
+  fitBoard(st);
+  $('.cells', st).innerHTML = SQ.map((q,i) => cellHTML(g, i, v)).join('');
+  setH($('.ctr', st), centroHTML(g, v));
+  setH($('.ipl', st), g.cash.map((c, k) => { const x = v.seats[k] || {name:'?'}; const np = g.dono.filter(o => o === k).length;
+    return `<div class="ip ${k === g.vez && g.fase !== 'fim' ? 'vez' : ''} ${g.fora[k] ? 'fora' : ''}" data-seat="${k}"><span class="sw" style="background:${CORES_J[k]}"></span><span class="nmx">${x.human ? '' : '🤖 '}${esc(x.name)}${k === v.me ? ' (você)' : ''}${g.preso[k] ? ' 🚔' : ''}</span><span class="cash">${fmt(c)}<small>${np}🏠</small></span></div>`; }).join(''));
+  const lg = $('.ilog', st); if(setH(lg, g.log.slice().reverse().map(x => `<div>${x}</div>`).join(''))) lg.scrollTop = 0;
+  renderTokens(g);
+}
+const setH = (el, h) => { if(el && el._h !== h){ el._h = h; el.innerHTML = h; return true; } return false; };
+function onClick(e){
+  const ui = CL.ui, g = CL.g, v = CL.v; if(!ui || !g) return;
+  const c = e.target.closest('.cq'); if(c){ detalhe(+c.dataset.i); return; }
+  const b = e.target.closest('button[data-a]'); if(!b) return;
+  const a = b.dataset.a;
+  if(a.startsWith('lance')) ui.act({t:'lance', v:g.leilao.lance + +a.slice(5)});
+  else if(a.startsWith('ver')) detalhe(+a.slice(3));
+  else if(a === 'aceitar') ui.act({t:'responder', ok:true});
+  else if(a === 'recusar2') ui.act({t:'responder', ok:false});
+  else if(a === 'negociar') negociar();
+  else if(a === 'meus') meus();
+  else if(a === 'falir') pmodal('<h2>Declarar falência?</h2><p>Você sai da partida e seus bens vão para o credor.</p>', [{label:'Falir', cls:'b-up', fn:() => ui.act({t:'falir'})}, {label:'Cancelar', cls:'b-no'}]);
+  else ui.act({t:a});
+}
+function detalhe(i){
+  const g = CL.g, v = CL.v, q = SQ[i], me = v.me;
+  if(!COMPRAVEL(i)){ const tx = {partida:`Receba ${fmt(SALARIO)} ao passar.`, prisao:`Só visitando, se você não estiver preso. Preso: tire dupla, pague ${fmt(FIANCA)} ou use habeas corpus (até 3 tentativas).`, livre:'Descanse: nada acontece.', vaprisao:'Vá direto para a prisão.', imp:`Pague ${fmt(q.v || 0)} ao banco.`, sorte:'Tire uma carta de Sorte.', reves:'Tire uma carta de Revés.'}[q.t];
+    pmodal(`<h2>${q.ic} ${esc(q.n)}</h2><p>${tx}</p>`, [{label:'OK'}]); return; }
+  const dn = g.dono[i], cor = q.t === 'prop' ? GRUPOS[q.g].c : '#555';
+  let rows = '';
+  if(q.t === 'prop') rows = MULT.map((m,k) => `<tr class="${dn >= 0 && (g.casas[i] === k && (k || donoGrupo(g, q.g) !== dn)) ? 'on' : ''}"><td>${k === 0 ? 'Aluguel' : k === 5 ? 'Com hotel' : `Com ${k} casa${k > 1 ? 's' : ''}`}</td><td>${fmt(q.base * m)}</td></tr>`).join('').replace('</tr>', `</tr><tr class="${dn >= 0 && !g.casas[i] && donoGrupo(g, q.g) === dn ? 'on' : ''}"><td>Grupo completo, sem casas</td><td>${fmt(q.base * 2)}</td></tr>`, 1)
+    + `<tr><td>Casa / hotel custa</td><td>${fmt(GRUPOS[q.g].h)}</td></tr>`;
+  else if(q.t === 'trans') rows = [1,2,3,4].map(k => `<tr><td>Com ${k} transporte${k > 1 ? 's' : ''}</td><td>${fmt(25 * Math.pow(2, k-1))}</td></tr>`).join('');
+  else rows = '<tr><td>Com 1 companhia</td><td>4 × dados</td></tr><tr><td>Com as 2</td><td>10 × dados</td></tr>';
+  rows += `<tr><td>Preço</td><td>${fmt(q.p)}</td></tr><tr><td>Hipoteca</td><td>${fmt(hipVal(i))}</td></tr>`;
+  const html = `<div class="pcard"><div class="hd" style="background:${cor}">${q.ic || ''} ${esc(q.n)}</div><table>${rows}</table></div>
+    <p>${dn >= 0 ? `Dono: <b>${esc(v.seats[dn].name)}</b>${g.hip[i] ? ' · <b>hipotecado</b>' : ''}${g.casas[i] ? ` · ${g.casas[i] === 5 ? 'hotel' : g.casas[i] + ' casa(s)'}` : ''}` : 'À venda.'}</p>`;
+  const bts = [];
+  const gerindo = (g.fase === 'divida' && g.divida.p === me) || (g.vez === me && ['rolar','pos','compra'].includes(g.fase));
+  if(dn === me && gerindo){
+    const ui = CL.ui, k = {keep:false};
+    if(q.t === 'prop' && !podeConstruir(g, me, i) && g.fase !== 'divida') bts.push({label:`Construir (${fmt(GRUPOS[q.g].h)})`, fn:() => ui.act({t:'construir', i})});
+    if(q.t === 'prop' && !podeVender(g, me, i)) bts.push({label:`Vender casa (+${fmt(GRUPOS[q.g].h/2)})`, cls:'b-y', fn:() => ui.act({t:'vender', i})});
+    if(!podeHipotecar(g, me, i)) bts.push({label:`Hipotecar (+${fmt(hipVal(i))})`, cls:'b-y', fn:() => ui.act({t:'hipotecar', i})});
+    if(!podeResgatar(g, me, i) && g.fase !== 'divida') bts.push({label:`Resgatar (${fmt(resgVal(i))})`, fn:() => ui.act({t:'resgatar', i})});
+  }
+  bts.push({label:'Fechar', cls:'b-no'});
+  pmodal(html, bts);
+}
+function meus(){
+  const g = CL.g, me = CL.v.me, lst = SQ.map((q,i) => i).filter(i => g.dono[i] === me);
+  if(!lst.length){ pmodal('<h2>🏘️ Meus imóveis</h2><p>Você ainda não tem imóveis.</p>', [{label:'OK'}]); return; }
+  const box = pmodal(`<h2>🏘️ Meus imóveis</h2><p>Toque num imóvel para construir, hipotecar ou ver os aluguéis.</p><div class="tr-g">${lst.map(i => `<button data-i="${i}"><i style="background:${SQ[i].t === 'prop' ? GRUPOS[SQ[i].g].c : '#888'}"></i>${esc(SQ[i].n)}${g.casas[i] ? ' ' + (g.casas[i] === 5 ? '🏨' : '🏠'.repeat(g.casas[i])) : ''}${g.hip[i] ? ' (hip.)' : ''}</button>`).join('')}</div>
+    <p>Patrimônio: <b>${fmt(patrimonio(g, me))}</b></p>`, [{label:'Fechar', cls:'b-no'}]);
+  $$('button[data-i]', box).forEach(b => b.onclick = () => detalhe(+b.dataset.i));
+}
+function negociar(){
+  const g = CL.g, v = CL.v, me = v.me;
+  if(g.vez !== me || !['rolar','pos'].includes(g.fase)){ toast('Só dá para negociar na sua vez.'); return; }
+  const outros = g.cash.map((c,k) => k).filter(k => k !== me && !g.fora[k]);
+  const tr = st => i => COMPRAVEL(i) && g.dono[i] === st && !(SQ[i].t === 'prop' && GSQ[SQ[i].g].some(j => g.casas[j] > 0));
+  const S = {para:outros[0], dP:new Set(), pP:new Set()};
+  const chip = (i, on) => `<button data-i="${i}" class="${on ? 'on' : ''}"><i style="background:${SQ[i].t === 'prop' ? GRUPOS[SQ[i].g].c : '#888'}"></i>${esc(SQ[i].n)}${g.hip[i] ? ' (hip.)' : ''}</button>`;
+  const draw = box => {
+    box.querySelector('#trBody').innerHTML = `<div class="lbl">Com quem?</div><div class="tr-g" id="trP">${outros.map(k => `<button data-p="${k}" class="${S.para === k ? 'on' : ''}"><i style="background:${CORES_J[k]}"></i>${esc(v.seats[k].name)} · ${fmt(g.cash[k])}</button>`).join('')}</div>
+      <div class="lbl">Você dá</div><div class="tr-g" id="trD">${SQ.map((q,i) => i).filter(tr(me)).map(i => chip(i, S.dP.has(i))).join('') || '<small>Nenhum imóvel negociável.</small>'}</div>
+      <div class="tr-m">+ dinheiro: <input id="trDM" type="number" min="0" step="10" max="${g.cash[me]}" value="${S.dM || 0}"></div>
+      <div class="lbl">Você recebe</div><div class="tr-g" id="trR">${SQ.map((q,i) => i).filter(tr(S.para)).map(i => chip(i, S.pP.has(i))).join('') || '<small>Nada negociável.</small>'}</div>
+      <div class="tr-m">+ dinheiro: <input id="trPM" type="number" min="0" step="10" max="${g.cash[S.para]}" value="${S.pM || 0}"></div>`;
+    const keep = () => { S.dM = +box.querySelector('#trDM').value || 0; S.pM = +box.querySelector('#trPM').value || 0; };
+    $$('#trP button', box).forEach(b => b.onclick = () => { keep(); S.para = +b.dataset.p; S.pP.clear(); draw(box); });
+    $$('#trD button', box).forEach(b => b.onclick = () => { keep(); const i = +b.dataset.i; S.dP.has(i) ? S.dP.delete(i) : S.dP.add(i); draw(box); });
+    $$('#trR button', box).forEach(b => b.onclick = () => { keep(); const i = +b.dataset.i; S.pP.has(i) ? S.pP.delete(i) : S.pP.add(i); draw(box); });
+  };
+  const box = pmodal(`<h2>🤝 Propor negócio</h2><div id="trBody"></div>`, [
+    {label:'Enviar proposta', fn:() => { const dM = Math.max(0, Math.round(+$('#trDM').value || 0)), pM = Math.max(0, Math.round(+$('#trPM').value || 0));
+      CL.ui.act({t:'propor', para:S.para, dP:[...S.dP], dM, pP:[...S.pP], pM}); }},
+    {label:'Cancelar', cls:'b-no'}]);
+  draw(box);
+}
+
+/* ================================ definição para a Mesa ================================ */
+Mesa.run({
+  id:'imobiliario', name:'Imobiliário', icon:'🏘️', tagline:'Compre bairros, construa e cobre aluguel',
+  seats: o => clamp(+o.jogadores || 4, 2, 6),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'fim', label:'Fim da partida', default:'r40', choices:[['falencia','Até sobrar um'],['r25','25 rodadas'],['r40','40 rodadas'],['t30','30 min'],['t60','60 min']]},
+    {key:'leilao', label:'Leilão', default:'sim', choices:[['sim','Sim'],['nao','Não']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${({falencia:'ATÉ A FALÊNCIA', r25:'25 RODADAS', r40:'40 RODADAS', t30:'30 MIN', t60:'60 MIN'})[o.fim] || ''} · BOT ${({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'}[o.diff] || 'NORMAL')}`,
+  seatLabel: s => ['Vermelho','Azul','Amarelo','Verde','Roxo','Laranja'][s],
+  setup(players, o){
+    const n = players.length, fim = o.fim || 'r40';
+    const st = {n, names:players.map(p => p.name), cash:Array(n).fill(INICIAL), pos:Array(n).fill(0), preso:Array(n).fill(0), fora:Array(n).fill(false),
+      saida:players.map(() => []), dono:Array(40).fill(-1), casas:Array(40).fill(0), hip:Array(40).fill(false),
+      vez:0, fase:'rolar', dados:null, dup:0, seq:0, ult:-1, log:[], carta:null, compra:null, leilao:null, oferta:null, divida:null, aposDiv:null,
+      dsorte:shuffle([...Array(16).keys()]), dreves:shuffle([...Array(16).keys()]),
+      rodada:1, turnos:0, tentou:0, recusas:{}, acabou:false,
+      limR:fim[0] === 'r' ? +fim.slice(1) : 0, limT:fim[0] === 't' ? clock() + fim.slice(1) * 60000 : 0,
+      leilaoOn:o.leilao !== 'nao', diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal'};
+    log(st, `Cada jogador começa com ${fmt(INICIAL)}. ${esc(st.names[0])} começa!`);
+    return st;
+  },
+  waiting(st){
+    if(st.fase === 'fim') return [];
+    if(st.fase === 'leilao') return [st.leilao.at[st.leilao.k]];
+    if(st.fase === 'oferta') return [st.oferta.para];
+    if(st.fase === 'divida') return [st.divida.p];
+    return [st.vez];
+  },
+  apply(st, seat, a){ return doAct(st, seat, a); },
+  // relógio: encerra a partida por tempo no fim da vez
+  tickMs:1000,
+  tick(st){ if(st.limT && !st.acabou && clock() >= st.limT){ st.acabou = true; return {changed:true, events:[{k:'banner', text:'Tempo esgotado! Última vez.'}]}; } return null; },
+  over(st){
+    const at = ativos(st);
+    if(at.length > 1 && st.fase !== 'fim') return null;
+    const pat = st.names.map((x,k) => st.fora[k] ? -1 : patrimonio(st, k));
+    const mx = Math.max(...pat), win = pat.map((x,k) => x === mx ? k : -1).filter(k => k >= 0);
+    const ord = pat.map((x,k) => k).sort((a,b) => pat[b] - pat[a]);
+    const tab = ord.map((k,j) => `${j+1}º ${esc(st.names[k])} — ${st.fora[k] ? 'faliu' : fmt(pat[k])}`).join('<br>');
+    return {winners:win, text:`${at.length === 1 ? `${esc(st.names[at[0]])} é o último de pé!` : `Fim da partida: vence o mais rico (patrimônio = dinheiro + imóveis + construções).`}<br><br>${tab}`};
+  },
+  bot(st, s){ return botAcao(st, s); },
+  botFallback(st, s){ if(st.fase === 'divida') return {t:'falir'}; if(st.fase === 'oferta') return {t:'responder', ok:false}; if(st.fase === 'leilao') return {t:'passar'}; if(st.fase === 'compra') return {t:'recusar'}; return {t:st.fase === 'rolar' ? 'rolar' : 'encerrar'}; },
+  botDelay(st){ return st.fase === 'leilao' ? 550 : st.fase === 'divida' ? 450 : 800; },
+  // tudo é público, exceto nada a esconder (dinheiro e imóveis são abertos)
+  view(st){
+    return {n:st.n, cash:st.cash.slice(), pos:st.pos.slice(), preso:st.preso.slice(), fora:st.fora.slice(), saida:st.saida.map(x => x.length),
+      dono:st.dono.slice(), casas:st.casas.slice(), hip:st.hip.slice(), vez:st.vez, fase:st.fase, dados:st.dados, dup:st.dup, ult:st.ult,
+      log:st.log.slice(-25), carta:st.carta, compra:st.compra, leilao:st.leilao, oferta:st.oferta, divida:st.divida, rodada:st.rodada,
+      limR:st.limR, limT:st.limT, leilaoOn:st.leilaoOn};
+  },
+  render(g, v, ui){ renderAll(g, v, ui); },
+  topInfo(g, v){
+    const lim = g.limR ? ` / ${g.limR}` : '';
+    const t = g.limT ? ` · ⏱️ ${Math.max(0, Math.ceil((g.limT - Date.now()) / 60000))} min` : '';
+    return `<div class="status">Rodada ${g.rodada}${lim}${t}${v.me >= 0 && g.cash[v.me] != null ? ' · Você: ' + fmt(g.cash[v.me]) : ''}</div>`;
+  },
+  onEvent(e, v){
+    if(e.k === 'aluguel' && v && e.seat === v.me) toast(`Você pagou ${fmt(e.v)} de aluguel.`);
+  },
+  rules: o => `<h3>Objetivo</h3><p>Comprar bairros, construir casas e hotéis e cobrar aluguel até levar os outros à falência. ${o.fim === 'falencia' ? 'Vence o último que sobrar.' : 'Se o limite de rodadas/tempo chegar, vence quem tiver o maior <b>patrimônio</b> (dinheiro + imóveis + construções).'}</p>
+<h3>Como jogar</h3><ul>
+<li>Na sua vez, role os dois dados e ande. Todos começam com ${fmt(INICIAL)}; ao passar pela <b>Partida</b> recebe ${fmt(SALARIO)}.</li>
+<li><b>Dupla</b>: joga de novo. Três duplas seguidas: prisão.</li>
+<li>Parou num imóvel livre: pode comprar. ${o.leilao === 'nao' ? '' : 'Se não comprar, ele vai a <b>leilão</b> entre todos (lances de +10/+50/+100; quem passa sai do leilão).'}</li>
+<li>Parou no imóvel de outro: paga aluguel (imóvel hipotecado não cobra).</li>
+<li><b>Bairros</b>: 8 grupos de cores. Com o grupo inteiro o aluguel dobra e você pode construir <b>casas</b> (até 4, por igual no grupo) e depois um <b>hotel</b>.</li>
+<li><b>Transportes</b> (Rodoviária, Ferrovia, Aeroporto, Porto): R$ 25, 50, 100 ou 200 conforme quantos o dono tem. <b>Companhias</b>: 4× os dados (ou 10× com as duas).</li>
+<li><b>Sorte / Revés</b>: cartas com prêmios, multas, viagens, prisão e o <b>habeas corpus</b> (guarde para sair da prisão).</li>
+<li><b>Impostos</b>: Imposto de Renda (${fmt(200)}) e IPTU (${fmt(100)}).</li>
+<li><b>Prisão</b>: tire dupla, pague ${fmt(FIANCA)} ou use o habeas corpus. Na 3ª tentativa sem dupla, paga a fiança e anda. Preso, você ainda recebe aluguéis.</li></ul>
+<h3>Hipoteca e dívidas</h3><p>Toque num imóvel seu (na sua vez) para hipotecar (recebe metade do preço), resgatar (paga 55%), construir ou vender casas (o banco paga metade). Se dever mais do que tem, levante dinheiro ou declare <b>falência</b>: seus bens vão para quem você deve (ou para o banco).</p>
+<h3>Negociação</h3><p>Na sua vez, toque em <b>🤝 Negociar</b>: escolha um jogador, os imóveis e o dinheiro de cada lado. Só entram imóveis sem construções no grupo. Até 3 propostas por vez.</p>
+<h3>Bots</h3><p>Compram com critério (guardam reserva conforme o perigo do tabuleiro), disputam leilões pelo valor real do imóvel para eles, constroem por igual nos melhores grupos (até 3 casas primeiro), negociam para fechar grupos e não entregam grupo completo de graça, e hipotecam primeiro o que menos importa. No Difícil ficam na prisão quando o tabuleiro está perigoso.</p>`
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Cinco em Linha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;align-items:center;justify-content:center;padding:8px;flex-direction:column;gap:8px}
+.gwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gban{width:var(--bd);height:var(--bd);border-radius:8px;box-shadow:0 14px 30px rgba(0,0,0,.55),inset 0 0 0 2px rgba(0,0,0,.25);
+  background:linear-gradient(135deg,#e9bf6e 0%,#dcab55 35%,#e6b965 60%,#d19d48 100%);position:relative;touch-action:manipulation}
+.gban svg{width:100%;height:100%;display:block}
+.gban .pt{cursor:pointer}
+.gban .put{animation:gput .28s cubic-bezier(.2,.9,.3,1.4) both;transform-box:fill-box;transform-origin:center}
+@keyframes gput{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+.gban .wl{stroke-dasharray:30;stroke-dashoffset:30;animation:gline .7s .15s ease-out forwards}
+@keyframes gline{to{stroke-dashoffset:0}}
+.pbar{display:flex;align-items:center;gap:8px;width:var(--bd);justify-content:space-between;max-width:100%}
+.pbar .nm{font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,.4);border:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pbar .nm.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pbar .info{font-weight:800;color:#ffe6a6;font-size:13px;white-space:nowrap}
+.stn{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:5px}
+.stn.b{background:radial-gradient(circle at 35% 30%,#666,#111 60%)} .stn.w{background:radial-gradient(circle at 35% 30%,#fff,#d8d8d8 70%,#aaa);box-shadow:0 0 0 1px #888}
+.ctrl{display:flex;gap:8px;align-items:center}
+.ctrl .tbtn{padding:7px 12px}
+@media (max-width:480px){ .rtx{display:none} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="gomoku-ai.js"></script>
+<script>
+"use strict";
+/* ======================= MOTOR — CINCO EM LINHA (GOMOKU) =======================
+   Tabuleiro N×N (15 ou 19), pedras nos cruzamentos. Pretas (1) começam.
+   Vence quem formar 5 pedras seguidas na horizontal, vertical ou diagonal.
+   Regra "exato": 6 ou mais seguidas NÃO valem (gomoku clássico).
+   Tabuleiro cheio sem vencedor = empate.
+   ============================================================================== */
+const COLN = 'ABCDEFGHJKLMNOPQRST';
+const cname = c => c === 1 ? 'Pretas' : 'Brancas';
+const ptName = (i, N) => COLN[i % N] + (N - (i / N | 0));
+const LINES = [[0,1],[1,0],[1,1],[1,-1]];
+// linha vencedora que passa por i (ou null)
+function winLine(b, N, i, exact){
+  const p = b[i], r0 = i / N | 0, c0 = i % N;
+  for(const [dr,dc] of LINES){
+    const cells = [i];
+    let r = r0 + dr, c = c0 + dc;
+    while(r >= 0 && r < N && c >= 0 && c < N && b[r*N+c] === p){ cells.push(r*N+c); r += dr; c += dc; }
+    r = r0 - dr; c = c0 - dc;
+    while(r >= 0 && r < N && c >= 0 && c < N && b[r*N+c] === p){ cells.unshift(r*N+c); r -= dr; c -= dc; }
+    if(exact ? cells.length === 5 : cells.length >= 5) return cells;
+  }
+  return null;
+}
+const BOT_CFG = {
+  facil:  {time:350,  depth:2,  k1:8,  k2:7,  noise:90},
+  normal: {time:700,  depth:8,  k1:12, k2:9,  vcf:8,  vcfNodes:8000},
+  dificil:{time:1300, depth:12, k1:14, k2:10, vcf:16, vcfNodes:40000, vct:10, vctNodes:15000, vctMs:450, guard:6000, guardVct:5000, guardMs:120}
+};
+function botMove(st, diff){
+  const free = () => st.b.findIndex(x => !x);
+  let i = -1;
+  try{ i = GomokuAI.think(st.b, st.N, st.turn, st.exact, BOT_CFG[diff] || BOT_CFG.normal); }catch(e){ console.error(e); }
+  return Number.isInteger(i) && i >= 0 && i < st.b.length && !st.b[i] ? i : free();
+}
+
+Mesa.run({
+  id:'gomoku', name:'Cinco em Linha', icon:'⚪', players:2, tagline:'Gomoku: cinco pedras seguidas vencem',
+  options:[
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'tam', label:'Tabuleiro', default:'15', choices:[['15','15×15'],['19','19×19']]},
+    {key:'regra', label:'Para vencer', default:'livre', choices:[['livre','5 ou mais'],['exato','Só 5 exatos']]},
+    {key:'cor', label:'Você joga com', default:'b', choices:[['b','Pretas'],['w','Brancas'],['r','Sorteio']]}
+  ],
+  modeLabel: o => `${o.tam || 15}×${o.tam || 15} · ${o.regra === 'exato' ? 'SÓ 5' : '5+'} · BOT ${({facil:'FÁCIL',normal:'NORMAL',dificil:'DIFÍCIL'})[o.diff] || ''}`,
+  seatLabel: (s, n, o) => o.cor === 'r' ? 'Jogador ' + (s+1) : ((s === 0) === (o.cor !== 'w') ? 'Pretas' : 'Brancas'),
+  setup(players, o){
+    const N = o.tam === '19' ? 19 : 15;
+    const c0 = o.cor === 'w' ? 2 : o.cor === 'r' ? pick([1,2]) : 1;
+    return {N, exact:o.regra === 'exato', b:Array(N*N).fill(0), turn:1, colors:[c0, 3 - c0], names:players.map(p => p.name),
+      last:-1, seq:0, moves:0, line:null, result:null};
+  },
+  waiting(st){ return st.result ? [] : [st.colors.indexOf(st.turn)]; },
+  over(st){ return st.result; },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.result) return {ok:false, err:'A partida acabou.'};
+    if(a.t === 'resign'){
+      st.result = {winners:[1 - seat], text:`${esc(st.names[seat])} desistiu — vitória de <b>${esc(st.names[1 - seat])}</b>.`};
+      return {events:[]};
+    }
+    if(st.colors[seat] !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const i = a.i;
+    if(!Number.isInteger(i) || i < 0 || i >= st.N * st.N) return {ok:false, err:'Ponto inválido.'};
+    if(st.b[i]) return {ok:false, err:'Esse ponto já está ocupado.'};
+    const p = st.turn;
+    st.b[i] = p; st.last = i; st.seq++; st.moves++;
+    const ev = [{k:'snd', s:'move'}];
+    const line = winLine(st.b, st.N, i, st.exact);
+    if(line){
+      st.line = [line[0], line[line.length - 1]];
+      st.result = {winners:[seat], text:`<b>${esc(st.names[seat])}</b> (${cname(p)}) fez ${line.length > 5 ? line.length : 'cinco'} em linha em ${st.moves} lances!`};
+      ev.push({k:'log', text:`${esc(st.names[seat])} fechou a linha em ${ptName(i, st.N)}.`});
+    } else if(st.moves >= st.N * st.N){
+      st.result = {draw:true, winners:[], text:'Tabuleiro cheio sem cinco em linha: empate!'};
+    } else {
+      st.turn = 3 - p;
+      // aviso de quatro (ameaça de vitória) para quem precisa bloquear
+      const e = new GomokuAI.Engine(st.N, st.exact);
+      st.b.forEach((x, k) => { if(x) e.make(k, x); });
+      const thr = e.winCells(p, 3);
+      if(thr.length >= 2) ev.push({k:'say', seat, text:'Quatro aberto!'});
+      else if(thr.length === 1) ev.push({k:'say', seat, text:'Quatro!'});
+    }
+    return {events:ev};
+  },
+  bot(st, seat, o){ return {t:'play', i:botMove(st, o.diff)}; },
+  botFallback(st){ const i = st.b.findIndex(x => !x); return i >= 0 ? {t:'play', i} : null; },
+  botDelay(st, s, o){ return st.moves < 2 ? 700 : o.diff === 'facil' ? 650 : o.diff === 'normal' ? 380 : 220; },
+  view(st, seat){
+    return {N:st.N, exact:st.exact, b:st.b, turn:st.turn, my: seat >= 0 ? st.colors[seat] : 1, colors:st.colors,
+      last:st.last, seq:st.seq, moves:st.moves, line:st.line, over:!!st.result};
+  },
+  topInfo(g, v){
+    const t = g.over ? 'Fim de jogo' : g.turn === g.my ? 'Sua vez' : 'Vez do adversário';
+    return `<div class="status"><span class="stn ${g.turn === 1 ? 'b' : 'w'}"></span>${t} · lance ${g.moves + (g.over ? 0 : 1)}</div>`;
+  },
+  rules: o => `<h3>Objetivo</h3><p>Ser o primeiro a formar <b>cinco pedras da sua cor seguidas</b> — na horizontal, na vertical ou na diagonal.</p>
+  <h3>Como jogar</h3><ul>
+  <li>O tabuleiro tem 15×15 pontos (ou 19×19, nas opções). As pedras vão nos <b>cruzamentos</b> das linhas.</li>
+  <li>As <b>pretas começam</b>. Cada um coloca uma pedra por vez em qualquer ponto vazio. Pedras nunca saem do lugar e não há captura.</li>
+  <li>No celular, toque uma vez para ver a prévia e toque de novo no mesmo ponto para confirmar.</li></ul>
+  <h3>Para vencer</h3><ul>
+  <li><b>5 ou mais</b> (estilo livre): cinco, seis ou mais pedras seguidas vencem.</li>
+  <li><b>Só 5 exatos</b> (gomoku clássico): só vale <b>exatamente cinco</b>; uma fileira de seis ou mais não conta.</li>
+  <li>Se o tabuleiro encher sem ninguém fazer cinco, é <b>empate</b>.</li></ul>
+  <h3>Dicas</h3><ul>
+  <li><b>Quatro</b> = quatro pedras com uma casa livre para virar cinco: o adversário é obrigado a bloquear.</li>
+  <li><b>Quatro aberto</b> (livre nas duas pontas) não tem defesa. Por isso um <b>três aberto</b> precisa ser bloqueado logo.</li>
+  <li>Criar duas ameaças de uma vez (quatro + três aberto, ou dois três abertos) costuma decidir a partida.</li>
+  <li>As pretas têm vantagem por começar; contra o bot Difícil, comece com as pretas.</li></ul>`,
+  render(g, v, ui){
+    const st = ui.stage, N = g.N;
+    const avail = Math.min(st.clientWidth - 16, st.clientHeight - 112);
+    const bd = Math.floor(clamp(avail, 240, 780));
+    st.style.setProperty('--bd', bd + 'px');
+    if(!st.querySelector('.gban') || st.dataset.n !== String(N)){
+      st.dataset.n = N; gsel = -1; ghover = -1;
+      st.innerHTML = `<div class="gwrap"><div class="pbar"><span class="nm" id="nmTop"></span><span class="info" id="inTop"></span></div>
+        <div class="gban" id="gb"></div>
+        <div class="pbar"><span class="nm" id="nmBot"></span><span class="ctrl"><span class="info" id="inBot"></span>
+        <button class="tbtn" id="bRes" title="Desistir">🏳️<span class="rtx"> Desistir</span></button></span></div></div>`;
+      $('#bRes').onclick = () => modal('<h2>Desistir?</h2><p>Você perde a partida.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'resign'})}, {label:'Continuar', cls:'b-no'}]);
+      gAnim = g.seq;
+    }
+    if(gseqSel !== g.seq){ gsel = -1; gseqSel = g.seq; }
+    const fresh = g.seq !== gAnim; gAnim = g.seq;
+    $('#gb').innerHTML = gSvg(g, ui, fresh);
+    wireBoard(g, ui, bd / (N + 1));
+    const me = v.me, op = 1 - me, ts = g.colors.indexOf(g.turn), opc = 3 - g.my, playing = v.phase === 'game' && !g.over;
+    const nm = (s, c) => `<span class="stn ${c === 1 ? 'b' : 'w'}"></span>${esc(v.seats[s] ? v.seats[s].name : '')}${s === me ? ' (você)' : ''}`;
+    $('#nmBot').innerHTML = nm(me, g.my); $('#nmTop').innerHTML = nm(op, opc);
+    $('#nmBot').dataset.seat = me; $('#nmTop').dataset.seat = op;
+    $('#nmBot').classList.toggle('vez', playing && ts === me); $('#nmTop').classList.toggle('vez', playing && ts === op);
+    const botThinking = playing && ts === op && v.seats[op] && !v.seats[op].human;
+    $('#inTop').textContent = botThinking ? 'pensando…' : cname(opc);
+    $('#inBot').textContent = playing && ts === me ? 'sua vez' : '';
+    $('#bRes').disabled = !playing;
+  }
+});
+let gsel = -1, ghover = -1, gAnim = -1, gseqSel = -1;
+// desenha o tabuleiro em SVG (1 unidade por casa)
+function gSvg(g, ui, fresh){
+  const N = g.N, S = N + 1;
+  const hs = N === 15 ? [[3,3],[3,11],[7,7],[11,3],[11,11]] : [[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]];
+  let s = `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg"><defs>
+    <radialGradient id="gB" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#6b6b6b"/><stop offset=".45" stop-color="#222"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#e9e6df"/><stop offset="1" stop-color="#b9b4a8"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx=".05" dy=".08" stdDeviation=".05" flood-opacity=".5"/></filter></defs>`;
+  for(let k=1;k<=N;k++){
+    const sw = k === 1 || k === N ? .045 : .026;
+    s += `<line x1="1" y1="${k}" x2="${N}" y2="${k}" stroke="#3d2a12" stroke-width="${sw}"/><line x1="${k}" y1="1" x2="${k}" y2="${N}" stroke="#3d2a12" stroke-width="${sw}"/>`;
+  }
+  for(const [r, c] of hs) s += `<circle cx="${c+1}" cy="${r+1}" r=".1" fill="#3d2a12"/>`;
+  for(let k=0;k<N;k++){
+    s += `<text x="${k+1}" y="${S - .2}" font-size=".3" text-anchor="middle" fill="#5a3d16" font-weight="700">${COLN[k]}</text>`;
+    s += `<text x=".32" y="${k+1.1}" font-size=".3" text-anchor="middle" fill="#5a3d16" font-weight="700">${N - k}</text>`;
+  }
+  for(let i=0;i<N*N;i++){
+    const v = g.b[i]; if(!v) continue;
+    const x = i % N + 1, y = (i / N | 0) + 1;
+    s += `<circle cx="${x}" cy="${y}" r=".46" fill="url(#g${v === 1 ? 'B' : 'W'})" filter="url(#sh)"${fresh && i === g.last ? ' class="put"' : ''}/>`;
+    if(i === g.last && !g.line) s += `<circle cx="${x}" cy="${y}" r=".14" fill="${v === 1 ? '#e7b43a' : '#c0392b'}"/>`;
+  }
+  if(g.line){
+    const [a, b] = g.line, ax = a % N + 1, ay = (a / N | 0) + 1, bx = b % N + 1, by = (b / N | 0) + 1;
+    s += `<line class="wl" pathLength="30" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#e7b43a" stroke-width=".18" stroke-linecap="round" opacity=".92"/>`;
+  }
+  const pv = gsel >= 0 ? gsel : ghover;
+  if(pv >= 0 && !g.b[pv] && !g.over && g.turn === g.my && ui.isMyTurn())
+    s += `<circle cx="${pv % N + 1}" cy="${(pv / N | 0) + 1}" r=".44" fill="url(#g${g.my === 1 ? 'B' : 'W'})" opacity="${gsel >= 0 ? .75 : .45}"/>` +
+         (gsel >= 0 ? `<circle cx="${pv % N + 1}" cy="${(pv / N | 0) + 1}" r=".5" fill="none" stroke="#e7b43a" stroke-width=".07"/>` : '');
+  for(let i=0;i<N*N;i++) s += `<rect class="pt" data-i="${i}" x="${i % N + .5}" y="${(i / N | 0) + .5}" width="1" height="1" fill="transparent"/>`;
+  return s + '</svg>';
+}
+function wireBoard(g, ui, cell){
+  const twoTap = cell < 36 && matchMedia('(pointer:coarse)').matches;
+  const redraw = () => { $('#gb').innerHTML = gSvg(g, ui, false); wireBoard(g, ui, cell); };
+  $$('#gb .pt').forEach(el => {
+    const i = +el.dataset.i;
+    el.onclick = () => {
+      if(!ui.isMyTurn() || g.over || g.turn !== g.my) return;
+      if(g.b[i]){ toast('Esse ponto já está ocupado.'); return; }
+      if(twoTap && gsel !== i){ gsel = i; redraw(); return; }
+      gsel = -1; ghover = -1; ui.act({t:'play', i});
+    };
+    el.onmouseenter = () => { if(twoTap || !ui.isMyTurn() || g.b[i] || g.over) return; if(ghover !== i){ ghover = i; redraw(); } };
+  });
+  $('#gb').onmouseleave = () => { if(ghover >= 0){ ghover = -1; redraw(); } };
+}
+</script>
+</body>
+</html>

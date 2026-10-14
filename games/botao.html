@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Futebol de Botão</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px}
+.bt-hud{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:46px}
+.bt-pl{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:14px;background:rgba(0,0,0,.4);border:2px solid transparent;min-width:0;max-width:40%}
+.bt-pl.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.bt-pl .cor{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.bt-pl .nm{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bt-pl .gl{font-size:24px;font-weight:900;color:var(--gold);line-height:1}
+.bt-pl.r{flex-direction:row-reverse;text-align:right}
+.bt-mid{flex:1;text-align:center;font-size:12.5px;font-weight:700;color:#ffe6a6;min-width:0;line-height:1.3}
+.bt-mid b{color:#fff}
+.bt-box{position:relative;flex:1;min-height:0}
+.bt-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.bt-hint{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:12.5px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none}
+@media (max-width:600px){ .bt-pl .nm{font-size:13px} .bt-mid{font-size:11.5px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="botao-ai.js"></script>
+<script>
+"use strict";
+/* ========================= FUTEBOL DE BOTÃO =========================
+   Física, regras básicas e bot ficam em botao-ai.js (BT). Aqui: a
+   definição para a Mesa e a tela (campo em canvas, "peteleco" arrastando
+   o botão para trás, linha de mira e animação da trajetória do anfitrião).
+   ===================================================================== */
+const TEAM = [{nm:'Vermelho', c:'#d62828', c2:'#7d0f12'}, {nm:'Azul', c:'#1f6fd6', c2:'#0b3577'}];
+const LVN = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const STRIKE = 0.18;
+const FIM = {'3':['3 gols',3,0], '5':['5 gols',5,0], t5:['5 min',0,5], t10:['10 min',0,10]};
+
+Mesa.run({
+  id:'botao', name:'Futebol de Botão', icon:'⚽',
+  tagline:'Peteleco, toques e gol — online ou contra bots',
+  seats: o => o.jogadores === '4' ? 4 : 2,
+  team: (s, n) => n === 4 ? s % 2 : null,
+  seatLabel: (s, n) => TEAM[n === 4 ? s % 2 : s].nm,
+  options:[
+    {key:'time', label:'Time', default:'5', choices:[['5','Goleiro + 4'],['11','Goleiro + 10']]},
+    {key:'toques', label:'Toques', default:'3', choices:[['3','Até 3 por vez'],['1','1 e passa']]},
+    {key:'fim', label:'Partida', default:'3', choices:[['3','3 gols'],['5','5 gols'],['t5','5 min'],['t10','10 min']]},
+    {key:'jogadores', label:'Jogadores', default:'2', choices:[['2','1 × 1'],['4','2 × 2']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${o.time === '11' ? '11' : '5'} POR TIME · ${(FIM[o.fim] || FIM['3'])[0].toUpperCase()} · BOT ${(LVN[o.diff] || 'Normal').toUpperCase()}`,
+  setup(players, o){
+    const seats = players.length, f = FIM[o.fim] || FIM['3'];
+    const names = seats === 4 ? [players[0].name + ' e ' + players[2].name, players[1].name + ' e ' + players[3].name] : players.map(p => p.name);
+    const st = BT.newState({n:o.time === '11' ? 11 : 5, maxT:o.toques === '1' ? 1 : 3, alvo:f[1], fim:f[2] ? Date.now() + f[2]*60000 : 0, seats, names});
+    st.pn = players.map(p => p.name);
+    return st;
+  },
+  waiting(st){ return st.win == null ? [BT.seatNow(st)] : []; },
+  apply(st, seat, a){
+    if(st.win != null) return {ok:false, err:'A partida acabou.'};
+    if(seat !== BT.seatNow(st)) return {ok:false, err:'Não é a sua vez.'};
+    const act = a && typeof a === 'object' ? {i:a.i, a:+a.a, p:+a.p} : null;
+    const err = BT.check(st, seat, act); if(err) return {ok:false, err};
+    const r = BT.resolve(st, act, true);
+    const ev = [];
+    if(r.goal >= 0) ev.push({k:'log', text:`⚽ Gol do ${TEAM[r.goal].nm}! ${st.sc[0]} × ${st.sc[1]}`});
+    return {events:ev, pause:Math.round((STRIKE + st.last.tr.K/BT.KFPS)*1000) + (r.goal >= 0 ? 1300 : 450)};
+  },
+  tickMs:1000,
+  tick(st){
+    if(!st.fim || st.win != null || Date.now() < st.fim) return null;
+    st.timeUp = true; st.win = st.sc[0] > st.sc[1] ? 0 : st.sc[1] > st.sc[0] ? 1 : -1;
+    return {changed:true, events:[{k:'banner', text:'⏱️ Fim de jogo!'}, {k:'snd', s:'alert'}]};
+  },
+  over(st){
+    if(st.win == null) return null;
+    const pl = `${st.sc[0]} × ${st.sc[1]}`;
+    if(st.win < 0) return {draw:true, winners:[], text:`Empate: ${pl}.`};
+    const w = st.seats === 4 ? [st.win, st.win + 2] : [st.win];
+    return {winners:w, text:`<b>${esc(st.names[st.win])}</b> (${TEAM[st.win].nm}) venceu por ${pl}${st.timeUp ? ' no tempo' : ''}.`};
+  },
+  bot(st, seat, o){ return BT.bot(st, seat, o.diff); },
+  botFallback(st){ return BT.fallback(st); },
+  botDelay(){ return 650; },
+  view(st){ return st; },
+  topInfo(g, v){
+    const my = BT.seatNow(g) === v.me;
+    return `<div class="status">${g.win != null ? 'Fim de partida' : my ? 'Sua vez' : 'Vez de ' + esc(g.pn[BT.seatNow(g)])}</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Fazer gols com os seus botões, dando petelecos que empurram a bola para o gol adversário.</p>
+  <h3>Como jogar aqui</h3><ul>
+  <li>Na sua vez, encoste num dos seus botões (eles piscam) e <b>arraste para trás</b>, como um estilingue: a linha mostra a direção e onde o botão vai bater; quanto mais longe você puxar, mais forte. Solte para chutar.</li>
+  <li>Se o seu botão <b>tocar na bola</b>, você joga de novo — até o limite de toques da vez (3, ou 1 na opção "1 e passa"). Se não tocar na bola, ou ao acabar os toques, a vez passa.</li>
+  <li>Bola e botões batem nas paredes e voltam. É <b>gol</b> quando a bola passa inteira da linha entre as traves.</li>
+  <li>Depois de cada jogada os <b>goleiros se ajeitam</b> sozinhos entre a bola e o centro do gol; o goleiro só anda dentro da pequena área e também pode ser jogado.</li>
+  <li>Depois de um gol, os times voltam para as posições e quem sofreu dá a saída.</li></ul>
+  <h3>Fim</h3><ul><li>Por gols: vence quem chegar primeiro a 3 (ou 5) gols.</li>
+  <li>Por tempo: ao acabar o relógio vence quem tiver mais gols (pode empatar).</li></ul>
+  <h3>2 × 2</h3><p>Cada time tem dois jogadores, que se revezam: a cada vez do time joga um deles.</p>
+  <h3>Bots</h3><p>Testam dezenas de chutes (ângulos e forças) simulando a física de verdade e escolhem o que faz gol, avança a bola ou tira o perigo do próprio gol. O Fácil mira pior.</p>`,
+  render(g, v, ui){ UI.render(g, v, ui); },
+  onEvent(e){ if(e.k === 'start') UI.reset(); }
+});
+
+/* ============================== TELA ============================== */
+const UI = (() => {
+  const {L, WD, GD, gy0, gy1, RB} = BT;
+  const MX = GD + 14, MY = 16;     // margem do desenho em volta do campo
+  let G = null, V = null, U = null, built = false, prevBd = null;
+  let cv, ctx, bg, M = null, dpr = 1, sprites = {}, spriteK = 0, timer = 0;
+  const LOC = {drag:null};
+  const AN = {no:-1, tr:null, t0:0, last:null, settle:null, rate:1, hits:0, from:null};
+
+  function reset(){ AN.no = 0; AN.tr = null; AN.settle = null; prevBd = null; }
+  const animating = () => !!AN.tr || !!AN.settle;
+  const myTeam = () => G.seats === 4 ? V.me % 2 : V.me;
+  const myTurn = () => G && V && G.win == null && BT.seatNow(G) === V.me && V.waiting.includes(V.me) && !animating();
+
+  function build(stage){
+    stage.innerHTML = `<div class="bt-hud"><div class="bt-pl" id="pl0"></div><div class="bt-mid" id="btMid"></div><div class="bt-pl r" id="pl1"></div></div>
+      <div class="bt-box" id="btBox"><canvas id="btCv"></canvas><div class="bt-hint" id="btHint"></div></div>`;
+    cv = $('#btCv'); ctx = cv.getContext('2d');
+    cv.addEventListener('pointerdown', pdown); cv.addEventListener('pointermove', pmove);
+    cv.addEventListener('pointerup', pup); cv.addEventListener('pointercancel', () => { LOC.drag = null; dirty(); });
+    clearInterval(timer); timer = setInterval(() => { if(G && G.fim && G.win == null) hud(); }, 1000);
+    built = true;
+  }
+
+  /* ---------- geometria: campo deitado (PC) ou em pé (celular); meu gol sempre à esquerda/embaixo ---------- */
+  function layout(){
+    const box = $('#btBox'), bw = box.clientWidth, bh = box.clientHeight;
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    cv.width = Math.max(1, Math.round(bw*dpr)); cv.height = Math.max(1, Math.round(bh*dpr));
+    const TW = L + 2*MX, TH = WD + 2*MY;
+    const k1 = Math.min(bw/TW, bh/TH), k2 = Math.min(bw/TH, bh/TW), rot = k2 > k1*1.05, k = rot ? k2 : k1;
+    const ox = (bw - (rot ? TH : TW)*k)/2, oy = (bh - (rot ? TW : TH)*k)/2;
+    const flip = V && myTeam() === 1;
+    // local: x' = flip ? L-x : x ; y' = flip ? WD-y : y
+    const fs = flip ? -1 : 1, fx = flip ? L : 0, fy = flip ? WD : 0;
+    if(!rot) M = {a:k*fs, b:0, c:0, d:k*fs, e:ox + (MX + fx)*k, f:oy + (MY + fy)*k, k};
+    else M = {a:0, b:-k*fs, c:k*fs, d:0, e:ox + (MY + fy)*k, f:oy + (L + MX - fx)*k, k};
+    drawBg();
+    if(spriteK !== k*dpr){ sprites = {}; spriteK = k*dpr; }
+  }
+  const toS = (x, y) => [M.a*x + M.c*y + M.e, M.b*x + M.d*y + M.f];
+  function toW(sx, sy){ const det = M.a*M.d - M.b*M.c, x = sx - M.e, y = sy - M.f; return [(M.d*x - M.c*y)/det, (-M.b*x + M.a*y)/det]; }
+  const setW = c => c.setTransform(M.a*dpr, M.b*dpr, M.c*dpr, M.d*dpr, M.e*dpr, M.f*dpr);
+
+  function drawBg(){
+    bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
+    const c = bg.getContext('2d'); setW(c);
+    // mesa de madeira
+    c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(-MX + 4, -MY + 6, L + 2*MX, WD + 2*MY);
+    c.fillStyle = '#6b3d1c'; c.fillRect(-MX, -MY, L + 2*MX, WD + 2*MY);
+    // gramado listrado
+    for(let i=0;i<10;i++){ c.fillStyle = i % 2 ? '#2f9a4c' : '#2a8c45'; c.fillRect(i*L/10, 0, L/10 + 0.5, WD); }
+    c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 3;
+    c.strokeRect(0, 0, L, WD);
+    c.beginPath(); c.moveTo(L/2, 0); c.lineTo(L/2, WD); c.stroke();
+    c.beginPath(); c.arc(L/2, WD/2, 90, 0, 7); c.stroke();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(L/2, WD/2, 5, 0, 7); c.fill();
+    for(const [x0, s] of [[0, 1], [L, -1]]){
+      c.strokeRect(Math.min(x0, x0 + s*190), WD/2 - 190, 190, 380);          // grande área
+      c.setLineDash([10, 7]); c.strokeRect(Math.min(x0, x0 + s*BT.AREA_X), BT.AREA_Y0, BT.AREA_X, BT.AREA_Y1 - BT.AREA_Y0); c.setLineDash([]);  // pequena área
+      c.beginPath(); c.arc(x0 + s*150, WD/2, 4, 0, 7); c.fill();
+      c.beginPath(); c.arc(x0 + s*150, WD/2, 95, s > 0 ? -0.92 : Math.PI - 0.92, s > 0 ? 0.92 : Math.PI + 0.92); c.stroke();
+      // gol com rede
+      const gx = s > 0 ? -GD : L;
+      c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(gx, gy0, GD, gy1 - gy0);
+      c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1;
+      for(let y=gy0; y<=gy1; y+=12){ c.beginPath(); c.moveTo(gx, y); c.lineTo(gx + GD, y); c.stroke(); }
+      for(let x=gx; x<=gx + GD; x+=12){ c.beginPath(); c.moveTo(x, gy0); c.lineTo(x, gy1); c.stroke(); }
+      c.strokeStyle = '#f4f4f4'; c.lineWidth = 6; c.beginPath(); c.moveTo(x0, gy0); c.lineTo(x0 - s*GD, gy0); c.lineTo(x0 - s*GD, gy1); c.lineTo(x0, gy1); c.stroke();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(x0, gy0, 6, 0, 7); c.fill(); c.beginPath(); c.arc(x0, gy1, 6, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 3;
+    }
+  }
+  // botão/bola desenhados uma vez (com aro, brilho e número)
+  function sprite(i){
+    const P = BT.PROPS[G.n], key = i ? P.team[i] + ':' + (P.gk[i] >= 0 ? 'g' : 'b') + ':' + i : 'ball';
+    if(sprites[key]) return sprites[key];
+    const rp = P.r[i]*M.k*dpr, S = Math.ceil(rp*2 + 4), c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d'), m = S/2;
+    if(!i){
+      x.fillStyle = '#fafafa'; x.beginPath(); x.arc(m, m, rp, 0, 7); x.fill();
+      x.fillStyle = '#222';
+      for(const [a, d] of [[0, 0], [0.4, 0.62], [2.5, 0.62], [4.5, 0.62]]){ x.beginPath(); x.arc(m + Math.cos(a)*rp*d, m + Math.sin(a)*rp*d, rp*0.26, 0, 7); x.fill(); }
+    } else {
+      const T = TEAM[P.team[i]], gk = P.gk[i] >= 0;
+      const gr = x.createRadialGradient(m - rp*0.3, m - rp*0.35, rp*0.1, m, m, rp);
+      gr.addColorStop(0, gk ? '#ffe9a0' : '#fff'); gr.addColorStop(0.18, gk ? '#e7b43a' : T.c); gr.addColorStop(1, T.c2);
+      x.fillStyle = gr; x.beginPath(); x.arc(m, m, rp, 0, 7); x.fill();
+      x.strokeStyle = gk ? T.c : 'rgba(255,255,255,.75)'; x.lineWidth = Math.max(1.5, rp*0.13); x.beginPath(); x.arc(m, m, rp*0.78, 0, 7); x.stroke();
+      x.fillStyle = gk ? '#3a2600' : '#fff'; x.font = `900 ${Math.max(7, rp*0.75)}px system-ui,sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(gk ? 'G' : String(i - P.team[i]*G.n), m, m + rp*0.05);
+    }
+    const sh = x.createRadialGradient(m - rp*0.4, m - rp*0.45, rp*0.05, m, m, rp*1.05);
+    sh.addColorStop(0, 'rgba(255,255,255,.55)'); sh.addColorStop(0.3, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)');
+    x.fillStyle = sh; x.beginPath(); x.arc(m, m, rp, 0, 7); x.fill();
+    return sprites[key] = c;
+  }
+
+  /* ---------- animação ---------- */
+  function startAnim(last, from){
+    AN.no = last.no; AN.last = last; AN.tr = last.tr; AN.t0 = performance.now(); AN.settle = null; AN.hits = 0; AN.from = from; AN.played = false;
+    AN.rate = clamp(1/(CFG.speed || 1), 1, 4);
+    $('#btHint').textContent = ''; LOC.drag = null;
+    loop();
+  }
+  function trackPos(t, f){ const n = t.p.length/2, l = f - t.s; if(l <= 0) return [t.p[0], t.p[1]]; if(l >= n - 1) return [t.p[2*n-2], t.p[2*n-1]];
+    const i = Math.floor(l), u = l - i; return [t.p[2*i] + (t.p[2*i+2] - t.p[2*i])*u, t.p[2*i+1] + (t.p[2*i+3] - t.p[2*i+1])*u]; }
+  function positions(){
+    const bd = G.bd, out = [], tn = performance.now();
+    if(AN.tr){
+      const t = (tn - AN.t0)/1000*AN.rate, f = Math.max(0, t - STRIKE)*BT.KFPS, tr = AN.tr, base = AN.from || bd;
+      if(!AN.played && t >= STRIKE){ AN.played = true; Snd.move(); }
+      while(AN.hits < tr.hf.length && tr.hf[AN.hits] <= f){ AN.hits++; if(AN.hits < 8) Snd.card(); }
+      for(let i=0;i<bd.length;i++) out[i] = [base[i].x, base[i].y];
+      for(const k of tr.tr) out[k.i] = trackPos(k, f);
+      if(f >= tr.K - 1){
+        AN.tr = null;
+        if(AN.last.ban){ banner(AN.last.ban.text); Snd.fanfare(); }
+        AN.settle = {t0:tn, from:out.map(p => p.slice()), dur:AN.last.goal >= 0 ? 900 : 380};
+      }
+      return out;
+    }
+    if(AN.settle){
+      const u = Math.min(1, (tn - AN.settle.t0)/AN.settle.dur*AN.rate), e = u*u*(3 - 2*u);
+      for(let i=0;i<bd.length;i++){ const a = AN.settle.from[i]; out[i] = [a[0] + (bd[i].x - a[0])*e, a[1] + (bd[i].y - a[1])*e]; }
+      if(u >= 1){ AN.settle = null; hud(); dirty(); }
+      return out;
+    }
+    for(let i=0;i<bd.length;i++) out[i] = [bd[i].x, bd[i].y];
+    return out;
+  }
+  let raf = 0, dirt = false;
+  function dirty(){ dirt = true; loop(); }
+  function loop(){ if(!raf) raf = requestAnimationFrame(frame); }
+  function frame(){
+    raf = 0;
+    if(!cv || !cv.isConnected) return;
+    draw();
+    const pulse = myTurn() && !LOC.drag;
+    if(animating() || pulse) loop(); else dirt = false;
+  }
+
+  /* ---------- desenho ---------- */
+  function draw(){
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    if(!M) return;
+    ctx.drawImage(bg, 0, 0);
+    const P = BT.PROPS[G.n], ps = positions(), mine = myTurn(), tn = performance.now();
+    if(LOC.drag && mine) drawAim(ps);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // sombras
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
+    for(let i=0;i<ps.length;i++){ const [sx, sy] = toS(ps[i][0], ps[i][1]), rp = P.r[i]*M.k*dpr; ctx.beginPath(); ctx.arc(sx*dpr + rp*0.15, sy*dpr + rp*0.28, rp, 0, 7); ctx.fill(); }
+    // meus botões piscando na minha vez
+    if(mine && !LOC.drag){
+      const al = 0.35 + 0.35*Math.sin(tn/220);
+      ctx.strokeStyle = `rgba(255,214,90,${al})`; ctx.lineWidth = 3*dpr;
+      for(let i=1;i<ps.length;i++) if(P.team[i] === G.turn){ const [sx, sy] = toS(ps[i][0], ps[i][1]); ctx.beginPath(); ctx.arc(sx*dpr, sy*dpr, (P.r[i]*M.k + 5)*dpr, 0, 7); ctx.stroke(); }
+    }
+    // último botão jogado
+    for(let i=ps.length-1;i>=0;i--){
+      const s = sprite(i), [sx, sy] = toS(ps[i][0], ps[i][1]);
+      ctx.drawImage(s, sx*dpr - s.width/2, sy*dpr - s.height/2);
+    }
+    if(LOC.drag && mine){
+      const i = LOC.drag.i, [sx, sy] = toS(ps[i][0], ps[i][1]);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3*dpr; ctx.beginPath(); ctx.arc(sx*dpr, sy*dpr, (P.r[i]*M.k + 4)*dpr, 0, 7); ctx.stroke();
+    }
+  }
+  // estilingue: puxada (do botão até o dedo), direção do chute até a 1ª batida e força
+  function drawAim(ps){
+    const P = BT.PROPS[G.n], d = LOC.drag, i = d.i, [bx, by] = ps[i];
+    const ux = Math.cos(d.a), uy = Math.sin(d.a);
+    let tb = 1e9, hit = -1;
+    for(let j=0;j<ps.length;j++){
+      if(j === i) continue;
+      const fx = bx - ps[j][0], fy = by - ps[j][1], rr = P.r[i] + P.r[j], bq = fx*ux + fy*uy, cq = fx*fx + fy*fy - rr*rr, disc = bq*bq - cq;
+      if(disc < 0) continue; const t = -bq - Math.sqrt(disc); if(t > 0 && t < tb){ tb = t; hit = j; }
+    }
+    const reach = 120 + d.p*780, tl = Math.min(tb, reach);
+    setW(ctx); ctx.lineCap = 'round';
+    // elástico
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 4; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(d.px, d.py); ctx.stroke();
+    // mira
+    const col = d.p > 0.75 ? '#ff6b5a' : d.p > 0.4 ? '#ffd65a' : '#9cf5b8';
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.setLineDash([14, 10]);
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + ux*tl, by + uy*tl); ctx.stroke(); ctx.setLineDash([]);
+    if(hit >= 0 && tb <= reach){
+      const gx = bx + ux*tb, gy = by + uy*tb, o = ps[hit], rr = P.r[i] + P.r[hit];
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(gx, gy, P.r[i], 0, 7); ctx.stroke();
+      const nx = (o[0] - gx)/rr, ny = (o[1] - gy)/rr, cs = ux*nx + uy*ny, l2 = (hit === 0 ? 90 : 40) + 260*cs*d.p;
+      ctx.strokeStyle = hit === 0 ? '#fff' : 'rgba(255,255,255,.45)'; ctx.lineWidth = hit === 0 ? 4 : 2.5;
+      ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(o[0] + nx*l2, o[1] + ny*l2); ctx.stroke();
+    }
+    $('#btHint').textContent = `Força ${Math.round(d.p*100)}% — solte para chutar`;
+  }
+
+  /* ---------- entrada ---------- */
+  function wpt(e){ const r = cv.getBoundingClientRect(); return toW(e.clientX - r.left, e.clientY - r.top); }
+  const maxPull = () => Math.min(cv.width, cv.height)/dpr*0.36/M.k;   // puxada máxima (em unidades do campo)
+  function pdown(e){
+    if(!myTurn()) return;
+    const [x, y] = wpt(e), P = BT.PROPS[G.n];
+    let best = -1, bd = 1e9;
+    for(let i=1;i<P.N;i++){
+      if(P.team[i] !== G.turn) continue;
+      const d = Math.hypot(G.bd[i].x - x, G.bd[i].y - y), lim = Math.max(P.r[i]*1.35, 26/M.k);
+      if(d < lim && d < bd){ bd = d; best = i; }
+    }
+    if(best < 0){ $('#btHint').textContent = 'Encoste num dos seus botões (os que piscam) e puxe para trás'; return; }
+    e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    LOC.drag = {i:best, a:0, p:0, px:x, py:y}; upd(x, y); dirty();
+  }
+  function upd(x, y){
+    const d = LOC.drag, o = G.bd[d.i], dx = o.x - x, dy = o.y - y, len = Math.hypot(dx, dy);
+    d.px = x; d.py = y; d.p = clamp((len - BT.PROPS[G.n].r[d.i]*0.6)/maxPull(), 0, 1);
+    if(len > 1) d.a = Math.atan2(dy, dx);
+  }
+  function pmove(e){ if(!LOC.drag || !myTurn()) return; const [x, y] = wpt(e); upd(x, y); dirty(); }
+  function pup(){
+    const d = LOC.drag; LOC.drag = null;
+    if(!d || !myTurn()){ dirty(); return; }
+    if(d.p < 0.04){ $('#btHint').textContent = 'Puxe mais para trás para dar força'; dirty(); return; }
+    $('#btHint').textContent = '';
+    U.act({i:d.i, a:d.a, p:Math.round(d.p*1000)/1000});
+  }
+
+  /* ---------- placar ---------- */
+  function hud(){
+    for(let t=0;t<2;t++){
+      const el = $('#pl' + t); if(!el) continue;
+      el.classList.toggle('vez', G.win == null && G.turn === t);
+      const me = (G.seats === 4 ? V.me % 2 : V.me) === t;
+      el.innerHTML = `<span class="cor" style="background:${TEAM[t].c}"></span><span class="nm">${esc(G.names[t])}${me ? ' (você)' : ''}</span><span class="gl">${G.sc[t]}</span>`;
+    }
+    let mid = '';
+    if(G.fim){ const s = Math.max(0, Math.ceil((G.fim - Date.now())/1000)); mid += `⏱️ <b>${Math.floor(s/60)}:${String(s % 60).padStart(2, '0')}</b><br>`; }
+    else if(G.alvo) mid += `Vence quem fizer <b>${G.alvo}</b><br>`;
+    if(G.win == null){
+      const left = G.maxT - G.tq;
+      mid += G.maxT > 1 ? `Restam <b>${left}</b> de ${G.maxT} toques` : '1 toque por vez';
+    }
+    $('#btMid').innerHTML = mid;
+    if(myTurn() && !LOC.drag) $('#btHint').textContent = G.tq === 0 ? 'Sua vez: puxe um botão para trás e solte' : `Tocou! Mais ${G.maxT - G.tq} toque${G.maxT - G.tq > 1 ? 's' : ''}`;
+    else if(!LOC.drag) $('#btHint').textContent = '';
+  }
+
+  function render(g, v, ui){
+    const first = !built || !$('#btCv');
+    const old = G ? G.bd : null;
+    G = g; V = v; U = ui;
+    if(first) build(ui.stage);
+    if(first || !M) requestAnimationFrame(() => { layout(); dirty(); });
+    if(g.last && g.last.no !== AN.no){
+      if(AN.no < 0) AN.no = g.last.no;
+      else { startAnim(g.last, prevBd || old); prevBd = g.bd; return; }
+    }
+    prevBd = g.bd;
+    if(!animating()) hud();
+    dirty();
+  }
+  window.addEventListener('resize', () => { if(built && $('#btCv')){ layout(); dirty(); } });
+  function _target(){ // gancho de teste: botão meu mais perto da bola e ponto de puxada (tela)
+    const P = BT.PROPS[G.n]; let b = -1, bd = 1e9;
+    for(let i=1;i<P.N;i++) if(P.team[i] === G.turn){ const d = Math.hypot(G.bd[i].x - G.bd[0].x, G.bd[i].y - G.bd[0].y); if(d < bd){ bd = d; b = i; } }
+    const o = G.bd[b], ux = (G.bd[0].x - o.x)/bd, uy = (G.bd[0].y - o.y)/bd, r = cv.getBoundingClientRect();
+    const [sx, sy] = toS(o.x, o.y), [ex, ey] = toS(o.x - ux*180, o.y - uy*180);
+    return [r.left + sx, r.top + sy, r.left + ex, r.top + ey];
+  }
+  return {render, reset, _target};
+})();
+</script>
+</body>
+</html>
