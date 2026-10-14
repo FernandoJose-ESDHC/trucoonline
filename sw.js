@@ -1,12 +1,14 @@
 /* Service worker: guarda os arquivos para o jogo abrir sem internet.
    Estratégia "rede primeiro": online sempre pega a versão nova; offline usa
    a cópia guardada. Mude a versão para forçar limpeza. */
-const VERSION = 'central-v9';
+const VERSION = 'central-v10';
 const CORE = ['./', './index.html', './manifest.json', './shared/core.css', './shared/core.js', './shared/mesa.js', './shared/melds.js', './shared/peerjs.min.js', './shared/chips.js', './games/registry.js',
   './games/truco.html', './games/canastra.html', './games/pife.html', './games/21.html', './games/paciencia.html', './games/xadrez.html', './games/xadrez-ai.js', './games/damas.html', './games/damas-ai.js',
   './games/ultima.html', './games/domino.html', './games/domino-ai.js', './games/ludo.html', './games/trilha.html', './games/trilha-ai.js', './games/batalha.html', './games/batalha-ai.js', './games/reversi.html', './games/reversi-ai.js', './games/quatro.html', './games/quatro-ai.js', './games/gamao.html', './games/gamao-ai.js', './games/go.html', './games/go-ai.js', './games/mancala.html', './games/mancala-ai.js', './games/restaum.html', './games/restaum-ai.js', './games/senha.html', './games/senha-ai.js',
   
   './games/2048-ai.js', './games/2048.html', './games/bisca.html', './games/burro.html', './games/cacapalavras-palavras.js', './games/cacapalavras.html', './games/campominado-ai.js', './games/campominado.html', './games/copas.html', './games/cruzadas-palavras.js', './games/cruzadas.html', './games/desenhe-ai.js', './games/desenhe-palavras.js', './games/desenhe.html', './games/forca.html', './games/general-ai.js', './games/general.html', './games/palavra-lista.js', './games/palavra.html', './games/palavras-cat.js', './games/poquer-ai.js', './games/poquer.html', './games/roubamonte.html', './games/stop.html', './games/sudoku-ai.js', './games/sudoku.html', './games/sueca.html', './games/tranca.html',
+  
+  './games/bingo.html', './games/blocos.html', './games/botao-ai.js', './games/botao.html', './games/cacheta-ai.js', './games/cacheta.html', './games/cobrinha.html', './games/escova.html', './games/freecell-ai.js', './games/freecell.html', './games/imobiliario.html', './games/lobisomem.html', './games/mahjong.html', './games/porrinha.html', './games/quemsoueu-cartas.js', './games/quemsoueu.html', './games/quiz-perguntas.js', './games/quiz.html', './games/sinuca-ai.js', './games/sinuca.html', './games/spider.html',
   './docs/img/icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));

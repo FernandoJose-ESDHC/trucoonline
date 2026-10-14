@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Sinuca</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:stretch;padding:6px 8px}
+.sn-hud{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:46px}
+.sn-pl{display:flex;flex-direction:column;gap:2px;padding:4px 10px;border-radius:14px;background:rgba(0,0,0,.4);border:2px solid transparent;min-width:0;max-width:38%}
+.sn-pl.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.sn-pl .nm{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sn-pl .sub{font-size:11.5px;color:#cfe;display:flex;gap:3px;align-items:center;flex-wrap:wrap;min-height:13px}
+.sn-pl .pts{font-size:20px;font-weight:900;color:var(--gold);line-height:1}
+.sn-pl.r{align-items:flex-end;text-align:right}
+.mb{width:11px;height:11px;border-radius:50%;display:inline-block;box-shadow:inset -1px -1px 2px rgba(0,0,0,.4)}
+.mb.st{background-image:linear-gradient(180deg,#fff 0 28%,transparent 28% 72%,#fff 72%)!important}
+.sn-mid{flex:1;text-align:center;font-size:12.5px;font-weight:700;color:#ffe6a6;min-width:0;line-height:1.25}
+.sn-mid b{color:#fff}
+.sn-box{position:relative;flex:1;min-height:0}
+.sn-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.sn-ctrl{display:flex;align-items:center;gap:6px;padding-top:6px;min-height:52px}
+.sn-ctrl.off{visibility:hidden}
+.sn-ctrl .tbtn{min-width:42px;height:42px;font-size:17px;padding:0 8px;flex:none}
+.sn-pow{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.sn-pow label{font-size:11px;color:#ffe6a6;font-weight:700}
+.sn-pow input{width:100%;accent-color:var(--gold);height:26px}
+.sn-shoot{height:46px;padding:0 18px;border-radius:12px;border:none;background:linear-gradient(180deg,#ffd76a,#e7b43a);color:#3a2600;font-weight:900;font-size:16px;cursor:pointer;flex:none;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.sn-shoot:active{transform:scale(.96)}
+.sn-spin{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:radial-gradient(circle at 40% 35%,#fff,#ddd 60%,#aaa);position:relative;flex:none;cursor:pointer}
+.sn-spin i{position:absolute;left:50%;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:#d62828}
+.sn-hint{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:12px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;opacity:.9}
+@media (max-width:600px){ .sn-pl .nm{font-size:13px} .sn-mid{font-size:11.5px} .sn-shoot{padding:0 12px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="sinuca-ai.js"></script>
+<script>
+"use strict";
+/* ============================== SINUCA ==============================
+   Física e bot ficam em sinuca-ai.js (SN). Aqui: regras para a Mesa e
+   a tela (canvas com mesa, mira com linha fantasma, taco e animação da
+   trajetória que o anfitrião calculou).
+   ===================================================================== */
+const COL8 = ['#fff','#f2c414','#1f4fd1','#d62828','#6a2c91','#f07c12','#13874b','#8a1c1c','#111','#f2c414','#1f4fd1','#d62828','#6a2c91','#f07c12','#13874b','#8a1c1c'];
+const COLBR = ['#fff','#d32020','#f2c414','#138a43','#7a4a22','#1f4fd1','#f07aa8','#111'];
+const ballCol = (mode, n) => (mode === '8' ? COL8 : COLBR)[n];
+const LVN = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const STRIKE = 0.32;   // segundos do taco batendo antes das bolas andarem
+
+Mesa.run({
+  id:'sinuca', name:'Sinuca', icon:'🎱', players:2,
+  tagline:'Bola 8 ou sinuca — online ou contra bots',
+  options:[
+    {key:'modo', label:'Modo', default:'8', choices:[['8','Bola 8'],['br','Bola da vez']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => (o.modo === 'br' ? 'BOLA DA VEZ' : 'BOLA 8') + ' · BOT ' + (LVN[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){ return SN.newState(o.modo === 'br' ? 'br' : '8', players.map(p => p.name)); },
+  waiting(st){ return st.win == null ? [st.turn] : []; },
+  apply(st, seat, a){
+    if(st.win != null) return {ok:false, err:'A partida acabou.'};
+    if(seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const act = a && typeof a === 'object' ? {a:+a.a, p:+a.p, s:a.s == null ? 0 : +a.s, x:+a.x, y:+a.y} : null;
+    const err = SN.check(st, act); if(err) return {ok:false, err};
+    if(!st.mao){ delete act.x; delete act.y; }
+    const o = SN.resolve(st, seat, act, true);
+    const ev = [];
+    if(st.msg) ev.push({k:'log', text:esc(st.msg)});
+    const ms = Math.round((STRIKE + st.last.tr.K/SN.KFPS)*1000) + 450;
+    return {events:ev, pause:ms};
+  },
+  over(st){
+    if(st.win == null) return null;
+    const sc = st.mode === 'br' ? ` (${st.score[0]} × ${st.score[1]})` : '';
+    if(st.win < 0) return {draw:true, winners:[], text:esc(st.msg) + sc};
+    return {winners:[st.win], text:`${esc(st.msg)}<br><b>${esc(st.names[st.win])}</b> venceu${sc}.`};
+  },
+  bot(st, seat, o){ return SN.bot(st, seat, o.diff); },
+  botFallback(st){ return SN.fallback(st); },
+  botDelay(){ return 750; },
+  view(st){ return st; },
+  topInfo(g, v){
+    const my = g.turn === v.me;
+    return `<div class="status">${g.win != null ? 'Fim de partida' : my ? 'Sua vez' : 'Vez de ' + esc(g.names[g.turn])}</div>`;
+  },
+  rules: o => `<h3>Objetivo</h3>
+  <p><b>Bola 8:</b> encaçapar todas as bolas do seu grupo (lisas 1–7 ou listradas 9–15) e depois a <b>8</b>.<br>
+  <b>Bola da vez:</b> fazer mais pontos que o adversário encaçapando as bolas de 1 (vermelha) a 7 (preta) — cada bola vale o seu número.</p>
+  <h3>Como jogar aqui</h3><ul>
+  <li>Toque/arraste na mesa para apontar o taco; use ◀ ▶ para o ajuste fino (no PC, também a rodinha do mouse).</li>
+  <li>A linha fantasma mostra onde a branca bate, para onde a bola tocada vai (amarelo) e o desvio da branca.</li>
+  <li>Escolha a força na barra, o efeito na bolinha (sem efeito, <b>seguir</b> ou <b>puxar</b>) e toque em <b>Tacar</b>.</li>
+  <li>Com <b>bola na mão</b>, arraste a branca para onde quiser (dentro da área permitida) antes de tacar.</li></ul>
+  <h3>Bola 8</h3><ul>
+  <li>A saída é feita com a branca atrás da linha da cabeceira. Na saída a mesa fica aberta; bolas que caem valem para continuar jogando. Se a 8 cair na saída, ela volta para a marca.</li>
+  <li>Depois da saída, a primeira bola encaçapada sem falta define o seu grupo.</li>
+  <li>Você continua jogando enquanto encaçapar bolas do seu grupo.</li>
+  <li><b>Faltas</b> (o adversário ganha <b>bola na mão</b> em qualquer lugar): branca na caçapa; não tocar em nenhuma bola; tocar primeiro numa bola que não é sua (com a mesa aberta, tocar primeiro na 8).</li>
+  <li>Encaçapar a 8 depois de limpar o seu grupo, sem falta, vence. Encaçapar a 8 antes da hora ou com falta perde a partida.</li>
+  <li>Simplificações: não é preciso cantar a caçapa nem levar bola à tabela.</li></ul>
+  <h3>Bola da vez (sinuca)</h3><ul>
+  <li>Bolas: 1 vermelha, 2 amarela, 3 verde, 4 marrom, 5 azul, 6 rosa, 7 preta. A <b>bola da vez</b> é a de menor número na mesa: a branca tem de tocá-la primeiro.</li>
+  <li>Encaçapou a bola da vez: ganha os pontos dela e uma <b>bola livre</b> — na tacada seguinte pode jogar em qualquer bola. A bola livre encaçapada vale os pontos e volta para a marca (se for a bola da vez, fica fora e você ganha outra livre).</li>
+  <li><b>Faltas</b> valem para o adversário o maior entre 4 e o valor da bola da vez (ou da bola envolvida): branca na caçapa (o adversário joga com a branca na mão, atrás da linha da cabeceira), não tocar em nenhuma bola, tocar primeiro outra bola ou encaçapar uma bola que não era a da vez. Bolas encaçapadas na falta voltam para as marcas.</li>
+  <li>Acaba quando a mesa fica limpa ou quando a diferença passa dos pontos que ainda dá para fazer. Vence quem tiver mais pontos.</li></ul>
+  <h3>Bots</h3><p>Procuram tacadas viáveis (ângulo de corte, caminho livre até a caçapa), simulam as melhores e pensam na posição da branca; sem tacada boa, jogam na defesa. O Fácil erra um pouco a mira e a força.</p>`,
+  render(g, v, ui){ UI.render(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ UI.reset(); } }
+});
+
+/* ============================== TELA ============================== */
+const UI = (() => {
+  const {W, H, R, RAIL} = SN;
+  let G = null, V = null, U = null, built = false;
+  let cv, ctx, bg, M = null, dpr = 1, sprites = {}, spriteK = 0;
+  const LOC = {a:0, p:0.55, s:0, cue:null, key:'', drag:null};
+  const AN = {no:-1, tr:null, t0:0, end:null, endT:0, last:null, played:true};
+
+  function reset(){ AN.no = 0; AN.tr = null; LOC.key = ''; }
+  const myTurn = () => G && V && G.win == null && G.turn === V.me && V.waiting.includes(V.me) && !animating();
+  const animating = () => !!AN.tr || (AN.end && performance.now() < AN.endT);
+
+  function build(stage){
+    stage.innerHTML = `<div class="sn-hud"><div class="sn-pl" id="pl0" data-seat="0"></div><div class="sn-mid" id="snMid"></div><div class="sn-pl r" id="pl1" data-seat="1"></div></div>
+      <div class="sn-box" id="snBox"><canvas id="snCv"></canvas><div class="sn-hint" id="snHint"></div></div>
+      <div class="sn-ctrl off" id="snCtrl">
+        <button class="tbtn" id="bL" title="Girar o taco">◀</button><button class="tbtn" id="bR" title="Girar o taco">▶</button>
+        <div class="sn-pow"><label for="snPow" id="snPowL">Força 55%</label><input type="range" id="snPow" min="3" max="100" value="55"></div>
+        <button class="sn-spin" id="snSpin" title="Efeito: sem efeito"><i></i></button>
+        <button class="sn-shoot" id="snShoot">Tacar</button></div>`;
+    cv = $('#snCv'); ctx = cv.getContext('2d');
+    const rep = (el, d) => { let t = null; const go = () => { LOC.a += d; dirty(); };
+      el.onpointerdown = e => { e.preventDefault(); go(); t = setInterval(go, 70); };
+      el.onpointerup = el.onpointerleave = el.onpointercancel = () => clearInterval(t); };
+    rep($('#bL'), -0.0035); rep($('#bR'), 0.0035);
+    $('#snPow').oninput = e => { LOC.p = +e.target.value/100; $('#snPowL').textContent = 'Força ' + e.target.value + '%'; dirty(); };
+    $('#snPow').value = Math.round(LOC.p*100); $('#snPowL').textContent = 'Força ' + Math.round(LOC.p*100) + '%';
+    $('#snSpin').onclick = () => { LOC.s = LOC.s === 0 ? 0.7 : LOC.s > 0 ? -0.7 : 0; spinLbl(); toast(LOC.s > 0 ? 'Efeito: seguir (a branca segue em frente)' : LOC.s < 0 ? 'Efeito: puxar (a branca volta)' : 'Sem efeito', 1400); dirty(); };
+    $('#snShoot').onclick = shoot;
+    cv.addEventListener('pointerdown', pdown); cv.addEventListener('pointermove', pmove);
+    cv.addEventListener('pointerup', pup); cv.addEventListener('pointercancel', pup);
+    cv.addEventListener('wheel', e => { if(!myTurn()) return; e.preventDefault(); LOC.a += (e.deltaY > 0 ? 1 : -1)*0.0025; dirty(); }, {passive:false});
+    spinLbl(); built = true;
+  }
+  function spinLbl(){ const b = $('#snSpin'); if(!b) return; b.querySelector('i').style.top = LOC.s > 0 ? '8px' : LOC.s < 0 ? '27px' : '17.5px';
+    b.title = 'Efeito: ' + (LOC.s > 0 ? 'seguir' : LOC.s < 0 ? 'puxar' : 'sem efeito'); }
+
+  /* ---------- geometria da tela ---------- */
+  function layout(){
+    const box = $('#snBox'), bw = box.clientWidth, bh = box.clientHeight;
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    cv.width = Math.max(1, Math.round(bw*dpr)); cv.height = Math.max(1, Math.round(bh*dpr));
+    const TW = W + 2*RAIL, TH = H + 2*RAIL;
+    const k1 = Math.min(bw/TW, bh/TH), k2 = Math.min(bw/TH, bh/TW), rot = k2 > k1*1.05, k = rot ? k2 : k1;
+    const ox = (bw - (rot ? TH : TW)*k)/2, oy = (bh - (rot ? TW : TH)*k)/2;
+    M = rot ? {a:0, b:-k, c:k, d:0, e:ox + RAIL*k, f:oy + (W + RAIL)*k, k, rot} : {a:k, b:0, c:0, d:k, e:ox + RAIL*k, f:oy + RAIL*k, k, rot};
+    drawBg();
+    if(spriteK !== k*dpr){ sprites = {}; spriteK = k*dpr; }
+  }
+  const toS = (x, y) => [M.a*x + M.c*y + M.e, M.b*x + M.d*y + M.f];
+  function toW(sx, sy){ const det = M.a*M.d - M.b*M.c, x = sx - M.e, y = sy - M.f; return [(M.d*x - M.c*y)/det, (-M.b*x + M.a*y)/det]; }
+  const setW = c => c.setTransform(M.a*dpr, M.b*dpr, M.c*dpr, M.d*dpr, M.e*dpr, M.f*dpr);
+
+  function drawBg(){
+    bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
+    const c = bg.getContext('2d'); setW(c);
+    // borda de madeira
+    const wood = c.createLinearGradient(0, -RAIL, 0, H + RAIL); wood.addColorStop(0, '#7a4520'); wood.addColorStop(0.5, '#5a2f12'); wood.addColorStop(1, '#3f200b');
+    c.fillStyle = 'rgba(0,0,0,.45)'; rr(c, -RAIL + 1.5, -RAIL + 2.5, W + 2*RAIL, H + 2*RAIL, 6); c.fill();
+    c.fillStyle = wood; rr(c, -RAIL, -RAIL, W + 2*RAIL, H + 2*RAIL, 6); c.fill();
+    c.strokeStyle = 'rgba(255,220,160,.25)'; c.lineWidth = 0.5; rr(c, -RAIL + 1, -RAIL + 1, W + 2*RAIL - 2, H + 2*RAIL - 2, 5); c.stroke();
+    // tabelas (borracha) e pano
+    c.fillStyle = '#0b5a34'; c.fillRect(-3.6, -3.6, W + 7.2, H + 7.2);
+    const felt = c.createRadialGradient(W/2, H/2, 10, W/2, H/2, W*0.62); felt.addColorStop(0, '#1d9a5a'); felt.addColorStop(1, '#127a44');
+    c.fillStyle = felt; c.fillRect(0, 0, W, H);
+    // bocas e caçapas
+    c.fillStyle = '#0a0a0a';
+    for(const pk of SN.POCKETS){
+      c.beginPath(); c.arc(pk.x, pk.y, pk.r, 0, 7); c.fill();
+      const [a, b] = pk.tips;
+      c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(pk.x + (a[0] - pk.x)*0.2 + pk.nx*4, pk.y + (a[1] - pk.y)*0.2 + pk.ny*4);
+      c.lineTo(pk.x + (b[0] - pk.x)*0.2 + pk.nx*4, pk.y + (b[1] - pk.y)*0.2 + pk.ny*4); c.lineTo(b[0], b[1]); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(pk.x, pk.y); c.lineTo(b[0], b[1]); c.closePath(); c.fill();
+    }
+    c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 0.6;
+    for(const s of SN.SEG){ c.beginPath(); c.moveTo(s[0], s[1]); c.lineTo(s[2], s[3]); c.stroke(); }
+    // losangos na madeira
+    c.fillStyle = '#f3e3b0';
+    for(let i=1;i<8;i++){ if(i === 4) continue; dot(c, W*i/8, -RAIL/2, 0.9); dot(c, W*i/8, H + RAIL/2, 0.9); }
+    for(let i=1;i<4;i++){ dot(c, -RAIL/2, H*i/4, 0.9); dot(c, W + RAIL/2, H*i/4, 0.9); }
+    // linha da cabeceira e marcas
+    const zx = G && G.mode === 'br' ? SN.ZONE.head : SN.ZONE.brk;
+    c.strokeStyle = 'rgba(255,255,255,.28)'; c.lineWidth = 0.35; c.beginPath(); c.moveTo(zx, 0); c.lineTo(zx, H); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.4)';
+    if(G && G.mode === 'br') for(let n=1;n<=7;n++) dot(c, SN.SPOT[n][0], SN.SPOT[n][1], 0.5);
+    else dot(c, SN.FOOT[0], SN.FOOT[1], 0.6);
+  }
+  function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function dot(c, x, y, r){ c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+
+  // bola desenhada uma vez em canvas próprio (com número, faixa e brilho)
+  function sprite(n){
+    const key = G.mode + n; if(sprites[key]) return sprites[key];
+    const rp = R*M.k*dpr, S = Math.ceil(rp*2 + 4), c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d'), m = S/2, col = ballCol(G.mode, n), stripe = G.mode === '8' && n > 8;
+    x.save(); x.beginPath(); x.arc(m, m, rp, 0, 7); x.clip();
+    x.fillStyle = stripe || n === 0 ? '#f6f3ea' : col; x.fillRect(0, 0, S, S);
+    if(stripe){ x.fillStyle = col; x.fillRect(0, m - rp*0.55, S, rp*1.1); }
+    if(n > 0 && (G.mode === '8' || rp > 7)){
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(m, m, rp*0.48, 0, 7); x.fill();
+      x.fillStyle = '#111'; x.font = `800 ${Math.max(6, rp*0.62)}px system-ui,sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(String(n), m, m + rp*0.04);
+    }
+    const sh = x.createRadialGradient(m - rp*0.38, m - rp*0.42, rp*0.08, m, m, rp*1.05);
+    sh.addColorStop(0, 'rgba(255,255,255,.75)'); sh.addColorStop(0.25, 'rgba(255,255,255,.08)'); sh.addColorStop(0.75, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.42)');
+    x.fillStyle = sh; x.fillRect(0, 0, S, S); x.restore();
+    return sprites[key] = c;
+  }
+
+  /* ---------- animação ---------- */
+  function startAnim(last){
+    AN.no = last.no; AN.last = last; AN.tr = last.tr; AN.t0 = performance.now(); AN.played = false; AN.potsDone = {};
+    AN.end = null; AN.rate = clamp(1/(CFG.speed || 1), 1, 4);
+    $('#snCtrl').classList.add('off'); $('#snHint').textContent = '';
+    loop();
+  }
+  function trackPos(t, f){ const n = t.p.length/2, l = f - t.s; if(l <= 0) return [t.p[0], t.p[1]]; if(l >= n - 1) return [t.p[2*n-2], t.p[2*n-1]];
+    const i = Math.floor(l), u = l - i; return [t.p[2*i] + (t.p[2*i+2] - t.p[2*i])*u, t.p[2*i+1] + (t.p[2*i+3] - t.p[2*i+1])*u]; }
+  // posições a desenhar agora: [{n,x,y}]
+  function positions(){
+    const out = [], b = G.b, tn = performance.now();
+    if(AN.tr){
+      const t = (tn - AN.t0)/1000*AN.rate, f = Math.max(0, t - STRIKE)*SN.KFPS, tr = AN.tr, seen = {};
+      if(!AN.played && t >= STRIKE){ AN.played = true; if(CFG.sound) Snd.move(); }
+      for(const k of tr.tr){
+        seen[k.i] = 1;
+        const pk = tr.pk[k.i];
+        if(pk != null && f >= pk){ if(!AN.potsDone[k.i]){ AN.potsDone[k.i] = 1; Snd.capture(); } continue; }
+        const [x, y] = trackPos(k, f); out.push({n:k.i, x, y});
+      }
+      for(let n=0;n<b.length;n++) if(!seen[n] && !b[n].in) out.push({n, x:b[n].x, y:b[n].y});
+      if(f >= tr.K - 1){ AN.tr = null; finishAnim(); }
+      return out;
+    }
+    for(let n=0;n<b.length;n++){
+      if(b[n].in) continue;
+      if(n === 0 && myTurn() && G.mao && LOC.cue){ out.push({n, x:LOC.cue.x, y:LOC.cue.y}); continue; }
+      out.push({n, x:b[n].x, y:b[n].y});
+    }
+    if(G.mao && myTurn() && b[0].in && LOC.cue) out.push({n:0, x:LOC.cue.x, y:LOC.cue.y});
+    return out;
+  }
+  function finishAnim(){
+    const L = AN.last;
+    if(L && L.ban) banner(L.ban.text, L.ban.bad);
+    hud(); syncTurn(); dirty();
+  }
+  let raf = 0, dirt = false;
+  function dirty(){ dirt = true; loop(); }
+  function loop(){ if(raf) return; raf = requestAnimationFrame(frame); }
+  function frame(){
+    raf = 0;
+    if(!cv || !cv.isConnected) return;
+    draw();
+    if(AN.tr || dirt){ dirt = false; if(AN.tr) loop(); }
+  }
+
+  /* ---------- desenho ---------- */
+  function draw(){
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    if(!M) return;
+    ctx.drawImage(bg, 0, 0);
+    const ps = positions(), aim = myTurn();
+    let cue = ps.find(p => p.n === 0);
+    if(aim && cue) drawGuide(cue);
+    // sombras e bolas
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const rp = R*M.k*dpr;
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    for(const p of ps){ const [sx, sy] = toS(p.x, p.y); ctx.beginPath(); ctx.arc(sx*dpr + rp*0.18, sy*dpr + rp*0.25, rp, 0, 7); ctx.fill(); }
+    for(const p of ps){ const s = sprite(p.n), [sx, sy] = toS(p.x, p.y); ctx.drawImage(s, sx*dpr - s.width/2, sy*dpr - s.height/2); }
+    // bola na mão: anel na branca
+    if(aim && G.mao && cue){
+      const [sx, sy] = toS(cue.x, cue.y), ok = SN.placeOk(G, cue.x, cue.y);
+      ctx.strokeStyle = ok ? 'rgba(255,255,255,.85)' : '#ff5a5a'; ctx.lineWidth = 2*dpr; ctx.setLineDash([4*dpr, 3*dpr]);
+      ctx.beginPath(); ctx.arc(sx*dpr, sy*dpr, rp*1.9, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // taco: mirando (eu) ou batendo (animação)
+    if(aim && cue) drawCue(cue.x, cue.y, LOC.a, LOC.p, 1);
+    else if(AN.tr && AN.last){
+      const t = (performance.now() - AN.t0)/1000*AN.rate;
+      if(t < STRIKE + 0.12){ const u = Math.min(1, t/STRIKE); drawCue(AN.last.cue.x, AN.last.cue.y, AN.last.a, AN.last.p*(1 - u*u), 1 - Math.max(0, t - STRIKE)/0.12); }
+    }
+  }
+  function drawCue(x, y, a, p, alpha){
+    const [sx, sy] = toS(x, y), [ex, ey] = toS(x + Math.cos(a), y + Math.sin(a));
+    let dx = ex - sx, dy = ey - sy; const d = Math.hypot(dx, dy); dx /= d; dy /= d;
+    const rp = R*M.k, off = rp + 4 + p*Math.min(70, rp*9), len = Math.min(cv.width, cv.height)/dpr*0.75;
+    const x0 = sx - dx*off, y0 = sy - dy*off, x1 = sx - dx*(off + len), y1 = sy - dy*(off + len), nx = -dy, ny = dx;
+    const w0 = Math.max(1.6, rp*0.32), w1 = Math.max(3.5, rp*0.75);
+    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const gr = ctx.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, '#dfe8ef'); gr.addColorStop(0.03, '#f3e1b5'); gr.addColorStop(0.62, '#c9955a'); gr.addColorStop(0.64, '#2a1407'); gr.addColorStop(1, '#4a250e');
+    ctx.fillStyle = gr; ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
+    ctx.beginPath(); ctx.moveTo(x0 + nx*w0/2, y0 + ny*w0/2); ctx.lineTo(x1 + nx*w1/2, y1 + ny*w1/2); ctx.lineTo(x1 - nx*w1/2, y1 - ny*w1/2); ctx.lineTo(x0 - nx*w0/2, y0 - ny*w0/2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // linha fantasma: até a 1ª bola (ou tabela), direção da bola tocada e desvio da branca
+  function drawGuide(cue){
+    const ux = Math.cos(LOC.a), uy = Math.sin(LOC.a);
+    let tb = Infinity, hit = -1;
+    for(let n=1;n<G.b.length;n++){
+      const o = G.b[n]; if(o.in) continue;
+      const fx = cue.x - o.x, fy = cue.y - o.y, bq = fx*ux + fy*uy, cq = fx*fx + fy*fy - 4*R*R, disc = bq*bq - cq;
+      if(disc < 0) continue; const t = -bq - Math.sqrt(disc); if(t > 0.01 && t < tb){ tb = t; hit = n; }
+    }
+    let tw = Infinity;
+    if(ux > 0) tw = Math.min(tw, (W - R - cue.x)/ux); if(ux < 0) tw = Math.min(tw, (R - cue.x)/ux);
+    if(uy > 0) tw = Math.min(tw, (H - R - cue.y)/uy); if(uy < 0) tw = Math.min(tw, (R - cue.y)/uy);
+    setW(ctx); ctx.lineCap = 'round';
+    const legal = SN.legal(G);
+    if(hit >= 0 && tb <= tw){
+      const gx = cue.x + ux*tb, gy = cue.y + uy*tb, o = G.b[hit], nx = (o.x - gx)/(2*R), ny = (o.y - gy)/(2*R);
+      const ok = legal.includes(hit) || (G.mode === '8' && G.brk);
+      line(cue.x, cue.y, gx, gy, 'rgba(255,255,255,.75)', 0.38, [2, 1.6]);
+      ctx.strokeStyle = ok ? 'rgba(255,255,255,.9)' : '#ff6b6b'; ctx.lineWidth = 0.35; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(gx, gy, R, 0, 7); ctx.stroke();
+      const cs = ux*nx + uy*ny, L1 = 12 + 55*cs*cs;
+      line(o.x, o.y, o.x + nx*L1, o.y + ny*L1, ok ? 'rgba(255,214,90,.95)' : 'rgba(255,107,107,.9)', 0.5);
+      let tx = ux - cs*nx, ty = uy - cs*ny; const tl = Math.hypot(tx, ty);
+      if(tl > 0.02){ tx /= tl; ty /= tl; const L2 = 6 + 26*tl; line(gx, gy, gx + tx*L2, gy + ty*L2, 'rgba(255,255,255,.45)', 0.3, [1, 1.2]); }
+      if(!ok){ $('#snHint').textContent = 'Essa bola não pode ser tocada primeiro'; }
+      else $('#snHint').textContent = hintTxt();
+    } else {
+      const ex = cue.x + ux*tw, ey = cue.y + uy*tw;
+      line(cue.x, cue.y, ex, ey, 'rgba(255,255,255,.7)', 0.38, [2, 1.6]);
+      let rx = ux, ry = uy; if(Math.abs(ex - R) < 0.01 || Math.abs(ex - (W - R)) < 0.01) rx = -rx; else ry = -ry;
+      line(ex, ey, ex + rx*22, ey + ry*22, 'rgba(255,255,255,.35)', 0.3, [1, 1.2]);
+      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 0.3; ctx.setLineDash([]); ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.stroke();
+      $('#snHint').textContent = hintTxt();
+    }
+    ctx.setLineDash([]);
+  }
+  function line(x0, y0, x1, y1, col, w, dash){ ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+  const hintTxt = () => G.mao ? (G.zone === 'any' ? 'Bola na mão: arraste a branca para onde quiser' : 'Bola na mão: arraste a branca (atrás da linha)') : 'Toque na mesa para mirar';
+
+  /* ---------- entrada ---------- */
+  function wpt(e){ const r = cv.getBoundingClientRect(); return toW(e.clientX - r.left, e.clientY - r.top); }
+  function pdown(e){
+    if(!myTurn()) return;
+    e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    const [x, y] = wpt(e);
+    if(G.mao && LOC.cue && Math.hypot(x - LOC.cue.x, y - LOC.cue.y) < Math.max(3.4*R, 26/M.k)){ LOC.drag = 'cue'; return; }
+    LOC.drag = 'aim'; aimAt(x, y);
+  }
+  function pmove(e){
+    if(!LOC.drag || !myTurn()) return;
+    const [x, y] = wpt(e);
+    if(LOC.drag === 'cue'){
+      const lim = SN.ZONE[G.zone] || W;
+      LOC.cue = {x:clamp(x, R, Math.min(W - R, lim)), y:clamp(y, R, H - R)}; dirty();
+    } else aimAt(x, y);
+  }
+  function pup(){ LOC.drag = null; }
+  function aimAt(x, y){ const c = LOC.cue || G.b[0]; if(Math.hypot(x - c.x, y - c.y) < R) return; LOC.a = Math.atan2(y - c.y, x - c.x); dirty(); }
+  function shoot(){
+    if(!myTurn()) return;
+    const a = {a:LOC.a, p:LOC.p, s:LOC.s};
+    if(G.mao){ if(!SN.placeOk(G, LOC.cue.x, LOC.cue.y)){ toast('Coloque a branca num lugar livre dentro da área permitida.'); return; } a.x = LOC.cue.x; a.y = LOC.cue.y; }
+    U.act(a);
+  }
+  // ao começar a minha vez: mira na bola legal mais perto e posiciona a branca (bola na mão)
+  function syncTurn(){
+    const key = G.no + ':' + G.turn;
+    if(!myTurn()){ $('#snCtrl') && $('#snCtrl').classList.add('off'); $('#snHint').textContent = ''; return; }
+    $('#snCtrl').classList.remove('off');
+    if(LOC.key === key) return;
+    LOC.key = key;
+    if(G.mao){
+      let c = G.b[0].in ? null : {x:G.b[0].x, y:G.b[0].y};
+      if(!c || !SN.placeOk(G, c.x, c.y)){
+        const lim = SN.ZONE[G.zone] || W; c = null;
+        for(const [fx, fy] of [[0.5,0.5],[0.5,0.3],[0.5,0.7],[0.3,0.5],[0.7,0.5],[0.2,0.2],[0.2,0.8]]){ const x = Math.min(lim*fx + R, lim - R), y = H*fy; if(SN.placeOk(G, x, y)){ c = {x, y}; break; } }
+        if(!c) c = {x:R*2, y:R*2};
+      }
+      LOC.cue = c;
+    } else LOC.cue = null;
+    const c = LOC.cue || G.b[0], leg = SN.legal(G);
+    let best = null, bd = 1e9;
+    for(const n of leg){ const o = G.b[n], d = Math.hypot(o.x - c.x, o.y - c.y); if(d < bd){ bd = d; best = o; } }
+    if(best) LOC.a = Math.atan2(best.y - c.y, best.x - c.x);
+    if(G.mode === '8' && G.brk){ LOC.p = 0.9; $('#snPow').value = 90; $('#snPowL').textContent = 'Força 90%'; }
+  }
+
+  /* ---------- placar ---------- */
+  function hud(){
+    for(let s=0;s<2;s++){
+      const el = $('#pl' + s); if(!el) continue;
+      el.classList.toggle('vez', G.win == null && G.turn === s);
+      let sub = '';
+      if(G.mode === '8'){
+        const g = G.grp[s];
+        if(!g) sub = G.brk ? 'saída' : 'mesa aberta';
+        else { const ns = (g === 'L' ? [1,2,3,4,5,6,7] : [9,10,11,12,13,14,15]).filter(n => !G.b[n].in);
+          sub = (g === 'L' ? 'lisas ' : 'listradas ') + (ns.length ? ns.map(n => `<span class="mb ${n > 8 ? 'st' : ''}" style="background-color:${COL8[n]}"></span>`).join('') : '<span class="mb" style="background:#111"></span> → 8'); }
+        el.innerHTML = `<div class="nm">${esc(G.names[s])}${s === V.me ? ' (você)' : ''}</div><div class="sub">${sub}</div>`;
+      } else el.innerHTML = `<div class="nm">${esc(G.names[s])}${s === V.me ? ' (você)' : ''}</div><div class="pts">${G.score[s]}</div>`;
+    }
+    let mid = '';
+    if(G.win == null){
+      if(G.mode === 'br'){
+        const on = SN.objsOn(G);
+        mid = G.livre ? '<b>Bola livre</b>: jogue em qualquer bola' : on.length ? `Bola da vez: <b>${on[0]} (${SN.BR_NAME[on[0]]})</b>` : '';
+      } else if(G.brk) mid = '<b>Saída</b>: branca atrás da linha';
+      else { const leg = SN.legal(G); mid = leg.length === 1 && leg[0] === 8 && G.grp[G.turn] ? 'Agora é a <b>8</b>!' : ''; }
+      if(G.mao && !G.brk) mid += (mid ? '<br>' : '') + '✋ <b>Bola na mão</b>';
+    }
+    if(G.msg) mid += `<div style="font-weight:600;color:#cfe;font-size:11px;margin-top:2px">${esc(G.msg)}</div>`;
+    $('#snMid').innerHTML = mid;
+  }
+
+  function render(g, v, ui){
+    const first = !built || !$('#snCv');
+    G = g; V = v; U = ui;
+    if(first){ build(ui.stage); }
+    if(first || !M) requestAnimationFrame(() => { layout(); dirty(); });
+    if(g.last && g.last.no !== AN.no){
+      if(AN.no < 0) AN.no = g.last.no;          // entrou no meio da partida: não anima o que já passou
+      else { startAnim(g.last); return; }
+    }
+    if(!animating()){ hud(); syncTurn(); }
+    dirty();
+  }
+  window.addEventListener('resize', () => { if(built && $('#snCv')){ layout(); dirty(); } });
+  // ganchos para testes automáticos: posição na tela da bola legal mais próxima e o botão Tacar
+  function _target(){ const c = LOC.cue || G.b[0], leg = SN.legal(G); let o = G.b[leg[0]];
+    for(const n of leg) if(Math.hypot(G.b[n].x - c.x, G.b[n].y - c.y) < Math.hypot(o.x - c.x, o.y - c.y)) o = G.b[n];
+    const r = cv.getBoundingClientRect(), [sx, sy] = toS(o.x, o.y); return [r.left + sx, r.top + sy]; }
+  return {render, reset, _target, _shoot:() => $('#snShoot').click()};
+})();
+</script>
+</body>
+</html>

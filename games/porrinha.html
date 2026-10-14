@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Porrinha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:4px 8px 8px;gap:4px}
+/* ---------- roda de jogadores (elipse) ---------- */
+.ring{position:relative;flex:1;min-height:0}
+.seat{position:absolute;width:var(--sw);transform:translate(-50%,-50%);background:rgba(0,0,0,.34);border:2px solid transparent;border-radius:14px;
+  padding:4px 4px 5px;text-align:center;transition:border-color .2s,opacity .3s}
+.seat .nm{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seat.me .nm{color:#bff5d4}
+.seat.vez{border-color:var(--gold);animation:pulse 1.2s infinite;background:rgba(0,0,0,.45)}
+.seat.out{opacity:.55}
+.seat.out .hbox{filter:grayscale(1)}
+.seat .left{display:flex;justify-content:center;gap:3px;height:16px;align-items:flex-end;margin-top:2px}
+.seat .left .pz{height:15px}
+.seat .tagz{font-size:10px;font-weight:800;color:#ffe6a6;min-height:13px;letter-spacing:.3px}
+.seat.hit{border-color:var(--nos);box-shadow:0 0 18px rgba(62,207,122,.8)}
+/* palito (fósforo) */
+.pz{display:inline-block;width:5px;height:var(--ph,26px);border-radius:2px;background:linear-gradient(90deg,#e9c27c,#c8954a);position:relative;box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.pz::before{content:"";position:absolute;top:-3px;left:-1.5px;width:8px;height:8px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 35% 35%,#ff7a6a,#b3121f)}
+.pz.gone{opacity:.18}
+/* mão: fechada (punho) ou aberta (palitos) */
+.hbox{height:var(--hh);display:grid;place-items:center;perspective:300px;margin-top:2px}
+.fist{font-size:calc(var(--hh)*.78);line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));transition:transform .2s}
+.fist.wait{opacity:.35;filter:grayscale(.7)}
+.fist.closed{animation:shake .9s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}
+.open{display:flex;align-items:flex-end;justify-content:center;gap:4px;min-width:calc(var(--hh)*1.1);height:calc(var(--hh)*.95);padding:2px 6px 4px;
+  background:radial-gradient(ellipse at 50% 80%,#f2c9a0,#d9a274);border-radius:40% 40% 46% 46%;box-shadow:0 2px 6px rgba(0,0,0,.5);
+  animation:abre .55s cubic-bezier(.2,.9,.3,1.3) both;--ph:calc(var(--hh)*.6)}
+.open .zero{font-weight:900;color:#7a3e10;font-size:calc(var(--hh)*.42);align-self:center}
+@keyframes abre{0%{transform:rotateX(80deg) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+/* balão do palpite */
+.gb{position:absolute;left:50%;top:0;transform:translate(-50%,-78%);background:#fff;color:#222;font-weight:900;border-radius:14px;padding:3px 10px;font-size:16px;
+  box-shadow:0 3px 10px rgba(0,0,0,.45);white-space:nowrap;z-index:3;animation:pop .25s}
+.gb::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-bottom:0;border-top-color:#fff}
+.gb.ok{background:var(--nos);color:#06301a} .gb.ok::after{border-top-color:var(--nos)}
+.gb.no{opacity:.7}
+/* centro */
+.ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:var(--cw2);pointer-events:none}
+.ctr .tot{font-size:12px;color:#cfe;font-weight:700}
+.ctr .big3{font-size:calc(var(--hh)*.75);font-weight:900;color:var(--gold);text-shadow:0 3px 0 var(--gold2);line-height:1.05}
+.ctr .res{font-size:13px;font-weight:800;color:#ffe6a6;margin-top:2px}
+.pool{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin:4px auto 0;max-width:100%;--ph:20px}
+/* controles do jogador */
+.ctl{background:rgba(0,0,0,.3);border:1px solid rgba(231,180,58,.35);border-radius:14px;padding:6px 8px 8px;text-align:center}
+.ctl .q{font-size:13.5px;font-weight:800;color:var(--gold);margin-bottom:6px}
+.pad{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.pad button{min-width:44px;height:44px;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;font-size:18px;font-weight:900;cursor:pointer;padding:0 8px}
+.pad button:hover:not(:disabled){border-color:var(--gold)}
+.pad button:active:not(:disabled){transform:scale(.95)}
+.pad button:disabled{opacity:.25;cursor:not-allowed;text-decoration:line-through}
+.pad button.best{border-color:rgba(231,180,58,.6)}
+.pad.hide button{min-width:58px;height:58px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:15px}
+.pad.hide button .sk{display:flex;gap:3px;--ph:18px;height:20px;align-items:flex-end}
+.ctl .sub{font-size:12px;color:#9cb;margin-top:5px}
+.score{font-size:13px;font-weight:800;color:#ffe6a6;text-align:center}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =============================== PORRINHA ===============================
+   Cada um tem 3 palitos. Na rodada todos escondem de 0 até o que têm na
+   mão (ao mesmo tempo); depois, em ordem, cada um chuta o total (sem
+   repetir). Quem acerta descarta um palito. Zerou, saiu (salvo).         */
+const START = 3;
+const DIFFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const active = st => st.pal.map((p,i) => p > 0 ? i : -1).filter(i => i >= 0);
+const totalPal = st => st.pal.reduce((a,b) => a + b, 0);
+const nextActive = (st, s) => { for(let k=1;k<=st.n;k++){ const q = (s + k) % st.n; if(st.pal[q] > 0) return q; } return s; };
+
+function startRound(st){
+  st.round++;
+  st.hand = Array(st.n).fill(null); st.guesses = Array(st.n).fill(null);
+  st.order = []; let s = st.starter;
+  if(st.pal[s] <= 0) s = nextActive(st, s);
+  st.starter = s;
+  for(let k=0;k<st.n;k++){ const q = (s + k) % st.n; if(st.pal[q] > 0) st.order.push(q); }
+  st.gi = 0; st.phase = 'hide';
+}
+function gameDone(st){
+  return st.fim === 'primeiro' ? st.finish.length > 0 : active(st).length <= 1;
+}
+
+/* ------------------------------ BOT ------------------------------------
+   Raciocínio bayesiano: cada palpite já dado é uma pista da mão de quem
+   chutou (palpite ≈ própria mão + média do que esperava dos outros).
+   O bot atualiza a distribuição de cada mão escondida, soma tudo (com a
+   própria mão) e chuta o total mais provável que ainda está livre.      */
+function uni(p){ return Array(p + 1).fill(1 / (p + 1)); }
+const mean = d => d.reduce((a, x, i) => a + x * i, 0);
+function norm(d){ const s = d.reduce((a,b) => a + b, 0) || 1; return d.map(x => x / s); }
+function conv(a, b){ const r = Array(a.length + b.length - 1).fill(0); for(let i=0;i<a.length;i++) for(let j=0;j<b.length;j++) r[i+j] += a[i] * b[j]; return r; }
+// distribuições públicas (o que qualquer um deduz dos palpites anteriores)
+function posteriors(st, upto, lvl){
+  const post = {}; for(const j of st.order) post[j] = uni(st.pal[j]);
+  if(lvl === 'facil') return post;
+  for(let k=0;k<upto;k++){
+    const g = st.order[k], G = st.guesses[g]; if(G == null) continue;
+    // o que g esperava dos outros: na versão Normal só a média "a priori"
+    let mu = 0;
+    for(const j of st.order) if(j !== g) mu += lvl === 'dificil' ? mean(post[j]) : st.pal[j] / 2;
+    const sig = lvl === 'dificil' ? 0.9 + 0.35 * k : 1.5 + 0.35 * k;  // quem chuta depois desvia mais (números já tomados)
+    let L = post[g].map((_, x) => 0.06 + Math.exp(-Math.pow(G - x - mu, 2) / (2 * sig * sig)));
+    if(lvl === 'dificil'){
+      // "teoria da mente": para cada mão possível x de g, qual seria o melhor chute
+      // dele com o que ele sabia naquele momento? Mistura com o modelo aproximado.
+      const taken = new Set(); for(let q=0;q<k;q++) taken.add(st.guesses[st.order[q]]);
+      let d = [1]; for(const j of st.order) if(j !== g) d = conv(d, post[j]);
+      const T = totalPal(st);
+      L = L.map((l, x) => {
+        let bp = 0;
+        for(let t=x;t<=T;t++) if(!taken.has(t)) bp = Math.max(bp, d[t - x] || 0);
+        // empates (ou quase) são sorteados: o chute pode ser qualquer um deles
+        let acc = 0, cnt = 0;
+        for(let t=x;t<=T;t++) if(!taken.has(t) && (d[t - x] || 0) >= bp * 0.95){ cnt++; acc += Math.exp(-Math.pow(G - t, 2) / (2 * 0.5 * 0.5)); }
+        return 0.5 * l + (cnt ? acc / cnt : 0);
+      });
+    }
+    post[g] = norm(post[g].map((p, x) => p * L[x]));
+  }
+  return post;
+}
+function guessDist(st, s, lvl){
+  const k = st.order.indexOf(s), post = posteriors(st, k, lvl);
+  let d = [1]; for(const j of st.order) if(j !== s) d = conv(d, post[j]);
+  const mine = st.hand[s] || 0, full = Array(mine).fill(0).concat(d);
+  return full;                                   // full[t] = P(total = t)
+}
+function botGuess(st, s, lvl){
+  const taken = new Set(st.guesses.filter(x => x != null)), T = totalPal(st);
+  const d = guessDist(st, s, lvl);
+  const cand = [];
+  for(let t=st.hand[s];t<=T;t++) if(!taken.has(t)) cand.push([t, (d[t] || 0) + Math.random() * 1e-6]);
+  if(!cand.length){ for(let t=0;t<=T;t++) if(!taken.has(t)) return t; return 0; }
+  cand.sort((a, b) => b[1] - a[1]);
+  // Fácil às vezes pega o 2º mais provável (erra de leve, nunca chuta absurdo)
+  if(lvl === 'facil' && cand.length > 1 && Math.random() < 0.35 && cand[1][1] > cand[0][1] * 0.6) return cand[1][0];
+  // Difícil: entre chutes praticamente tão bons quanto o melhor, sorteia —
+  // a chance de acertar é a mesma, mas o palpite entrega menos da própria mão
+  if(lvl === 'dificil' && st.gi < st.order.length - 1){ const ok = cand.filter(c => c[1] >= cand[0][1] * 0.98); return pick(ok)[0]; }
+  return cand[0][0];
+}
+function botHide(st, s, lvl){
+  const p = st.pal[s];
+  // escolha aleatória uniforme: é a estratégia que não dá pistas a ninguém
+  // (o Fácil prefere os extremos, o que é mais previsível)
+  if(lvl === 'facil' && Math.random() < 0.4) return Math.random() < 0.5 ? 0 : p;
+  return Math.floor(Math.random() * (p + 1));
+}
+
+/* ------------------------------ REGRAS --------------------------------- */
+Mesa.run({
+  id:'porrinha', name:'Porrinha', icon:'🥢', tagline:'O palitinho de boteco',
+  options:[
+    {key:'n', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']]},
+    {key:'fim', label:'Quem vence', default:'ultimo', choices:[['ultimo','Último perde'],['primeiro','1º a zerar']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => clamp(+o.n || 4, 2, 8),
+  seatLabel: s => 'Lugar ' + (s + 1),
+  modeLabel: o => (o.fim === 'primeiro' ? '1º A ZERAR VENCE' : 'ÚLTIMO PERDE') + ' · ' + (DIFFS[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length;
+    const st = {n, names:players.map(p => p.name), pal:Array(n).fill(START), fim:o.fim === 'primeiro' ? 'primeiro' : 'ultimo',
+      starter:Math.floor(Math.random() * n), round:0, finish:[], last:null, phase:'hide'};
+    startRound(st); return st;
+  },
+  startEvents(st){ return [{k:'log', text:`Cada um com ${START} palitos. Começa chutando ${esc(st.names[st.starter])}.`}]; },
+  waiting(st){
+    if(st.phase === 'hide') return st.order.filter(s => st.hand[s] == null);
+    if(st.phase === 'guess') return [st.order[st.gi]];
+    return [];
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    if(st.fim === 'primeiro'){ const w = st.finish[0]; return {winners:[w], text:`${esc(st.names[w])} zerou os palitos primeiro e venceu!`}; }
+    const loser = active(st)[0];
+    const ord = st.finish.map((s, i) => `${i + 1}º ${esc(st.names[s])}`).join(' · ');
+    return {winners:[...Array(st.n).keys()].filter(s => s !== loser),
+      text: loser != null ? `${esc(st.names[loser])} ficou com o último palito e perdeu.<br><small>Saíram: ${ord}</small>` : 'Fim de jogo.'};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    if(st.phase === 'hide'){
+      if(a.t !== 'hide') return {ok:false, err:'Agora é hora de esconder os palitos.'};
+      if(!(st.pal[seat] > 0) || !st.order.includes(seat)) return {ok:false, err:'Você já saiu do jogo.'};
+      if(st.hand[seat] != null) return {ok:false, err:'Você já fechou a mão.'};
+      const k = a.k;
+      if(!Number.isInteger(k) || k < 0 || k > st.pal[seat]) return {ok:false, err:`Escolha de 0 a ${st.pal[seat]} palitos.`};
+      st.hand[seat] = k;
+      const ev = [{k:'snd', s:'card'}];
+      if(st.order.every(s => st.hand[s] != null)){ st.phase = 'guess'; st.gi = 0; ev.push({k:'snd', s:'alert'}); }
+      return {events:ev};
+    }
+    if(st.phase !== 'guess') return {ok:false, err:'Aguarde.'};
+    if(seat !== st.order[st.gi]) return {ok:false, err:'Não é a sua vez de chutar.'};
+    if(a.t !== 'guess') return {ok:false, err:'Jogada inválida.'};
+    const g = a.g, T = totalPal(st);
+    if(!Number.isInteger(g) || g < 0 || g > T) return {ok:false, err:`Chute um número de 0 a ${T}.`};
+    if(st.guesses.includes(g)) return {ok:false, err:`O ${g} já foi chutado. Escolha outro.`};
+    st.guesses[seat] = g; st.gi++;
+    const ev = [{k:'snd', s:'move'}, {k:'log', text:`${esc(st.names[seat])} chutou <b>${g}</b>`}];
+    if(st.gi < st.order.length) return {events:ev};
+    // todos chutaram: abrem as mãos
+    const tot = st.order.reduce((a, s) => a + st.hand[s], 0);
+    const hit = st.order.find(s => st.guesses[s] === tot);
+    st.last = {round:st.round, hands:st.hand.slice(), guesses:st.guesses.slice(), total:tot, hit: hit == null ? -1 : hit, order:st.order.slice()};
+    ev.push({k:'log', text:`Mãos abertas: total <b>${tot}</b>.`});
+    if(hit != null){
+      st.pal[hit]--;
+      ev.push({k:'snd', s:'capture'}, {k:'banner', text:`${st.names[hit]} acertou: ${tot}!`}, {k:'log', text:`<b>${esc(st.names[hit])}</b> acertou e descartou um palito (${st.pal[hit]} na mão).`});
+      if(st.pal[hit] === 0){
+        st.finish.push(hit);
+        ev.push({k:'log', text:`🎉 ${esc(st.names[hit])} zerou e está fora!`}, {k:'snd', s:'win'});
+      }
+    } else ev.push({k:'banner', text:`Total ${tot}: ninguém acertou`, bad:true}, {k:'snd', s:'lose'});
+    if(gameDone(st)){ st.phase = 'end'; return {events:ev, pause:2600}; }
+    // quem acertou começa a próxima; senão a vez de começar passa adiante
+    st.starter = hit != null && st.pal[hit] > 0 ? hit : nextActive(st, hit != null ? hit : st.starter);
+    startRound(st);
+    return {events:ev, pause:3000};
+  },
+  bot(st, seat, o){
+    const lvl = DIFFS[o.diff] ? o.diff : 'normal';
+    if(st.phase === 'hide') return {t:'hide', k:botHide(st, seat, lvl)};
+    return {t:'guess', g:botGuess(st, seat, lvl)};
+  },
+  botFallback(st, seat){
+    if(st.phase === 'hide') return {t:'hide', k:0};
+    for(let t=0;t<=totalPal(st);t++) if(!st.guesses.includes(t)) return {t:'guess', g:t};
+    return null;
+  },
+  botDelay(st, s, o){
+    if(st.phase === 'hide') return 260 + Math.random() * 300;
+    // ritmo humano: quem chuta mais tarde "pensa" um pouco mais
+    return 750 + st.gi * 120 + Math.random() * 650;
+  },
+  view(st, seat){
+    const me = seat >= 0 && seat < st.n;
+    return {n:st.n, names:st.names, pal:st.pal, phase:st.phase, round:st.round, order:st.order, gi:st.gi,
+      guesses:st.guesses, hid:st.hand.map(x => x != null), myHand: me ? st.hand[seat] : null,
+      last:st.last, finish:st.finish, fim:st.fim, total:totalPal(st)};
+  },
+  topInfo(g, v){
+    const ins = g.pal.filter(p => p > 0).length;
+    return `<div class="score">Rodada ${g.round} · ${ins} na roda · ${g.total} palitos em jogo</div>`;
+  },
+  rules:`<h3>Objetivo</h3><p>Livrar-se dos seus <b>3 palitos</b>. Na regra padrão, quem zera sai salvo e <b>o último que ficar com palito perde</b> (é quem paga a rodada!). Na opção <b>"1º a zerar"</b>, vence quem zerar primeiro.</p>
+  <h3>Como jogar</h3><ol>
+  <li><b>Esconder:</b> todos, ao mesmo tempo, escolhem quantos palitos vão na mão fechada — de <b>0</b> (mão vazia, a "lona") até todos os que ainda têm.</li>
+  <li><b>Chutar:</b> em ordem, cada um diz quanto acha que é o <b>total</b> de palitos somando todas as mãos. <b>Não pode repetir</b> um número já chutado.</li>
+  <li><b>Abrir:</b> as mãos se abrem. Quem acertou o total <b>descarta um palito</b>. Se ninguém acertou, nada muda.</li>
+  <li>Quem acertou começa chutando na rodada seguinte; se ninguém acertou, a vez de começar passa para o próximo.</li></ol>
+  <h3>Dicas</h3><ul><li>O chute de quem fala antes dá pista da mão dele: quem tem muitos palitos na mão costuma chutar alto.</li>
+  <li>Falar por último é vantagem: você já ouviu todos os palpites.</li><li>O total vai de 0 até a soma dos palitos que ainda estão em jogo (aparece no topo).</li></ul>
+  <h3>Bots</h3><p>Fazem conta de probabilidade: consideram quantos palitos cada um ainda tem e usam os chutes anteriores como pistas (raciocínio bayesiano). O <b>Difícil</b> também leva em conta o que cada um já sabia quando chutou; o <b>Fácil</b> ignora as pistas e às vezes vai no segundo palpite.</p>`,
+  render(g, v, ui){ renderPorrinha(g, v, ui); }
+});
+
+/* ------------------------------ INTERFACE ------------------------------ */
+let seenReveal = -1;
+const sticks = (k, cls='') => Array.from({length:k}, () => `<span class="pz ${cls}"></span>`).join('');
+function seatXY(n, r, W, H, sw, sh){
+  const ang = Math.PI / 2 + r * 2 * Math.PI / n;               // r=0 (eu) embaixo, sentido horário na tela
+  const rx = Math.max(10, W / 2 - sw / 2 - 2), ry = Math.max(10, H / 2 - sh / 2 - 22);
+  // superelipse: com muita gente, os lugares vão para os "cantos" e não se encostam
+  const e = n > 4 ? 0.55 : 1, c = Math.cos(ang), s = Math.sin(ang);
+  return [W / 2 + rx * Math.sign(c) * Math.pow(Math.abs(c), e), H / 2 + 12 + ry * Math.sign(s) * Math.pow(Math.abs(s), e)];
+}
+function renderPorrinha(g, v, ui){
+  const st = ui.stage, me = v.me, n = g.n;
+  const myTurn = ui.isMyTurn();
+  if(!st.querySelector('.ring')){
+    st.innerHTML = `<div class="ring" id="ring"></div><div class="ctl" id="ctl"></div>`;
+  }
+  const ring = $('#ring'), ctl = $('#ctl');
+  // controles primeiro (definem a altura que sobra para a roda)
+  let c = '';
+  const out = !(g.pal[me] > 0);
+  if(out) c = `<div class="q">${g.finish.includes(me) ? '🎉 Você zerou os palitos e está fora — assista ao resto!' : 'Assistindo'}</div>`;
+  else if(g.phase === 'hide' && myTurn){
+    c = `<div class="q">Quantos palitos você esconde na mão?</div><div class="pad hide">` +
+      Array.from({length:g.pal[me] + 1}, (_, k) => `<button data-k="${k}"><span class="sk">${k ? sticks(k) : ''}</span>${k}</button>`).join('') + '</div>';
+  } else if(g.phase === 'hide' && g.myHand == null) c = `<div class="q">Mãos abertas! Já já começa a rodada ${g.round}...</div>`;
+  else if(g.phase === 'hide') c = `<div class="q">Mão fechada com ${g.myHand} palito${g.myHand === 1 ? '' : 's'}. Esperando os outros...</div>`;
+  else if(g.phase === 'guess' && myTurn){
+    const taken = new Set(g.guesses.filter(x => x != null));
+    c = `<div class="q">Seu chute: qual o total? <small style="color:#cfe">(você tem ${g.myHand} na mão)</small></div><div class="pad">` +
+      Array.from({length:g.total + 1}, (_, t) => `<button data-g="${t}" ${taken.has(t) ? 'disabled' : ''}>${t}</button>`).join('') + '</div>';
+  } else if(g.phase === 'guess') c = `<div class="q">Você tem ${g.myHand} na mão. Vez de ${esc(g.names[g.order[g.gi]] || '')} chutar...</div>`;
+  else c = `<div class="q">Fim de jogo</div>`;
+  ctl.innerHTML = c;
+  $$('#ctl [data-k]').forEach(b => b.onclick = () => ui.act({t:'hide', k:+b.dataset.k}));
+  $$('#ctl [data-g]').forEach(b => b.onclick = () => ui.act({t:'guess', g:+b.dataset.g}));
+  // tamanhos a partir do palco
+  const W = ring.clientWidth, H = ring.clientHeight;
+  const sw = Math.floor(clamp(Math.min(W / (n > 5 ? 4.2 : 3.1), 130), 78, 130));
+  const hh = Math.floor(clamp(Math.min(H / (n > 4 ? 9 : 5.5), sw * .5, n > 5 && W < 600 ? 38 : 99), 26, 54));
+  ring.style.setProperty('--sw', sw + 'px'); ring.style.setProperty('--hh', hh + 'px');
+  ring.style.setProperty('--cw2', Math.floor(Math.min(W * .5, 260)) + 'px');
+  const sh = hh + 58;
+  // mostrar as mãos abertas logo depois da revelação (até alguém fechar a mão de novo)
+  const L = g.last;
+  const revealing = L && ((g.phase === 'hide' && L.round === g.round - 1 && !g.hid.some(Boolean)) || g.phase === 'end');
+  const fresh = revealing && seenReveal !== L.round; if(revealing) seenReveal = L.round;
+  let h = '';
+  for(let s=0;s<n;s++){
+    const r = ((s - me) % n + n) % n, [x, y] = seatXY(n, r, W, H, sw, sh);
+    const cls = ['seat']; if(s === me) cls.push('me');
+    const isIn = g.pal[s] > 0, wasIn = revealing ? L.order.includes(s) : isIn;
+    if(!wasIn) cls.push('out');
+    if(g.phase === 'guess' && g.order[g.gi] === s) cls.push('vez');
+    if(g.phase === 'hide' && isIn && !g.hid[s] && !revealing) cls.push('vez');
+    if(revealing && L.hit === s) cls.push('hit');
+    let hand, gb = '', tag = '';
+    if(revealing && wasIn){
+      const k = L.hands[s];
+      hand = `<div class="open" ${fresh ? '' : 'style="animation:none"'}>${k ? sticks(k) : '<span class="zero">0</span>'}</div>`;
+      gb = `<div class="gb ${L.hit === s ? 'ok' : 'no'}">${L.guesses[s]}</div>`;
+    } else if(!isIn){
+      hand = `<div class="fist wait">🙌</div>`; tag = g.finish.includes(s) ? `Saiu ${g.finish.indexOf(s) + 1}º` : '';
+    } else {
+      const closed = g.hid[s];
+      hand = `<div class="fist ${closed ? (g.phase === 'hide' ? 'closed' : '') : 'wait'}">${closed ? '✊' : '✋'}</div>`;
+      if(g.phase === 'guess' && g.guesses[s] != null) gb = `<div class="gb">${g.guesses[s]}</div>`;
+      tag = g.phase === 'hide' ? (closed ? 'mão fechada' : 'escolhendo...') : (s === me && g.myHand != null ? `você: ${g.myHand}` : '');
+    }
+    if(g.phase === 'guess' && g.order[0] === s && !tag) tag = 'começou';
+    const left = isIn ? sticks(g.pal[s]) + sticks(3 - g.pal[s], 'gone') : '';
+    h += `<div class="${cls.join(' ')}" data-seat="${s}" style="left:${x}px;top:${y}px">${gb}
+      <div class="nm">${esc(s === me ? 'Você' : g.names[s])}</div><div class="left">${left}</div>
+      <div class="hbox">${hand}</div><div class="tagz">${tag}</div></div>`;
+  }
+  // centro: total possível ou resultado
+  let ctr;
+  if(revealing){
+    const who = L.hit >= 0 ? (L.hit === me ? 'Você acertou!' : `${esc(g.names[L.hit])} acertou!`) : 'Ninguém acertou';
+    ctr = `<div class="tot">Total na mesa</div><div class="big3">${L.total}</div><div class="res">${who}</div>`;
+  } else if(g.phase === 'guess'){
+    ctr = `<div class="tot">Palpites possíveis</div><div class="big3">0–${g.total}</div><div class="res">Vez de ${esc(g.order[g.gi] === me ? 'você' : g.names[g.order[g.gi]])}</div>`;
+  } else {
+    const nf = g.order.filter(s => !g.hid[s]).length;
+    ctr = `<div class="tot">Rodada ${g.round}</div><div class="big3">✊</div><div class="res">${nf ? `Escondendo palitos (${nf})...` : 'Todos prontos!'}</div>`;
+  }
+  ring.innerHTML = h + `<div class="ctr">${ctr}</div>`;
+}
+</script>
+</body>
+</html>

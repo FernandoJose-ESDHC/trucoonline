@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="40 jogos" src="https://img.shields.io/badge/jogos-40-e7b43a">
+  <img alt="55 jogos" src="https://img.shields.io/badge/jogos-55-e7b43a">
   <img alt="Sem cadastro" src="https://img.shields.io/badge/cadastro-n%C3%A3o%20precisa-3ecf7a">
   <img alt="Offline" src="https://img.shields.io/badge/contra%20bots-funciona%20offline-11603a">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
@@ -76,6 +76,21 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 💣 | **[Campo Minado](https://fernandojose-esdhc.github.io/trucoonline/games/campominado.html)** | 1 | Três tamanhos, primeiro clique seguro, dica |
 | 🔢 | **[Sudoku](https://fernandojose-esdhc.github.io/trucoonline/games/sudoku.html)** | 1 | Solução única, notas e dica explicada |
 | 🟨 | **[2048](https://fernandojose-esdhc.github.io/trucoonline/games/2048.html)** | 1 | Deslize e junte até o 2048 |
+| 🎴 | **[Cacheta](https://fernandojose-esdhc.github.io/trucoonline/games/cacheta.html)** | 2 a 6 | Curinga pela vira, bata com as 10 cartas |
+| 🧹 | **[Escova](https://fernandojose-esdhc.github.io/trucoonline/games/escova.html)** | 2 ou 4 | A escova de 15 do Sul, com sete belo |
+| 🥢 | **[Porrinha](https://fernandojose-esdhc.github.io/trucoonline/games/porrinha.html)** | 2 a 8 | O palitinho: esconda, chute o total, zere primeiro |
+| 🎱 | **[Bingo](https://fernandojose-esdhc.github.io/trucoonline/games/bingo.html)** | 2 a 12 | 75 bolas, 1 a 3 cartelas, linha e cartela cheia |
+| ❓ | **[Quiz](https://fernandojose-esdhc.github.io/trucoonline/games/quiz.html)** | 1 a 8 | 434 perguntas de conhecimentos gerais com tempo |
+| 🎭 | **[Quem Sou Eu?](https://fernandojose-esdhc.github.io/trucoonline/games/quemsoueu.html)** | 2 a 8 | Descubra sua carta com perguntas de sim ou não |
+| 🐺 | **[Lobisomem](https://fernandojose-esdhc.github.io/trucoonline/games/lobisomem.html)** | 5 a 12 | Cidade dorme: papéis secretos, noite e votação |
+| ⚽ | **[Futebol de Botão](https://fernandojose-esdhc.github.io/trucoonline/games/botao.html)** | 2 ou 4 | Peteleco nos botões com física de verdade |
+| 🎱 | **[Sinuca](https://fernandojose-esdhc.github.io/trucoonline/games/sinuca.html)** | 2 | Bola 8 ou bola da vez, mira fantasma e efeito |
+| 🏘️ | **[Imobiliário](https://fernandojose-esdhc.github.io/trucoonline/games/imobiliario.html)** | 2 a 6 | Compre bairros do Brasil, construa e negocie |
+| 🕷️ | **[Paciência Spider](https://fernandojose-esdhc.github.io/trucoonline/games/spider.html)** | 1 | 1, 2 ou 4 naipes |
+| 🗃️ | **[FreeCell](https://fernandojose-esdhc.github.io/trucoonline/games/freecell.html)** | 1 | Jogos clássicos nº 1 a 32000 com dica |
+| 🀄 | **[Mahjong Solitário](https://fernandojose-esdhc.github.io/trucoonline/games/mahjong.html)** | 1 | 4 formatos, sempre com solução |
+| 🐍 | **[Cobrinha](https://fernandojose-esdhc.github.io/trucoonline/games/cobrinha.html)** | 1 | A clássica, com obstáculos e recorde |
+| 🧱 | **[Blocos](https://fernandojose-esdhc.github.io/trucoonline/games/blocos.html)** | 1 | Encaixe as peças que caem e complete linhas |
 
 Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
 
@@ -426,6 +441,40 @@ Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoç
 - **Campo Minado:** abra tudo sem pisar nas minas; primeiro clique seguro, bandeira por toque longo, dica.
 - **Sudoku:** solução única em três níveis, notas, desfazer e dica que explica o próximo passo.
 - **2048:** deslize e junte peças iguais; dá para continuar depois do 2048.
+</details>
+
+<details>
+<summary><b>🎴 Cacheta</b>, <b>🧹 Escova</b> e <b>🥢 Porrinha</b></summary>
+
+- **Cacheta:** 2 baralhos, 9 cartas; a carta seguinte à vira é o curinga. Compre, descarte e bata quando as 10 cartas formarem trincas ou sequências do mesmo naipe. Quem não bate perde 1 ponto (2 se a batida for limpa); último com pontos vence.
+- **Escova:** 40 cartas (Valete 8, Dama 9, Rei 10). Jogue uma carta e leve da mesa o que somar 15; limpar a mesa é escova. Pontos por mais cartas, mais ouros, sete belo e mais setes.
+- **Porrinha:** todos escondem de 0 a 3 palitos e chutam o total sem repetir; quem acerta descarta um palito. O último com palito perde.
+</details>
+
+<details>
+<summary><b>🎱 Bingo</b>, <b>❓ Quiz</b>, <b>🎭 Quem Sou Eu?</b> e <b>🐺 Lobisomem</b></summary>
+
+- **Bingo:** 75 bolas sorteadas automaticamente; marque e grite BINGO! na linha ou na cartela cheia (bingo falso dá castigo).
+- **Quiz:** mesma pergunta para todos, 4 alternativas e tempo; acerto rápido vale mais.
+- **Quem Sou Eu?:** todos veem a sua carta menos você; pergunte sim ou não e chute quem é.
+- **Lobisomem:** de 5 a 12, papéis secretos (lobos, vidente, médico, caçador). À noite os lobos atacam; de dia a cidade conversa e vota.
+</details>
+
+<details>
+<summary><b>⚽ Futebol de Botão</b>, <b>🎱 Sinuca</b> e <b>🏘️ Imobiliário</b></summary>
+
+- **Futebol de Botão:** arraste o botão como estilingue; tocou na bola, joga de novo (até 3 toques). Gol entre as traves.
+- **Sinuca:** Bola 8 (lisas × listradas, a 8 por último) ou bola da vez (bolas 1 a 7 pelo valor). Faltas dão bola na mão.
+- **Imobiliário:** dados, compra de bairros, aluguel, casas e hotéis nos grupos completos, hipoteca, negociação e falência.
+</details>
+
+<details>
+<summary><b>🕷️ Spider</b>, <b>🗃️ FreeCell</b>, <b>🀄 Mahjong</b>, <b>🐍 Cobrinha</b> e <b>🧱 Blocos</b> — 1 jogador</summary>
+
+- **Spider:** monte sequências do Rei ao Ás do mesmo naipe; 1, 2 ou 4 naipes.
+- **FreeCell:** 4 células livres, todas as cartas abertas; jogos numerados 1 a 32000 com dica.
+- **Mahjong Solitário:** tire pares de peças livres; tabuleiros sempre com solução.
+- **Cobrinha** e **Blocos:** os clássicos de ação, com recorde e controles de toque.
 </details>
 
 ---

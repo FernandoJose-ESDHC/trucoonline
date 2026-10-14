@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Paciência Spider</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:8px 6px 6px}
+.spb{width:100%;max-width:var(--bw);display:flex;flex-direction:column;flex:1;min-height:0;touch-action:none}
+.toprow{display:flex;justify-content:space-between;align-items:flex-start;height:var(--ch);margin-bottom:var(--gap)}
+.fnd{position:relative;height:var(--ch);flex:1}
+.fnd .card{position:absolute;top:0}
+.fnd .slotf{position:absolute;top:0;width:var(--cw);height:var(--ch);border:2px dashed rgba(255,255,255,.16);border-radius:calc(var(--cw)*.12)}
+.stock{position:relative;height:var(--ch);cursor:pointer;flex:none}
+.stock .card{position:absolute;top:0}
+.stock .cnt{position:absolute;right:-2px;bottom:-6px;background:rgba(0,0,0,.65);color:#ffe6a6;font-weight:900;font-size:11px;border-radius:8px;padding:1px 6px;pointer-events:none}
+.stock.off{opacity:.45}
+.tabrow{display:grid;grid-template-columns:repeat(10,var(--cw));justify-content:space-between;flex:1;min-height:0}
+.col{position:relative;width:var(--cw);height:100%}
+.col::before{content:"";position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);border:2px dashed rgba(255,255,255,.14);border-radius:calc(var(--cw)*.12)}
+.col .card{position:absolute;left:0}
+.card.fc{touch-action:none}
+.card.fc.mv{cursor:grab}
+.card.fc .ci{position:absolute;top:calc(var(--cw)*.05);left:calc(var(--cw)*.07);font-size:max(11px,calc(var(--cw)*.3));line-height:1;font-weight:900;letter-spacing:-.5px;white-space:nowrap}
+.card.fc .ci i{font-style:normal;font-size:.9em;margin-left:1px}
+.card.fc .cs{position:absolute;left:0;right:0;bottom:calc(var(--ch)*.1);text-align:center;font-size:calc(var(--cw)*.56);line-height:1}
+.card.fc .cs b{display:block;font-size:.5em;line-height:1;margin-bottom:2px}
+.card.back{border-width:2px}
+.card.drag0{opacity:.25}
+.card.hint{box-shadow:0 0 0 3px #5ab0ff,0 0 16px #5ab0ff;animation:hintP 1s ease-in-out infinite}
+.col.hint::before{border-color:#5ab0ff;border-style:solid;box-shadow:0 0 14px #5ab0ff}
+.col.hint>.card:last-child{box-shadow:0 0 0 3px #5ab0ff}
+.stock.hint .card:last-child{box-shadow:0 0 0 3px #5ab0ff,0 0 16px #5ab0ff}
+@keyframes hintP{50%{box-shadow:0 0 0 3px #bfe0ff,0 0 6px #5ab0ff}}
+.col.drop-on::before{border-color:var(--gold);border-style:solid}
+.col.drop-on>.card:last-child{box-shadow:0 0 0 3px var(--gold),0 3px 10px rgba(0,0,0,.5)}
+#ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50}
+#ghost .card{position:absolute;box-shadow:0 10px 24px rgba(0,0,0,.55)}
+.ctrl{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:6px}
+.ctrl .tbtn{font-size:13px;padding:7px 10px}
+.ctrl .tbtn.go{background:var(--gold);color:#3a2600;border-color:var(--gold);font-weight:800}
+.info{display:flex;gap:12px;font-weight:800;font-size:14px;color:#ffe6a6;align-items:center}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (max-width:600px){ .ctrl .tbtn{font-size:12px;padding:7px 8px} .info{gap:9px;font-size:13px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* Cartas: código c = naipe*13 + (posto-1); posto 1 = Ás … 13 = Rei.
+   Naipes na ordem ♠ ♥ ♦ ♣ (1 naipe = só ♠; 2 naipes = ♠ e ♥). */
+const SU_SYM = ['♠','♥','♦','♣'];
+const RN = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const rk = c => c % 13 + 1, su = c => Math.floor(c / 13), red = c => su(c) === 1 || su(c) === 2;
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const isInt = (x, a, b) => Number.isInteger(x) && x >= a && x <= b;
+const NOMES = {'1':'1 naipe', '2':'2 naipes', '4':'4 naipes'};
+
+/* ------------------------- motor (vale para estado e simulação) ------------------------- */
+// coluna = {d:[cartas viradas para baixo], u:[cartas abertas]} — no estado, cartas são ids (0..103) e st.code[id] dá o código
+// início da sequência do mesmo naipe, descendo, no topo da coluna
+function runStart(u, C){
+  let k = u.length - 1;
+  while(k > 0 && su(C(u[k-1])) === su(C(u[k])) && rk(C(u[k-1])) === rk(C(u[k])) + 1) k--;
+  return k;
+}
+function canMove(cols, i, k, j, C){
+  const a = cols[i], b = cols[j];
+  if(i === j || !a || !b || k < 0 || k >= a.u.length || k < runStart(a.u, C)) return false;
+  if(!b.u.length) return !b.d.length;
+  return rk(C(b.u[b.u.length - 1])) === rk(C(a.u[k])) + 1;
+}
+// sequência completa K→A do mesmo naipe no topo? remove e devolve o naipe
+function takeRun(col, C){
+  const u = col.u; if(u.length < 13) return -1;
+  const k = u.length - 13;
+  if(rk(C(u[k])) !== 13 || runStart(u, C) > k) return -1;
+  const s = su(C(u[k])); u.splice(k); return s;
+}
+
+/* ------------------------------ estado ------------------------------- */
+function newGame(nSuits){
+  const suits = nSuits === 1 ? [0] : nSuits === 2 ? [0, 1] : [0, 1, 2, 3];
+  const code = [];
+  for(let d=0; d<8; d++) for(let r=0;r<13;r++) code.push(suits[d % suits.length] * 13 + r);
+  const ids = shuffle([...Array(104).keys()]);
+  const cols = [];
+  for(let i=0;i<10;i++){ const n = i < 4 ? 6 : 5; const take = ids.splice(0, n); cols.push({d:take.slice(0, -1), u:take.slice(-1)}); }
+  return {code, cols, stock:ids, found:[], moves:0, score:500, hist:[], t0:Date.now(), fin:null, done:false, res:null, hints:0, ver:1, last:null};
+}
+const snap = st => JSON.stringify([st.cols, st.stock, st.found, st.moves, st.score]);
+function pushHist(st){ st.hist.push(snap(st)); if(st.hist.length > 400) st.hist.shift(); }
+function flip(col){ if(!col.u.length && col.d.length) col.u.push(col.d.pop()); }
+function settle(st, idxs, ev){
+  const C = id => st.code[id];
+  for(const i of idxs){
+    const col = st.cols[i], s = takeRun(col, C);
+    if(s >= 0){ st.found.push(s); st.score += 100; ev.push({k:'snd', s:'win'}, {k:'banner', text:`Sequência de ${SU_SYM[s]} completa!`}, {k:'run', col:i}); }
+    flip(col);
+  }
+}
+const bestDest = (st, i, k) => {
+  const C = id => st.code[id], c = C(st.cols[i].u[k]);
+  let best = -1, bestV = -1;
+  for(let j=0;j<10;j++){
+    if(!canMove(st.cols, i, k, j, C)) continue;
+    const b = st.cols[j];
+    let v;
+    if(!b.u.length) v = (k === 0 && !st.cols[i].d.length) ? -1 : 1;   // coluna vazia: só se libera algo
+    else v = su(C(b.u[b.u.length - 1])) === su(c) ? 10 + runLen(b.u, C) : 5;
+    if(v > bestV){ bestV = v; best = j; }
+  }
+  return best;
+};
+const runLen = (u, C) => u.length ? u.length - runStart(u, C) : 0;
+
+function applyAct(st, a){
+  if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+  if(st.done) return {ok:false, err:'A partida já terminou.'};
+  const C = id => st.code[id], ev = [];
+  switch(a.t){
+    case 'mv': case 'tap': {
+      const i = a.i, k = a.k;
+      if(!isInt(i, 0, 9) || !isInt(k, 0, 103) || k >= st.cols[i].u.length) return {ok:false, err:'Jogada inválida.'};
+      if(k < runStart(st.cols[i].u, C)) return {ok:false, err:'Só dá para mover cartas do mesmo naipe em sequência.'};
+      const j = a.t === 'mv' ? a.j : bestDest(st, i, k);
+      if(a.t === 'mv' && !isInt(j, 0, 9)) return {ok:false, err:'Jogada inválida.'};
+      if(j < 0) return {ok:false, err:'Essa carta não tem para onde ir agora.'};
+      if(!canMove(st.cols, i, k, j, C)) return {ok:false, err:'Não encaixa: a carta de baixo precisa ser um posto acima.'};
+      pushHist(st);
+      const cards = st.cols[i].u.splice(k);
+      st.cols[j].u.push(...cards);
+      st.moves++; st.score--;
+      ev.push({k:'snd', s:'card'});
+      settle(st, [i, j], ev);
+      st.last = {j, n:cards.length};
+      break;
+    }
+    case 'deal': {
+      if(!st.stock.length) return {ok:false, err:'O monte acabou.'};
+      if(st.cols.some(c => !c.u.length && !c.d.length)) return {ok:false, err:'Preencha as colunas vazias antes de distribuir.'};
+      pushHist(st);
+      for(let i=0;i<10;i++) st.cols[i].u.push(st.stock.pop());
+      st.moves++; st.score--;
+      ev.push({k:'snd', s:'deal'});
+      settle(st, [...Array(10).keys()], ev);
+      st.last = {deal:true};
+      break;
+    }
+    case 'undo': {
+      const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
+      [st.cols, st.stock, st.found, st.moves, st.score] = JSON.parse(h);
+      st.score--; st.last = null; st.ver++;
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    case 'hint': st.hints++; return {events:[]};
+    case 'giveup': st.done = true; st.res = 'gave'; st.fin = Date.now() - st.t0; return {events:[]};
+    default: return {ok:false, err:'Jogada inválida.'};
+  }
+  st.ver++;
+  if(st.found.length === 8){ st.done = true; st.res = 'win'; st.fin = Date.now() - st.t0; ev.push({k:'banner', text:'Você venceu!'}); }
+  return {events:ev};
+}
+
+/* ----------------- inteligência (dica, completar e bot dos testes) -----------------
+   Trabalha só com o que se vê: cartas viradas para baixo são desconhecidas. */
+const ID = c => c;
+// visão simplificada: {cols:[{d:[...n vazios], u:[códigos]}], stock:n}
+function simOf(g){ return {cols:g.cols.map(c => ({d:Array(c.d).fill(-1), u:c.u.slice()})), stock:g.stock}; }
+function simMoves(S){
+  const out = [];
+  for(let i=0;i<10;i++){
+    const a = S.cols[i]; if(!a.u.length) continue;
+    const r0 = runStart(a.u, ID);
+    if(a.u[r0] < 0) continue;
+    for(let k=r0;k<a.u.length;k++){
+      const c = a.u[k], below = k > 0 ? a.u[k-1] : null;
+      for(let j=0;j<10;j++){
+        if(!canMove(S.cols, i, k, j, ID)) continue;
+        const b = S.cols[j], t = b.u.length ? b.u[b.u.length - 1] : null;
+        if(t == null){ if(k === 0 && !a.d.length) continue; if(k > r0) continue; }
+        else if(su(t) !== su(c)){
+          // troca lateral (já estava sobre um posto acima): só vale se descobrir algo ou esvaziar
+          if(k > r0) continue;
+          if(below != null && below >= 0 && rk(below) === rk(c) + 1) continue;
+        }
+        out.push({i, k, j});
+      }
+    }
+  }
+  return out;
+}
+function simApply(S, m){
+  const T = {cols:S.cols.map(c => ({d:c.d, u:c.u.slice()})), stock:S.stock, got:(S.got || 0)};
+  const cards = T.cols[m.i].u.splice(m.k); T.cols[m.j].u.push(...cards);
+  for(const x of [m.j, m.i]){ const col = T.cols[x]; if(takeRun(col, ID) >= 0) T.got++; if(!col.u.length && col.d.length){ col.d = col.d.slice(1); col.u.push(-1); } }
+  return T;
+}
+function simEval(S){
+  let v = (S.got || 0) * 400;
+  for(const col of S.cols){
+    v -= col.d.length * 22;
+    if(!col.u.length && !col.d.length) v += 28;
+    for(let k=1;k<col.u.length;k++){
+      const a = col.u[k-1], b = col.u[k];
+      if(a < 0 || b < 0) continue;
+      if(rk(a) === rk(b) + 1) v += su(a) === su(b) ? 9 : 2;
+    }
+    for(const c of col.u) if(c < 0) v += 6;          // carta recém-descoberta: novas chances
+  }
+  return v;
+}
+const simKey = S => S.cols.map(c => c.d.length + ':' + c.u.join(',')).join('|');
+// melhores lances com 2 jogadas de antevisão
+function rankMoves(S, seen, deep=false){
+  const base = simEval(S), res = [];
+  for(const m of simMoves(S)){
+    const T = simApply(S, m);
+    if(seen && seen.has(simKey(T))) continue;
+    let v = simEval(T);
+    for(const m2 of simMoves(T)){
+      const U = simApply(T, m2); let v2 = simEval(U) - 1;
+      if(deep) for(const m3 of simMoves(U)){ const v3 = simEval(simApply(U, m3)) - 2; if(v3 > v2) v2 = v3; }
+      if(v2 > v) v = v2;
+    }
+    res.push({m, v:v - base});
+  }
+  return res.sort((a, b) => b.v - a.v);
+}
+// solucionador para o fim (tudo aberto e monte vazio): busca em profundidade
+function solveEnd(S0, limit=30000){
+  const seen = new Set(); let n = 0;
+  const path = [];
+  function dfs(S){
+    if((S.got || 0) + S.base >= 8) return true;
+    if(++n > limit) return false;
+    const k = simKey(S); if(seen.has(k)) return false; seen.add(k);
+    const ms = simMoves(S).map(m => { const T = simApply(S, m); return {m, T, v:simEval(T)}; }).sort((a, b) => b.v - a.v);
+    for(const x of ms){ path.push(x.m); if(dfs(x.T)) return true; path.pop(); }
+    return false;
+  }
+  S0.base = S0.base || 0;
+  const S = Object.assign({}, S0, {got:0});
+  return dfs(S) ? path.slice() : null;
+}
+// ----- bot (só para os testes automáticos): joga com o que vê -----
+const BOTSEEN = {gid:null, set:new Set()};
+function botMove(st){
+  const g = viewOf(st);
+  if(BOTSEEN.gid !== st.gid){ BOTSEEN.gid = st.gid; BOTSEEN.set = new Set(); }
+  const S = simOf(g), seen = BOTSEEN.set;
+  seen.add(simKey(S));
+  const r = rankMoves(S, seen);
+  const canDeal = g.stock && g.cols.every(c => c.u.length || c.d);
+  if(r.length && (r[0].v > 0 || (!canDeal && r[0].v >= 0))){ seen.add(simKey(simApply(S, r[0].m))); return {t:'mv', i:r[0].m.i, k:r[0].m.k, j:r[0].m.j}; }
+  if(canDeal){ BOTSEEN.set = new Set(); return {t:'deal'}; }
+  // coluna vazia e monte com cartas: põe qualquer coisa nela
+  const toEmpty = r.find(x => !g.cols[x.m.j].u.length && !g.cols[x.m.j].d);
+  if(g.stock && toEmpty){ seen.add(simKey(simApply(S, toEmpty.m))); return {t:'mv', i:toEmpty.m.i, k:toEmpty.m.k, j:toEmpty.m.j}; }
+  if(g.stock){ for(let i=0;i<10;i++){ const u = g.cols[i].u; if(u.length > 1 || (u.length && g.cols[i].d)){ const j = g.cols.findIndex(c => !c.u.length && !c.d); if(j >= 0) return {t:'mv', i, k:u.length - 1, j}; } } }
+  if(r.length){ seen.add(simKey(simApply(S, r[0].m))); return {t:'mv', i:r[0].m.i, k:r[0].m.k, j:r[0].m.j}; }
+  return {t:'giveup'};
+}
+function viewOf(st){
+  return {cols:st.cols.map(c => ({d:c.d.length, u:c.u.map(id => st.code[id]), ids:c.u.slice()})), stock:st.stock.length, found:st.found.slice(),
+    moves:st.moves, score:st.score, undo:st.hist.length > 0, el:st.fin != null ? st.fin : Date.now() - st.t0, running:!st.done, done:st.done,
+    ver:st.ver, gid:st.gid, hints:st.hints, last:st.last, nSuits:st.nSuits};
+}
+
+Mesa.run({
+  id:'spider', name:'Paciência Spider', icon:'🕷️', tagline:'Monte sequências do Rei ao Ás do mesmo naipe',
+  solo:true, players:1,
+  options:[
+    {key:'naipes', label:'Naipes', default:'1', choices:[['1','1 naipe'],['2','2 naipes'],['4','4 naipes']]}
+  ],
+  modeLabel: o => (NOMES[o.naipes] || '1 naipe').toUpperCase(),
+  setup(players, o){
+    const n = o.naipes === '4' ? 4 : o.naipes === '2' ? 2 : 1;
+    return Object.assign(newGame(n), {nSuits:n, gid:Math.floor(Math.random()*1e9)});
+  },
+  waiting(st){ return st.done ? [] : [0]; },
+  over(st){
+    if(!st.done) return null;
+    if(st.res === 'win') return {winners:[0], text:`Spider de <b>${NOMES[st.nSuits]}</b> completo em <b>${st.moves}</b> jogadas e <b>${fmt(st.fin)}</b>. Pontos: <b>${st.score}</b>.`};
+    return {winners:[], text:`Você desistiu com ${st.found.length} de 8 sequências completas. Pontos: ${st.score}.`};
+  },
+  apply(st, s, a){ return applyAct(st, a); },
+  bot(st){ return botMove(st); },
+  botDelay(){ return 380; },
+  botFallback(st){ return st.stock.length && st.cols.every(c => c.u.length || c.d.length) ? {t:'deal'} : {t:'giveup'}; },
+  view(st){ return viewOf(st); },
+  topInfo(g){ return `<div class="info"><span>⭐ ${g.score}</span><span>🃏 ${g.moves}</span><span id="clock">⏱ ${fmt(g.el)}</span></div>`; },
+  onEvent(e, v, ui){
+    if(e.k === 'start'){ hint = null; lastVer = null; autoBusy = false; }
+    if(e.k === 'run') runFx = e.col;
+  },
+  rules: `<h3>Objetivo</h3><p>Montar, dentro das colunas, <b>8 sequências completas do Rei ao Ás do mesmo naipe</b>. Cada sequência completa sai da mesa sozinha. Tirou as 8, venceu.</p>
+  <h3>Como jogar</h3><ul>
+  <li>São 104 cartas (dois baralhos) em <b>10 colunas</b>: 54 na mesa e 50 no <b>monte</b>.</li>
+  <li>Uma carta pode ir sobre outra <b>um posto acima, de qualquer naipe</b> (ex.: 7♥ sobre 8♠).</li>
+  <li>Para mover <b>várias cartas juntas</b>, elas precisam formar sequência descendo <b>do mesmo naipe</b>.</li>
+  <li>Qualquer carta ou sequência pode ir para uma <b>coluna vazia</b>.</li>
+  <li>Quando uma carta virada para baixo fica no topo, ela vira sozinha.</li>
+  <li>Toque no <b>monte</b> para distribuir uma carta em cada coluna (5 vezes ao todo). Só dá para distribuir sem colunas vazias.</li>
+  <li><b>Arraste</b> as cartas ou só <b>toque</b> numa delas: ela vai para o melhor destino (de preferência sobre o mesmo naipe).</li></ul>
+  <h3>Níveis</h3><ul><li><b>1 naipe</b> (só ♠): o mais tranquilo. <b>2 naipes</b> (♠ ♥): médio. <b>4 naipes</b>: o desafio clássico — difícil de vencer.</li></ul>
+  <h3>Pontos (clássico)</h3><p>Começa com <b>500</b>; cada jogada, distribuição ou desfazer custa <b>1 ponto</b>; cada sequência completa vale <b>+100</b>.</p>
+  <h3>Recursos</h3><ul><li><b>↶ Desfazer</b> volta jogadas (custa 1 ponto). <b>💡 Dica</b> mostra um bom lance (toque de novo para ver outros).</li>
+  <li><b>⚡ Completar</b> aparece quando todas as cartas estão abertas e o monte acabou: o jogo termina sozinho se houver caminho.</li></ul>`,
+  render
+});
+
+/* ------------------------------ interface ------------------------------ */
+let hint = null, hintList = null, lastVer = null, keyUi = null, clk = {}, dragFrom = {}, runFx = null, autoBusy = false;
+function cardHtml(c, id, extra){
+  const r = RN[rk(c)], s = SU_SYM[su(c)], face = rk(c) > 10;
+  return `<div class="card fc ${red(c) ? 'red' : ''} ${extra || ''}" data-c="${id}"><span class="ci">${r}<i>${s}</i></span><span class="cs">${face ? `<b>${r}</b>` : ''}${s}</span></div>`;
+}
+function layout(st){
+  const W = st.clientWidth - 12, H = st.clientHeight - 14;
+  const gap = W < 500 ? 3 : 10;
+  let cw = Math.floor((W - 9*gap) / 10);
+  cw = Math.max(30, Math.min(cw, 96, Math.floor((H - 60) / 4.4)));
+  const ch = Math.round(cw * 1.4);
+  return {cw, ch, gap, bw:cw*10 + gap*9};
+}
+function render(g, v, ui){
+  keyUi = ui;
+  const st = ui.stage, L = layout(st);
+  for(const [k, x] of [['--cw', L.cw], ['--ch', L.ch], ['--gap', L.gap], ['--bw', L.bw]]) st.style.setProperty(k, x + 'px');
+  const prev = {}, animate = lastVer != null && lastVer !== g.ver;
+  let stockR = null;
+  if(animate){ $$('.card[data-c]', st).forEach(e => prev[e.dataset.c] = e.getBoundingClientRect()); const s = $('#stk'); stockR = s && s.getBoundingClientRect(); }
+  Object.assign(prev, dragFrom); dragFrom = {};
+  if(lastVer !== g.ver){ hint = null; hintList = null; }
+  lastVer = g.ver;
+  const playing = v.phase === 'game' && !g.done;
+  const hs = hint;
+  // fundações (sequências completas) e monte
+  const deals = Math.ceil(g.stock / 10);
+  const stW0 = L.cw + Math.max(0, deals - 1) * Math.round(L.cw * 0.22);
+  // espaço entre as sequências completas: lado a lado quando cabe, em leque quando não
+  const step = Math.min(L.cw + L.gap, Math.max(L.cw * 0.3, (L.bw - stW0 - L.gap*2 - L.cw) / 7)), roomy = step >= L.cw;
+  let fnd = '';
+  for(let k=0;k<8;k++){
+    const x = Math.round(k * step);
+    if(k < g.found.length) fnd += cardHtml(g.found[k] * 13 + 12, 'f' + k).replace('class="card', `style="left:${x}px" class="card`);
+    else if(roomy || k === g.found.length) fnd += `<div class="slotf" style="left:${x}px"></div>`;
+  }
+  let stk = '';
+  for(let k=0;k<deals;k++) stk += `<div class="card back" style="left:${Math.round(k * L.cw * 0.22)}px"></div>`;
+  const stW = L.cw + Math.max(0, deals - 1) * Math.round(L.cw * 0.22);
+  // colunas: o espaçamento encolhe para caber na altura
+  const colH = st.clientHeight - L.ch - L.gap - 72;
+  let cols = '';
+  for(let i=0;i<10;i++){
+    const col = g.cols[i], nd = col.d, nu = col.u.length;
+    const stdD = Math.round(L.ch * 0.13), stdU = Math.round(L.ch * 0.26), need = nd * stdD + Math.max(0, nu - 1) * stdU;
+    const f = need > colH - L.ch && need > 0 ? Math.max(0.35, (colH - L.ch) / need) : 1;
+    const offD = Math.max(3, Math.round(stdD * f)), offU = Math.max(Math.round(L.ch * 0.15), Math.round(stdU * f));
+    const r0 = nu ? runStart(col.u, ID) : 0;
+    let y = 0, html = '';
+    for(let k=0;k<nd;k++){ html += `<div class="card back" style="top:${y}px"></div>`; y += offD; }
+    col.u.forEach((c, k) => {
+      const isH = hs && hs.m && hs.m.i === i && k >= hs.m.k;
+      html += cardHtml(c, col.ids[k], (k >= r0 ? 'mv ' : '') + (isH ? 'hint' : '')).replace('class="card', `data-src="${i}:${k}" style="top:${y}px" class="card`);
+      y += offU;
+    });
+    cols += `<div class="col${hs && hs.m && hs.m.j === i ? ' hint' : ''}" data-drop="${i}" data-run="${r0}">${html}</div>`;
+  }
+  const canAuto = playing && !g.stock && g.cols.every(c => !c.d);
+  st.innerHTML = `<div class="spb"><div class="toprow"><div class="fnd">${fnd}</div>
+      <div class="stock ${g.stock ? '' : 'off'} ${hs && hs.deal ? 'hint' : ''}" id="stk" style="width:${stW}px">${stk}${g.stock ? `<span class="cnt">${deals}</span>` : ''}</div></div>
+    <div class="tabrow">${cols}</div>
+    <div class="ctrl"><button class="tbtn" id="bUndo" ${g.undo && playing ? '' : 'disabled'}>↶ Desfazer</button>
+      <button class="tbtn" id="bHint" ${playing ? '' : 'disabled'}>💡 Dica</button>
+      ${canAuto ? `<button class="tbtn go" id="bAuto">⚡ Completar</button>` : ''}
+      <button class="tbtn" id="bNew" ${playing ? '' : 'disabled'}>🔀 Novo</button>
+      <button class="tbtn" id="bGive" ${playing ? '' : 'disabled'}>🏳️ Desistir</button></div></div>`;
+  // animações: cartas que mudaram de lugar; cartas novas saem do monte
+  if(animate || Object.keys(prev).length){
+    let d = 0;
+    $$('.col .card[data-c]', st).forEach(e => {
+      const p = prev[e.dataset.c];
+      if(!p){ if(g.last && g.last.deal && stockR){ flyFrom(e, stockR, {dur:260, delay:(d++) * 35}); } return; }
+      const r = e.getBoundingClientRect();
+      if(Math.abs(p.left - r.left) + Math.abs(p.top - r.top) > 3) flyFrom(e, p, {dur:230});
+    });
+  }
+  if(runFx != null){ const f = $$('.fnd .card', st).pop(); if(f) anim(f, [{transform:'scale(1.5)', filter:'brightness(1.6)'}, {transform:'none'}], {duration:500}); runFx = null; }
+  if(g !== clk.g) clk = {g, el:g.el, at:Date.now(), run:g.running && v.phase === 'game'};
+  paintClock();
+  $('#stk').onclick = () => { if(playing) ui.act({t:'deal'}); };
+  $('#bUndo').onclick = () => ui.act({t:'undo'});
+  $('#bHint').onclick = () => showHint(ui);
+  if($('#bAuto')) $('#bAuto').onclick = () => autoComplete(ui);
+  $('#bNew').onclick = () => modal('<h2>Novo jogo?</h2><p>O jogo atual será abandonado.</p>', [{label:'Novo jogo', fn:() => location.replace(location.pathname + '?play=1&naipes=' + (v.opts.naipes || '1'))}, {label:'Continuar', cls:'b-no'}]);
+  $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A partida termina e conta como derrota.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  setupDrag(st, ui);
+}
+function paintClock(){ const c = $('#clock'); if(c && clk.g) c.textContent = '⏱ ' + fmt(clk.el + (clk.run ? Date.now() - clk.at : 0)); }
+setInterval(paintClock, 1000);
+
+// dica: lista os bons lances; cada toque mostra o próximo
+function showHint(ui){
+  const g = ui.view.game;
+  if(!hintList){
+    const S = simOf(g);
+    hintList = rankMoves(S, null, true).filter(x => x.v > 0).map(x => ({m:x.m}));
+    const canDeal = g.stock && g.cols.every(c => c.u.length || c.d);
+    if(canDeal) hintList.push({deal:true});
+    if(!hintList.length){
+      const any = simMoves(S)[0];
+      if(any) hintList.push({m:any});
+    }
+    hintList.i = 0;
+  }
+  if(!hintList.length){
+    toast(g.stock ? 'Preencha as colunas vazias e distribua do monte.' : 'Não há mais jogadas úteis. Tente desfazer.');
+    return;
+  }
+  hint = hintList[hintList.i++ % hintList.length];
+  if(hint.deal) toast('Distribua do monte.');
+  ui.act({t:'hint'});
+  ui.rerender();
+}
+// completar: procura o caminho até o fim e joga sozinho
+function autoComplete(ui){
+  if(autoBusy) return;
+  const g = ui.view.game, S = simOf(g);
+  S.base = g.found.length;
+  const sol = solveEnd(S);
+  if(!sol){ toast('Não achei um caminho até o fim daqui. Continue jogando!'); return; }
+  autoBusy = true;
+  let n = 0;
+  const step = () => {
+    const v = ui.view; if(!v || v.phase !== 'game' || !v.game || v.game.done || n >= sol.length){ autoBusy = false; return; }
+    const m = sol[n++]; ui.act({t:'mv', i:m.i, k:m.k, j:m.j}); setTimeout(step, 170);
+  };
+  step();
+}
+
+/* ------------------------------ arrastar ------------------------------ */
+function setupDrag(stage, ui){
+  if(stage._drag) return; stage._drag = true;
+  let D = null;
+  const cleanup = () => { $$('.drag0', stage).forEach(e => e.classList.remove('drag0')); $$('.drop-on', stage).forEach(e => e.classList.remove('drop-on'));
+    const gh = $('#ghost'); gh && gh.remove(); D = null; };
+  stage.addEventListener('pointerdown', e => {
+    if(e.button > 0 || D || autoBusy) return;
+    const el = e.target.closest('[data-src]'); if(!el) return;
+    const v = ui.view; if(!v || v.phase !== 'game' || !v.game || v.game.done) return;
+    const [i, k] = el.dataset.src.split(':').map(Number);
+    const colEl = el.parentElement;
+    D = {x:e.clientX, y:e.clientY, id:e.pointerId, i, k, els:[...colEl.querySelectorAll('.card.fc')].slice(k), ok:k >= +colEl.dataset.run, moved:false};
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', e => {
+    if(!D || e.pointerId !== D.id) return;
+    const dx = e.clientX - D.x, dy = e.clientY - D.y;
+    if(!D.moved){
+      if(Math.hypot(dx, dy) < 8) return;
+      D.moved = true;
+      if(!D.ok){ const el = D.els[0]; el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 300); toast('Só dá para mover juntas cartas do mesmo naipe em sequência.'); return; }
+      const gh = document.createElement('div'); gh.id = 'ghost';
+      gh.style.setProperty('--cw', stage.style.getPropertyValue('--cw')); gh.style.setProperty('--ch', stage.style.getPropertyValue('--ch'));
+      D.rects = D.els.map(x => x.getBoundingClientRect());
+      D.els.forEach((x, j) => { const c = x.cloneNode(true); c.classList.remove('hint'); c.style.left = D.rects[j].left + 'px'; c.style.top = D.rects[j].top + 'px'; gh.appendChild(c); x.classList.add('drag0'); });
+      document.body.appendChild(gh); D.gh = gh;
+    }
+    if(!D.gh) return;
+    D.gh.style.transform = `translate(${dx}px,${dy}px)`; D.px = e.clientX; D.py = e.clientY; D.dx = dx; D.dy = dy;
+    const z = zoneAt(stage, D);
+    $$('.drop-on', stage).forEach(x => x !== z && x.classList.remove('drop-on'));
+    if(z) z.classList.add('drop-on');
+  });
+  window.addEventListener('pointerup', e => {
+    if(!D || e.pointerId !== D.id) return;
+    const d = D;
+    if(!d.moved){ cleanup(); ui.act({t:'tap', i:d.i, k:d.k}); return; }
+    if(!d.gh){ cleanup(); return; }
+    const z = zoneAt(stage, d);
+    if(z && +z.dataset.drop !== d.i){
+      d.els.forEach((x, j) => { const r = d.rects[j]; dragFrom[x.dataset.c] = {left:r.left + d.dx, top:r.top + d.dy, width:r.width, height:r.height}; });
+      cleanup(); ui.act({t:'mv', i:d.i, k:d.k, j:+z.dataset.drop}); dragFrom = {};
+    } else cleanup();
+  });
+  window.addEventListener('pointercancel', cleanup);
+}
+function zoneAt(stage, D){
+  const r0 = D.rects[0], a = {l:r0.left + D.dx, t:r0.top + D.dy, r:r0.right + D.dx, b:r0.bottom + D.dy};
+  // primeiro: a área debaixo do dedo/ponteiro
+  for(const z of $$('[data-drop]', stage)){
+    const r = z.getBoundingClientRect(), bottom = z.classList.contains('col') ? r.top + 9999 : r.bottom;
+    if(D.px >= r.left && D.px <= r.right && D.py >= r.top && D.py <= bottom) return z;
+  }
+  let best = null, bestA = 0;
+  for(const z of $$('[data-drop]', stage)){
+    const r = z.getBoundingClientRect();
+    const w = Math.min(a.r, r.right) - Math.max(a.l, r.left), h = Math.min(a.b, r.top + 9999) - Math.max(a.t, r.top - 20);
+    if(w > 0 && h > 0 && w*h > bestA){ bestA = w*h; best = z; }
+  }
+  return best;
+}
+document.addEventListener('keydown', e => {
+  const ui = keyUi, v = ui && ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show')) return;
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); ui.act({t:'undo'}); }
+  else if(e.key === 'h' || e.key === 'H') showHint(ui);
+  else if(e.key === 'd' || e.key === 'D') ui.act({t:'deal'});
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

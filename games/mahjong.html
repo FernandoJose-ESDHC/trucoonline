@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Mahjong Solitário</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:4px 4px 6px}
+.mj{display:flex;flex-direction:column;height:100%;min-height:0}
+.vp{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;border-radius:14px}
+.bd{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0}
+.t{position:absolute;width:var(--tw);height:var(--th);border-radius:calc(var(--tw)*.14);cursor:pointer;
+  background:linear-gradient(150deg,#fffdf4 0%,#f3ead2 70%,#e6d9b6 100%);border:1px solid #b9a679;
+  box-shadow:var(--d) var(--d) 0 #c8b07a,calc(var(--d) + 1px) calc(var(--d) + 1px) 0 #8d7543,calc(var(--d)*1.5) calc(var(--d)*2) 6px rgba(0,0,0,.45)}
+.t svg{position:absolute;inset:6% 7%;width:86%;height:88%;pointer-events:none}
+.bd.free .t.blk{filter:brightness(.72) saturate(.75)}
+.t.sel{background:linear-gradient(150deg,#fff6c9,#ffe27a);border-color:#b8860b;box-shadow:0 0 0 3px var(--gold),var(--d) var(--d) 0 #c8b07a,0 0 18px rgba(231,180,58,.8);filter:none!important}
+.t.hint{animation:hintP 1s ease-in-out infinite;filter:none!important}
+@keyframes hintP{50%{background:#cfe6ff;box-shadow:0 0 0 3px #5ab0ff,0 0 18px #5ab0ff}}
+.t.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.t.gone{transition:transform .35s ease-in,opacity .35s ease-in;transform:scale(1.25) translateY(-14px);opacity:0;pointer-events:none}
+.zoom{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.zoom button{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-size:20px;font-weight:900;cursor:pointer}
+.ctrl{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:6px}
+.ctrl .tbtn{font-size:13px;padding:7px 10px}
+.ctrl .tbtn.on{background:#2f6fb0;border-color:#9fd0ff}
+.ctrl .tbtn.go{background:var(--gold);color:#3a2600;border-color:var(--gold);font-weight:800}
+.info{display:flex;gap:12px;font-weight:800;font-size:14px;color:#ffe6a6;align-items:center}
+.stuck{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:6;background:rgba(0,0,0,.7);border:1px solid var(--gold);border-radius:12px;padding:8px 12px;
+  font-weight:800;font-size:13.5px;color:#ffe9c4;text-align:center;max-width:92%}
+@media (max-width:600px){ .ctrl .tbtn{font-size:12px;padding:7px 8px} .info{gap:9px;font-size:13px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const isInt = (x, a, b) => Number.isInteger(x) && x >= a && x <= b;
+
+/* ------------------------------ layouts ------------------------------
+   Coordenadas em meias-peças: x anda 2 por peça, y anda 2 por peça, z = andar. */
+function rect(out, x0, y0, cols, rows, z, dx=2, dy=2){ for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) out.push([x0 + c*dx, y0 + r*dy, z]); }
+const LAYOUTS = {
+  tartaruga:{name:'Tartaruga', build(){
+    const o = [], rows = [[1,12],[3,8],[2,10],[1,12],[1,12],[2,10],[3,8],[1,12]];
+    rows.forEach(([c0, n], r) => rect(o, 2*c0, 2*r, n, 1, 0));
+    o.push([0, 7, 0], [26, 7, 0], [28, 7, 0]);            // pontas: cabeça e cauda
+    rect(o, 8, 2, 6, 6, 1); rect(o, 10, 4, 4, 4, 2); rect(o, 12, 6, 2, 2, 3);
+    o.push([13, 7, 4]);                                    // casco: peça do topo
+    return o; }},
+  piramide:{name:'Pirâmide', build(){
+    const o = []; rect(o, 0, 0, 8, 8, 0); rect(o, 2, 2, 6, 6, 1); rect(o, 4, 4, 4, 4, 2); rect(o, 6, 6, 2, 2, 3); return o; }},
+  fortaleza:{name:'Fortaleza', build(){
+    const o = []; rect(o, 0, 0, 12, 6, 0);
+    for(const [x, y] of [[0,0],[18,0],[0,8],[18,8]]){ rect(o, x, y, 3, 2, 1); o.push([x + 2, y + 1, 2]); }
+    rect(o, 6, 4, 6, 2, 1); rect(o, 8, 5, 4, 1, 2);
+    return o; }},
+  cruz:{name:'Cruz', build(){
+    const o = []; rect(o, 0, 8, 12, 4, 0); rect(o, 8, 0, 4, 4, 0); rect(o, 8, 16, 4, 4, 0);
+    rect(o, 2, 10, 10, 2, 1); rect(o, 10, 2, 2, 3, 1); rect(o, 10, 16, 2, 3, 1);
+    rect(o, 10, 10, 2, 2, 2); o.push([10, 11, 3], [12, 11, 3]);
+    return o; }}
+};
+
+/* ------------------------------ peças ------------------------------
+   42 desenhos: 0–8 Círculos, 9–17 Bambus, 18–26 Números, 27–30 Ventos,
+   31–33 Dragões, 34–37 Flores, 38–41 Estações. Flores combinam entre si; Estações também. */
+const grp = f => f < 34 ? f : f < 38 ? 34 : 35;
+function pairUnits(){
+  const u = [];
+  for(let f=0;f<34;f++) u.push([f, f], [f, f]);
+  u.push([34, 35], [36, 37], [38, 39], [40, 41]);
+  return u;
+}
+
+/* -------------------------- geometria / regras -------------------------- */
+// vizinhos de cada peça: quem está em cima, à esquerda e à direita (calculado uma vez por partida)
+const NBC = {};
+function nbOf(tiles, key){
+  if(NBC.key === key) return NBC.nb;
+  const nb = tiles.map(() => ({up:[], l:[], r:[]}));
+  tiles.forEach((a, i) => tiles.forEach((b, j) => {
+    if(i === j) return;
+    const dx = b.x - a.x, dy = Math.abs(b.y - a.y);
+    if(b.z === a.z + 1 && Math.abs(dx) < 2 && dy < 2) nb[i].up.push(j);
+    if(b.z === a.z && dy < 2){ if(dx === -2) nb[i].l.push(j); if(dx === 2) nb[i].r.push(j); }
+  }));
+  NBC.key = key; NBC.nb = nb;
+  return nb;
+}
+function isFree(nb, alive, i){
+  if(!alive[i]) return false;
+  const n = nb[i];
+  if(n.up.some(j => alive[j])) return false;
+  return !n.l.some(j => alive[j]) || !n.r.some(j => alive[j]);
+}
+const freeList = (nb, alive) => alive.map((a, i) => a && isFree(nb, alive, i) ? i : -1).filter(i => i >= 0);
+function pairsOf(tiles, nb, alive){
+  const fr = freeList(nb, alive), out = [];
+  for(let a=0;a<fr.length;a++) for(let b=a+1;b<fr.length;b++) if(grp(tiles[fr[a]].f) === grp(tiles[fr[b]].f)) out.push([fr[a], fr[b]]);
+  return out;
+}
+// distribui as peças "de trás para frente": tira pares de posições livres até esvaziar;
+// a ordem inversa é uma solução, então o tabuleiro sempre tem saída
+function dealSolvable(tiles, nb, idx, units){
+  for(let tries=0; tries<400; tries++){
+    const alive = tiles.map((_, i) => idx.includes(i)), order = [];
+    let ok = true;
+    for(let left=idx.length; left>0; left-=2){
+      const fr = freeList(nb, alive);
+      if(fr.length < 2){ ok = false; break; }
+      // prefere tirar peças dos andares de cima e das pontas (evita becos sem saída)
+      fr.sort((a, b) => tiles[b].z - tiles[a].z + (Math.random() - 0.5) * 2.2);
+      const a = fr[Math.floor(Math.random() * Math.min(fr.length, 4))];
+      const rest = fr.filter(x => x !== a), b = rest[Math.floor(Math.random() * rest.length)];
+      alive[a] = alive[b] = false; order.push([a, b]);
+    }
+    if(!ok) continue;
+    const us = shuffle(units.slice());
+    order.forEach(([a, b], k) => { const u = us[k]; if(Math.random() < 0.5){ tiles[a].f = u[0]; tiles[b].f = u[1]; } else { tiles[a].f = u[1]; tiles[b].f = u[0]; } });
+    return true;
+  }
+  return false;
+}
+
+/* ------------------------------ estado ------------------------------- */
+function newGame(lay, vert){
+  const L = LAYOUTS[lay] || LAYOUTS.tartaruga;
+  let pos = L.build();
+  if(vert) pos = pos.map(([x, y, z]) => [y, x, z]);       // celular em pé: tabuleiro deitado de lado
+  const tiles = pos.map(([x, y, z]) => ({x, y, z, f:-1}));
+  const gid = Math.floor(Math.random()*1e9), nb = nbOf(tiles, gid);
+  const units = shuffle(pairUnits()).slice(0, tiles.length / 2);
+  dealSolvable(tiles, nb, tiles.map((_, i) => i), units);
+  return {lay, vert, gid, tiles, alive:tiles.map(() => 1), hist:[], pairs:0, shuffles:0, hints:0, t0:Date.now(), fin:null, done:false, res:null, ver:1, last:null};
+}
+const NB = st => nbOf(st.tiles, st.gid);
+// solucionador (dica e bot): busca em profundidade com memória; devolve o 1º par de uma solução
+function solveFrom(st, limit=25000){
+  const nb = NB(st), alive = st.alive.slice(), seen = new Set(); let n = 0, first = null;
+  const cnt = i => nb[i].l.length + nb[i].r.length;
+  function dfs(left){
+    if(!left) return true;
+    if(++n > limit) return null;
+    const k = alive.join(''); if(seen.has(k)) return false; seen.add(k);
+    const ps = pairsOf(st.tiles, nb, alive);
+    // ordem: andares altos e peças que travam outras primeiro
+    ps.sort((p, q) => (st.tiles[q[0]].z + st.tiles[q[1]].z + 0.3*(cnt(q[0]) + cnt(q[1]))) - (st.tiles[p[0]].z + st.tiles[p[1]].z + 0.3*(cnt(p[0]) + cnt(p[1]))));
+    for(const [a, b] of ps){
+      alive[a] = alive[b] = 0;
+      const r = dfs(left - 2);
+      alive[a] = alive[b] = 1;
+      if(r === null) return null;
+      if(r){ if(left === total) first = [a, b]; return true; }
+    }
+    return false;
+  }
+  const total = alive.reduce((s, x) => s + x, 0);
+  const r = dfs(total);
+  return {ok:r, pair:first};
+}
+function reshuffle(st){
+  const nb = NB(st), idx = st.alive.map((a, i) => a ? i : -1).filter(i => i >= 0);
+  // junta as peças que restam em pares que combinam
+  const byG = {};
+  idx.forEach(i => (byG[grp(st.tiles[i].f)] = byG[grp(st.tiles[i].f)] || []).push(st.tiles[i].f));
+  const units = [];
+  Object.values(byG).forEach(fs => { for(let k=0;k+1<fs.length;k+=2) units.push([fs[k], fs[k+1]]); });
+  return dealSolvable(st.tiles, nb, idx, units);
+}
+
+function applyAct(st, a){
+  if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+  if(st.done) return {ok:false, err:'A partida já terminou.'};
+  const nb = NB(st), N = st.tiles.length;
+  switch(a.t){
+    case 'pair': {
+      const {a:i, b:j} = a;
+      if(!isInt(i, 0, N - 1) || !isInt(j, 0, N - 1) || i === j || !st.alive[i] || !st.alive[j]) return {ok:false, err:'Jogada inválida.'};
+      if(!isFree(nb, st.alive, i) || !isFree(nb, st.alive, j)) return {ok:false, err:'Só peças livres: sem nada em cima e com um lado (esquerdo ou direito) livre.'};
+      if(grp(st.tiles[i].f) !== grp(st.tiles[j].f)) return {ok:false, err:'Essas peças não formam par.'};
+      st.alive[i] = st.alive[j] = 0; st.pairs++;
+      st.hist.push({t:'rm', a:i, b:j}); if(st.hist.length > 200) st.hist.shift();
+      st.ver++; st.last = [i, j];
+      const ev = [{k:'snd', s:'capture'}, {k:'gone', a:i, b:j}];
+      if(!st.alive.some(Boolean)){ st.done = true; st.res = 'win'; st.fin = Date.now() - st.t0; ev.push({k:'banner', text:'Tabuleiro limpo!'}); }
+      else if(!pairsOf(st.tiles, nb, st.alive).length) ev.push({k:'snd', s:'alert'});
+      return {events:ev};
+    }
+    case 'shuffle': {
+      const before = st.tiles.map(t => t.f);
+      if(!reshuffle(st)) return {ok:false, err:'Não consegui embaralhar.'};
+      st.shuffles++; st.hist.push({t:'sh', f:before}); st.ver++; st.last = null;
+      return {events:[{k:'snd', s:'deal'}, {k:'banner', text:'Embaralhado!'}]};
+    }
+    case 'undo': {
+      const h = st.hist.pop(); if(!h) return {ok:false, err:'Nada para desfazer.'};
+      if(h.t === 'rm'){ st.alive[h.a] = st.alive[h.b] = 1; st.pairs--; }
+      else st.tiles.forEach((t, i) => t.f = h.f[i]);
+      st.ver++; st.last = null;
+      return {events:[{k:'snd', s:'move'}]};
+    }
+    case 'hint': st.hints++; return {events:[]};
+    case 'giveup': st.done = true; st.res = 'gave'; st.fin = Date.now() - st.t0; return {events:[]};
+  }
+  return {ok:false, err:'Jogada inválida.'};
+}
+// bot (testes): segue o solucionador; sem par, embaralha
+function botMove(st){
+  const nb = NB(st), ps = pairsOf(st.tiles, nb, st.alive);
+  if(!ps.length) return st.shuffles < 30 ? {t:'shuffle'} : {t:'giveup'};
+  const r = solveFrom(st);
+  const p = r.pair || ps[0];
+  return {t:'pair', a:p[0], b:p[1]};
+}
+
+Mesa.run({
+  id:'mahjong', name:'Mahjong Solitário', icon:'🀄', tagline:'Ache os pares de peças livres e limpe o tabuleiro',
+  solo:true, players:1,
+  options:[
+    {key:'layout', label:'Formato', default:'tartaruga', choices:Object.entries(LAYOUTS).map(([k, L]) => [k, L.name])}
+  ],
+  modeLabel: o => (LAYOUTS[o.layout] || LAYOUTS.tartaruga).name.toUpperCase(),
+  setup(players, o){
+    const vert = typeof innerWidth === 'number' && innerHeight > innerWidth * 1.15;
+    return newGame(o.layout, vert);
+  },
+  waiting(st){ return st.done ? [] : [0]; },
+  over(st){
+    if(!st.done) return null;
+    const L = LAYOUTS[st.lay].name;
+    if(st.res === 'win') return {winners:[0], text:`<b>${L}</b> limpa em <b>${fmt(st.fin)}</b>${st.shuffles ? `, com ${st.shuffles} embaralhada${st.shuffles > 1 ? 's' : ''}` : ' sem embaralhar'}${st.hints ? ` e ${st.hints} dica${st.hints > 1 ? 's' : ''}` : ''}.`};
+    return {winners:[], text:`Você desistiu com ${st.alive.reduce((s, x) => s + x, 0)} peças na mesa.`};
+  },
+  apply(st, s, a){ return applyAct(st, a); },
+  bot(st){ return botMove(st); },
+  botDelay(){ return 300; },
+  botFallback(){ return {t:'giveup'}; },
+  view(st){
+    const nb = NB(st);
+    return {tiles:st.tiles, alive:st.alive, free:st.alive.map((a, i) => a && isFree(nb, st.alive, i) ? 1 : 0), npairs:pairsOf(st.tiles, nb, st.alive).length,
+      left:st.alive.reduce((s, x) => s + x, 0), total:st.tiles.length, undo:st.hist.length > 0, el:st.fin != null ? st.fin : Date.now() - st.t0,
+      running:!st.done, done:st.done, ver:st.ver, gid:st.gid, lay:st.lay, shuffles:st.shuffles};
+  },
+  topInfo(g){ return `<div class="info"><span>🀄 ${g.left}</span><span title="pares disponíveis">🔗 ${g.npairs}</span><span id="clock">⏱ ${fmt(g.el)}</span></div>`; },
+  onEvent(e){
+    if(e.k === 'start'){ sel = -1; hint = null; lastGid = null; }
+    if(e.k === 'gone') fadeOut([e.a, e.b]);
+  },
+  rules: `<h3>Objetivo</h3><p>Tirar todas as peças da mesa, de <b>duas em duas</b>, formando pares iguais.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Toque numa peça e depois na sua igual. Só valem <b>peças livres</b>: sem nenhuma peça em cima (nem parcialmente) e com o <b>lado esquerdo ou o direito</b> livre.</li>
+  <li>As peças presas ficam mais escuras (botão <b>✨ Livres</b> liga e desliga o destaque).</li>
+  <li><b>Flores</b> combinam com qualquer outra flor, e <b>Estações</b> com qualquer outra estação. As demais só com a peça idêntica.</li>
+  <li>O topo mostra quantas peças faltam (🀄) e quantos pares estão disponíveis agora (🔗).</li></ul>
+  <h3>Peças</h3><p>Círculos, Bambus e Números (1 a 9), Ventos (N, L, S, O), Dragões (vermelho, verde e moldura azul), 4 Flores e 4 Estações (primavera, verão, outono, inverno) — 144 peças no total no formato Tartaruga.</p>
+  <h3>Recursos</h3><ul>
+  <li>Todo tabuleiro é gerado <b>com solução garantida</b>. Mas a ordem importa: dá para se meter num beco sem saída.</li>
+  <li><b>💡 Dica</b> procura um par que mantém o jogo com solução. <b>↶ Desfazer</b> volta pares e embaralhadas.</li>
+  <li><b>🔀 Embaralhar</b> redistribui as peças que restam (sempre com solução).</li>
+  <li><b>Zoom:</b> no celular use dois dedos (pinça) e arraste com um dedo; no PC, a rodinha do mouse. Os botões + / − / ⤢ também funcionam.</li>
+  <li>No celular em pé, o tabuleiro aparece deitado de lado para as peças ficarem maiores.</li></ul>
+  <h3>Formatos</h3><p><b>Tartaruga</b> (144 peças, o clássico), <b>Pirâmide</b> (120), <b>Fortaleza</b> (116) e <b>Cruz</b> (118).</p>`,
+  render
+});
+
+/* ------------------------------ desenhos ------------------------------
+   Peças desenhadas em SVG (caixa 40×52), símbolos próprios. */
+const COLS = {b:'#2a64b0', r:'#c0392b', g:'#23885a', k:'#1f2a44', y:'#d99a00', p:'#8e44ad', o:'#e67e22'};
+const DOTS = {1:[[20,26]], 2:[[20,15],[20,37]], 3:[[10,12],[20,26],[30,40]], 4:[[12,15],[28,15],[12,37],[28,37]], 5:[[11,13],[29,13],[20,26],[11,39],[29,39]],
+  6:[[12,11],[28,11],[12,26],[28,26],[12,41],[28,41]], 7:[[9,8],[20,14],[31,20],[12,33],[28,33],[12,45],[28,45]],
+  8:[[12,8],[28,8],[12,20],[28,20],[12,32],[28,32],[12,44],[28,44]], 9:[[9,10],[20,10],[31,10],[9,26],[20,26],[31,26],[9,42],[20,42],[31,42]]};
+const STICKS = {2:[[20,14],[20,38]], 3:[[20,14],[12,38],[28,38]], 4:[[12,14],[28,14],[12,38],[28,38]], 5:[[11,14],[29,14],[20,26],[11,38],[29,38]],
+  6:[[10,15],[20,15],[30,15],[10,37],[20,37],[30,37]], 7:[[20,9],[10,26],[20,26],[30,26],[10,43],[20,43],[30,43]],
+  8:[[8,15],[16,15],[24,15],[32,15],[8,37],[16,37],[24,37],[32,37]], 9:[[10,9],[20,9],[30,9],[10,26],[20,26],[30,26],[10,43],[20,43],[30,43]]};
+function dot(x, y, r, c){ return `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x}" cy="${y}" r="${r*0.55}" fill="none" stroke="#fff" stroke-width="${r*0.22}"/><circle cx="${x}" cy="${y}" r="${r*0.18}" fill="#fff"/>`; }
+function stick(x, y, c, h=11){ return `<rect x="${x-2.6}" y="${y-h/2}" width="5.2" height="${h}" rx="2.4" fill="${c}"/><line x1="${x-2.6}" x2="${x+2.6}" y1="${y}" y2="${y}" stroke="#fff" stroke-width="1"/><line x1="${x}" x2="${x}" y1="${y-h/2+1.5}" y2="${y+h/2-1.5}" stroke="rgba(255,255,255,.45)" stroke-width=".8"/>`; }
+function petals(cx, cy, n, r, c, mid){ let s = ''; for(let k=0;k<n;k++){ const a = k*2*Math.PI/n; s += `<ellipse cx="${(cx + Math.cos(a)*r).toFixed(1)}" cy="${(cy + Math.sin(a)*r).toFixed(1)}" rx="${r*0.62}" ry="${r*0.42}" transform="rotate(${(a*180/Math.PI).toFixed(0)} ${(cx + Math.cos(a)*r).toFixed(1)} ${(cy + Math.sin(a)*r).toFixed(1)})" fill="${c}"/>`; }
+  return s + `<circle cx="${cx}" cy="${cy}" r="${r*0.45}" fill="${mid}"/>`; }
+function face(f){
+  if(f < 9){ const n = f + 1, R = n === 1 ? 11 : n <= 4 ? 6.5 : n <= 6 ? 5.6 : 4.8;
+    const cs = [COLS.b, COLS.r, COLS.g];
+    return DOTS[n].map(([x, y], k) => dot(x, y, R, n === 1 ? COLS.r : cs[(k + n) % 3])).join(''); }
+  if(f < 18){ const n = f - 8;
+    if(n === 1) return `<path d="M20 47 C19 36 21 22 20 8" stroke="${COLS.g}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M20 30 C10 26 7 18 9 13 C15 15 19 22 20 30Z" fill="${COLS.g}"/><path d="M20 22 C29 19 32 12 30 7 C24 9 21 15 20 22Z" fill="#3fae6a"/><circle cx="20" cy="8" r="3" fill="${COLS.r}"/>`;
+    const red = n === 5 || n === 7 || n === 9;
+    return STICKS[n].map(([x, y], k) => stick(x, y, red && ((n === 5 && k === 2) || (n === 7 && k === 0) || (n === 9 && k % 3 === 1)) ? COLS.r : COLS.g, n >= 7 ? 13 : 16)).join(''); }
+  if(f < 27){ const n = f - 17;
+    return `<path d="M20 4 L22.5 10 L29 10 L24 14 L26 20 L20 16.5 L14 20 L16 14 L11 10 L17.5 10Z" fill="${COLS.b}"/><text x="20" y="44" font-size="25" font-weight="900" text-anchor="middle" fill="${COLS.r}" font-family="Georgia,serif">${n}</text>`; }
+  if(f < 31){ const L = ['N','L','S','O'][f - 27], rot = [0, 90, 180, 270][f - 27];
+    return `<circle cx="20" cy="26" r="17" fill="none" stroke="#c9b98f" stroke-width="1.5"/><g transform="rotate(${rot} 20 26)"><path d="M20 6 L25 14 L15 14Z" fill="${COLS.r}"/></g>
+      <text x="20" y="35" font-size="23" font-weight="900" text-anchor="middle" fill="${COLS.k}" font-family="Arial,sans-serif">${L}</text>`; }
+  if(f === 31) return `<path d="M20 5 L36 26 L20 47 L4 26Z" fill="${COLS.r}"/><path d="M20 14 L29 26 L20 38 L11 26Z" fill="#fff"/><path d="M20 19 L25 26 L20 33 L15 26Z" fill="${COLS.r}"/>`;
+  if(f === 32) return `<path d="M4 44 L16 16 L22 28 L27 20 L37 44Z" fill="${COLS.g}"/><path d="M16 16 L19 23 L13 23Z" fill="#fff"/><circle cx="30" cy="10" r="4" fill="${COLS.g}"/>`;
+  if(f === 33) return `<rect x="6" y="6" width="28" height="40" rx="3" fill="none" stroke="${COLS.b}" stroke-width="3.5"/><rect x="12" y="12" width="16" height="28" rx="2" fill="none" stroke="${COLS.b}" stroke-width="1.6"/>`;
+  if(f < 38){ const k = f - 34, P = [[5,'#e75b8d','#ffd23f'],[6,COLS.o,'#7a3b00'],[8,'#ffffff','#f2b705'],[4,COLS.p,'#ffd23f']][k];
+    const stroke = k === 2 ? '<g stroke="#bbb" stroke-width=".6">' : '<g>';
+    return `<path d="M20 30 C20 38 18 44 20 50" stroke="${COLS.g}" stroke-width="2.4" fill="none"/><path d="M20 42 C26 38 30 40 31 43 C27 45 23 44 20 42Z" fill="${COLS.g}"/>${stroke}${petals(20, 20, P[0], 8, P[1], P[2])}</g>
+      <text x="4" y="50" font-size="8" font-weight="900" fill="${COLS.k}">${k + 1}</text>`; }
+  const k = f - 38;
+  if(k === 0) return `<path d="M20 48 L20 24" stroke="${COLS.g}" stroke-width="3" stroke-linecap="round"/><path d="M20 30 C9 30 5 20 6 14 C14 14 20 20 20 30Z" fill="#5cc26e"/><path d="M20 26 C31 26 35 16 34 10 C26 10 20 16 20 26Z" fill="${COLS.g}"/><text x="4" y="50" font-size="8" font-weight="900" fill="${COLS.k}">1</text>`;
+  if(k === 1){ let s = ''; for(let a=0;a<8;a++){ const t = a*Math.PI/4; s += `<line x1="${(20+Math.cos(t)*12).toFixed(1)}" y1="${(24+Math.sin(t)*12).toFixed(1)}" x2="${(20+Math.cos(t)*17).toFixed(1)}" y2="${(24+Math.sin(t)*17).toFixed(1)}" stroke="${COLS.y}" stroke-width="3" stroke-linecap="round"/>`; }
+    return s + `<circle cx="20" cy="24" r="9" fill="${COLS.y}"/><circle cx="20" cy="24" r="5" fill="#ffd84d"/><text x="4" y="50" font-size="8" font-weight="900" fill="${COLS.k}">2</text>`; }
+  if(k === 2) return `<path d="M20 6 C32 14 34 30 20 44 C6 30 8 14 20 6Z" fill="${COLS.o}"/><path d="M20 10 L20 48" stroke="#8a3b00" stroke-width="1.8"/><path d="M20 20 L27 15 M20 28 L28 23 M20 20 L13 15 M20 28 L12 23" stroke="#8a3b00" stroke-width="1.2"/><text x="4" y="50" font-size="8" font-weight="900" fill="${COLS.k}">3</text>`;
+  let s = '';
+  for(let a=0;a<6;a++){ const t = a*Math.PI/3, x = 20+Math.cos(t)*16, y = 25+Math.sin(t)*16;
+    s += `<line x1="20" y1="25" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+    const bx = 20+Math.cos(t)*10, by = 25+Math.sin(t)*10;
+    s += `<line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${(bx+Math.cos(t+0.8)*5).toFixed(1)}" y2="${(by+Math.sin(t+0.8)*5).toFixed(1)}"/><line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${(bx+Math.cos(t-0.8)*5).toFixed(1)}" y2="${(by+Math.sin(t-0.8)*5).toFixed(1)}"/>`; }
+  return `<g stroke="${COLS.b}" stroke-width="2.2" stroke-linecap="round">${s}</g><text x="4" y="50" font-size="8" font-weight="900" fill="${COLS.k}">4</text>`;
+}
+function ensureDefs(){
+  if($('#mjdefs')) return;
+  let s = '';
+  for(let f=0;f<42;f++) s += `<symbol id="mf${f}" viewBox="0 0 40 52">${face(f)}</symbol>`;
+  document.body.insertAdjacentHTML('beforeend', `<svg id="mjdefs" width="0" height="0" style="position:absolute">${s}</svg>`);
+}
+
+/* ------------------------------ interface ------------------------------ */
+let sel = -1, hint = null, lastGid = null, keyUi = null, clk = {}, showFree = lsGet('mahjong.livres') !== false;
+const Z = {s:1, tx:0, ty:0};
+function geom(g, vw, vh){
+  let mx = 0, my = 0, mz = 0;
+  g.tiles.forEach(t => { mx = Math.max(mx, t.x); my = Math.max(my, t.y); mz = Math.max(mz, t.z); });
+  const W2 = mx + 2, H2 = my + 2, R = 1.3, dep = 0.11;
+  // largura da peça que cabe na tela
+  const tw = Math.min((vw - 16) / (W2/2 + dep*mz + dep), (vh - 16) / (H2/2*R + dep*mz + dep*1.5), 90);
+  const th = tw * R, d = Math.max(2, tw * dep);
+  const bw = W2/2*tw + d*mz, bh = H2/2*th + d*mz;
+  return {tw, th, d, ox:(vw - bw)/2 + d*mz, oy:(vh - bh)/2 + d*mz};
+}
+function render(g, v, ui){
+  keyUi = ui; ensureDefs();
+  const st = ui.stage;
+  if(g.gid !== lastGid){ lastGid = g.gid; sel = -1; hint = null; Z.s = 1; Z.tx = Z.ty = 0; }
+  if(hint && hint.ver !== g.ver) hint = null;
+  if(sel >= 0 && !g.alive[sel]) sel = -1;
+  const playing = v.phase === 'game' && !g.done;
+  if(!st.querySelector('.mj')){
+    st.innerHTML = `<div class="mj"><div class="vp" id="vp"><div class="bd" id="bd"></div>
+      <div class="zoom"><button id="zIn" aria-label="Aproximar">+</button><button id="zOut" aria-label="Afastar">−</button><button id="zFit" aria-label="Ajustar" style="font-size:16px">⤢</button></div></div>
+      <div class="ctrl" id="ctrl"></div></div>`;
+    setupView(ui);
+  }
+  const vp = $('#vp'), vw = vp.clientWidth, vh = vp.clientHeight, G = geom(g, vw, vh);
+  const bd = $('#bd');
+  bd.style.setProperty('--tw', G.tw.toFixed(1) + 'px'); bd.style.setProperty('--th', G.th.toFixed(1) + 'px'); bd.style.setProperty('--d', G.d.toFixed(1) + 'px');
+  bd.classList.toggle('free', showFree);
+  const order = g.tiles.map((t, i) => i).filter(i => g.alive[i]).sort((a, b) => { const A = g.tiles[a], B = g.tiles[b]; return A.z - B.z || A.x - B.x || A.y - B.y; });
+  const hs = hint ? new Set(hint.pair) : null;
+  let html = '';
+  for(const i of order){
+    const t = g.tiles[i];
+    const x = G.ox + t.x/2*G.tw - t.z*G.d, y = G.oy + t.y/2*G.th - t.z*G.d;
+    const cls = 't' + (g.free[i] ? '' : ' blk') + (i === sel ? ' sel' : '') + (hs && hs.has(i) ? ' hint' : '');
+    html += `<div class="${cls}" data-i="${i}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px"><svg><use href="#mf${t.f}"/></svg></div>`;
+  }
+  bd.innerHTML = html;
+  applyZ();
+  const stuck = playing && g.left && !g.npairs;
+  const old = $('.stuck', vp); old && old.remove();
+  if(stuck) vp.insertAdjacentHTML('beforeend', `<div class="stuck">Sem pares livres! Embaralhe ou desfaça.</div>`);
+  $('#ctrl').innerHTML = `<button class="tbtn" id="bUndo" ${g.undo && playing ? '' : 'disabled'}>↶ Desfazer</button>
+    <button class="tbtn" id="bHint" ${playing ? '' : 'disabled'}>💡 Dica</button>
+    <button class="tbtn ${stuck ? 'go' : ''}" id="bShuf" ${playing ? '' : 'disabled'}>🔀 Embaralhar</button>
+    <button class="tbtn ${showFree ? 'on' : ''}" id="bFree">✨ Livres</button>
+    <button class="tbtn" id="bGive" ${playing ? '' : 'disabled'}>🏳️ Desistir</button>`;
+  $('#bUndo').onclick = () => { sel = -1; ui.act({t:'undo'}); };
+  $('#bHint').onclick = () => showHint(ui);
+  $('#bShuf').onclick = () => { sel = -1; ui.act({t:'shuffle'}); };
+  $('#bFree').onclick = () => { showFree = !showFree; lsSet('mahjong.livres', showFree); ui.rerender(); };
+  $('#bGive').onclick = () => modal('<h2>Desistir?</h2><p>A partida termina e conta como derrota.</p>', [{label:'Desistir', cls:'b-up', fn:() => ui.act({t:'giveup'})}, {label:'Continuar', cls:'b-no'}]);
+  if(g !== clk.g) clk = {g, el:g.el, at:Date.now(), run:g.running && v.phase === 'game'};
+  paintClock();
+}
+function paintClock(){ const c = $('#clock'); if(c && clk.g) c.textContent = '⏱ ' + fmt(clk.el + (clk.run ? Date.now() - clk.at : 0)); }
+setInterval(paintClock, 1000);
+// as duas peças do par sobem e somem
+function fadeOut(ids){
+  const bd = $('#bd'); if(!bd) return;
+  ids.forEach(i => { const el = bd.querySelector(`.t[data-i="${i}"]`); if(!el) return;
+    const c = el.cloneNode(true); c.classList.remove('sel', 'hint', 'blk'); c.removeAttribute('data-i'); c.style.zIndex = 9; bd.appendChild(c);
+    requestAnimationFrame(() => requestAnimationFrame(() => c.classList.add('gone'))); setTimeout(() => c.remove(), 420); });
+}
+function tapTile(ui, i){
+  const g = ui.view && ui.view.game; if(!g || g.done || ui.view.phase !== 'game') return;
+  const el = $(`.t[data-i="${i}"]`);
+  if(!g.free[i]){ if(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } toast('Peça presa: precisa estar sem nada em cima e com um lado livre.'); Snd.error(); return; }
+  if(sel === i){ sel = -1; ui.rerender(); return; }
+  if(sel >= 0 && grp(g.tiles[sel].f) === grp(g.tiles[i].f)){ const a = sel; sel = -1; ui.act({t:'pair', a, b:i}); return; }
+  sel = i; Snd.card(); ui.rerender();
+}
+function showHint(ui){
+  const g = ui.view.game;
+  if(!g.npairs){ toast('Não há pares livres. Embaralhe ou desfaça.'); return; }
+  const st = {tiles:g.tiles, alive:g.alive.slice(), gid:g.gid};
+  const r = solveFrom(st, 30000);
+  if(r.ok === false){ modal('<h2>💡 Beco sem saída</h2><p>Daqui não dá mais para limpar o tabuleiro. <b>Desfaça</b> algumas jogadas ou <b>embaralhe</b>.</p>', [{label:'OK'}]); return; }
+  const pair = r.pair || pairsOf(g.tiles, NB(st), st.alive)[0];
+  hint = {pair, ver:g.ver}; sel = -1;
+  ui.act({t:'hint'}); ui.rerender();
+}
+
+/* ------------------------- zoom, arrastar e toque ------------------------- */
+function applyZ(){
+  const vp = $('#vp'), bd = $('#bd'); if(!vp || !bd) return;
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  Z.s = clamp(Z.s, 1, 3.5);
+  Z.tx = clamp(Z.tx, vw - vw*Z.s, 0); Z.ty = clamp(Z.ty, vh - vh*Z.s, 0);
+  bd.style.transform = `translate(${Z.tx}px,${Z.ty}px) scale(${Z.s})`;
+}
+function zoomAt(mx, my, s){ const p = {x:(mx - Z.tx)/Z.s, y:(my - Z.ty)/Z.s}; Z.s = clamp(s, 1, 3.5); Z.tx = mx - Z.s*p.x; Z.ty = my - Z.s*p.y; applyZ(); }
+function setupView(ui){
+  const vp = $('#vp'), P = new Map();
+  let start = null, pinch = null;
+  const local = e => { const r = vp.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top}; };
+  vp.addEventListener('pointerdown', e => {
+    if(e.target.closest('.zoom')) return;
+    P.set(e.pointerId, local(e));
+    if(P.size === 1) start = {p:local(e), tx:Z.tx, ty:Z.ty, moved:false, tile:e.target.closest('.t[data-i]')};
+    if(P.size === 2){ const [a, b] = [...P.values()]; pinch = {d:Math.hypot(a.x - b.x, a.y - b.y), s:Z.s}; if(start) start.moved = true; }
+  });
+  vp.addEventListener('pointermove', e => {
+    if(!P.has(e.pointerId)) return;
+    P.set(e.pointerId, local(e));
+    if(P.size >= 2 && pinch){ const [a, b] = [...P.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); zoomAt((a.x + b.x)/2, (a.y + b.y)/2, pinch.s * d / Math.max(1, pinch.d)); return; }
+    if(!start) return;
+    const p = local(e), dx = p.x - start.p.x, dy = p.y - start.p.y;
+    if(!start.moved && Math.hypot(dx, dy) > 9) start.moved = true;
+    if(start.moved && Z.s > 1){ Z.tx = start.tx + dx; Z.ty = start.ty + dy; applyZ(); }
+  });
+  const end = e => {
+    if(!P.has(e.pointerId)) return;
+    P.delete(e.pointerId);
+    if(P.size < 2) pinch = null;
+    if(!P.size){ if(start && !start.moved && start.tile && e.type === 'pointerup') tapTile(ui, +start.tile.dataset.i); start = null; }
+  };
+  vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
+  vp.addEventListener('wheel', e => { e.preventDefault(); const p = local(e); zoomAt(p.x, p.y, Z.s * (e.deltaY < 0 ? 1.15 : 1/1.15)); }, {passive:false});
+  $('#zIn').onclick = () => zoomAt(vp.clientWidth/2, vp.clientHeight/2, Z.s * 1.35);
+  $('#zOut').onclick = () => zoomAt(vp.clientWidth/2, vp.clientHeight/2, Z.s / 1.35);
+  $('#zFit').onclick = () => { Z.s = 1; Z.tx = Z.ty = 0; applyZ(); };
+}
+document.addEventListener('keydown', e => {
+  const ui = keyUi, v = ui && ui.view; if(!v || !v.game || v.phase !== 'game' || $('#modal.show')) return;
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); sel = -1; ui.act({t:'undo'}); }
+  else if(e.key === 'h' || e.key === 'H') showHint(ui);
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

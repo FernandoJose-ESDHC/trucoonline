@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Cacheta</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px;gap:6px;overflow:auto}
+.opps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.opp{background:rgba(0,0,0,.3);border:2px solid transparent;border-radius:12px;padding:5px 9px;text-align:center;font-weight:800;font-size:12.5px;min-width:86px}
+.opp.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.opp.out{opacity:.45;filter:grayscale(1)}
+.opp .fan{display:flex;justify-content:center;margin-top:3px;min-height:26px}
+.opp .fan .card{--cw:18px;--ch:26px;margin-left:-10px;border-width:2px} .opp .fan .card:first-child{margin-left:0}
+.opp .fan .card::after{font-size:8px}
+.vidas{font-size:11px;letter-spacing:1px;color:#ffe6a6;white-space:nowrap}
+.vidas i{font-style:normal;color:rgba(255,255,255,.25)}
+.mid{display:flex;gap:18px;align-items:flex-end;justify-content:center}
+.pilebox{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:#cfe;font-weight:700;text-align:center}
+.pilebox .card{--cw:50px;--ch:72px}
+.pilebox .card.go{cursor:pointer;animation:pulse 1.2s infinite}
+.vira .card{--cw:40px;--ch:57px;transform:rotate(-8deg)}
+.cur{color:var(--gold);font-weight:900}
+.wb{position:absolute;top:calc(var(--cw)*.04);right:calc(var(--cw)*.06);font-size:calc(var(--cw)*.24);color:#d79b00;text-shadow:0 0 2px #fff;line-height:1;font-style:normal}
+.myhand{display:flex;justify-content:safe center;flex-wrap:nowrap;padding-top:16px;max-width:100%;overflow-x:auto;flex:none}
+.myhand .card{margin-left:calc(var(--cw)*-.3);cursor:pointer} .myhand .card:first-child{margin-left:0}
+.myhand .card.ingrp{box-shadow:0 0 0 3px rgba(62,207,122,.85),0 3px 8px rgba(0,0,0,.4)}
+.myhand .card.sel{box-shadow:0 0 0 3px var(--blue),0 6px 14px rgba(0,0,0,.5)}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:44px}
+.ctl button{padding:11px 16px;border-radius:12px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.score{font-size:13px;font-weight:800;color:#ffe6a6}
+.melds{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.melds .grp{display:flex}.melds .grp .card{--cw:34px;--ch:49px;margin-left:-16px}.melds .grp .card:first-child{margin-left:0}
+.melds .grp .card .mid{display:none}
+.rlog{width:100%;text-align:center;font-weight:800;color:var(--gold);font-size:13.5px}
+.rlog small{display:block;color:#e8fff2;font-weight:700;font-size:12px;margin-top:2px}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/melds.js"></script>
+<script src="cacheta-ai.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =============================== CACHETA ===============================
+   2 baralhos sem coringas (104 cartas), 9 cartas para cada um. Uma carta é virada
+   (a "vira"): a seguinte em valor é o curinga (as 8 cópias). Bate quem compra a 10ª carta
+   e tem as 10 formando jogos. Quem não bate perde 1 ponto (2 se a batida foi limpa,
+   sem curinga). Quem fica sem pontos sai; o último que sobra vence. */
+function newRound(st){
+  st.deck = shuffle(makeDeck({ranks:RANKS13, decks:2}));
+  st.vira = st.deck.pop(); st.wildR = cWildRank(st.vira);
+  st.hands = st.names.map((_, i) => st.alive[i] ? st.deck.splice(0, 9) : []);
+  st.lixo = []; st.drew = false; st.phase = 'play'; st.res = null; st.lastDraw = null; st.reshuf = 0;
+  st.pub = st.names.map(() => []);     // cartas que cada um pegou do lixo (todo mundo viu)
+  st.disc = st.names.map(() => []);    // o que cada um descartou nesta rodada
+  st.starter = cNext(st, st.starter); st.turn = st.starter;
+}
+const aliveN = st => st.alive.filter(Boolean).length;
+const SO = {'♣':0,'♥':1,'♠':2,'♦':3};
+function sortHand(h, mode, wildR){
+  const w = c => c.r === wildR ? 1 : 0;
+  return h.slice().sort((a,b) => w(a) - w(b) || (mode === 'r' ? (RV13(a.r) - RV13(b.r) || SO[a.s] - SO[b.s]) : (SO[a.s] - SO[b.s] || RV13(a.r) - RV13(b.r))));
+}
+function endRound(st, seat, cv){
+  const ev = [];
+  if(seat < 0){
+    st.res = {seat:-1, void:true, loss:st.names.map(() => 0)};
+    ev.push({k:'banner', text:'Rodada empatada'}, {k:'log', text:'O monte acabou de vez: ninguém perde ponto.'});
+  } else {
+    const limpa = cv.wu === 0, perda = limpa ? 2 : 1;
+    const loss = st.names.map((_, i) => st.alive[i] && i !== seat ? perda : 0);
+    const out = [];
+    loss.forEach((l, i) => { if(l){ st.vidas[i] = Math.max(0, st.vidas[i] - l); if(!st.vidas[i]){ st.alive[i] = false; st.outOrder.push(i); out.push(i); } } });
+    st.res = {seat, sets:cv.groups.map(g => (meldInfo(g, cIsW(st)) || {order:g}).order), limpa, loss, out};
+    st.wins[seat]++;
+    ev.push({k:'banner', text: limpa ? `${st.names[seat]} BATEU LIMPO!` : `${st.names[seat]} BATEU!`}, {k:'snd', s:'win'},
+      {k:'log', text:`<b>${esc(st.names[seat])}</b> bateu${limpa ? ' limpo (sem curinga): os outros perdem 2 pontos' : ': os outros perdem 1 ponto'}.`});
+    out.forEach(i => ev.push({k:'log', text:`${esc(st.names[i])} ficou sem pontos e saiu da mesa.`}));
+  }
+  st.phase = 'roundEnd'; st.drew = false; st.lastDraw = null;
+  return ev;
+}
+Mesa.run({
+  id:'cacheta', name:'Cacheta', icon:'🎴', tagline:'Curinga da vira, bata com as 10!',
+  options:[
+    {key:'seats', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'vidas', label:'Pontos', default:'5', choices:[['3','3'],['5','5'],['10','10']]},
+    {key:'diff', label:'Bot', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  seats: o => clamp(+o.seats || 4, 2, 6),
+  seatLabel: s => 'Jogador ' + (s+1),
+  modeLabel: o => (o.vidas || 5) + ' PONTOS · BOT ' + (DIFF[o.diff] || 'Normal').toUpperCase(),
+  setup(players, o){
+    const n = players.length, v = [3,5,10].includes(+o.vidas) ? +o.vidas : 5;
+    const st = {names:players.map(p => p.name), humans:players.map(p => !!p.human), n, vidas:Array(n).fill(v), max:v, alive:Array(n).fill(true),
+      wins:Array(n).fill(0), outOrder:[], round:1, starter:Math.floor(Math.random()*n) - 1};
+    if(st.starter < 0) st.starter = n - 1;
+    newRound(st); return st;
+  },
+  startEvents(st){ return [{k:'snd', s:'deal'}, {k:'log', text:`Rodada 1 — vira ${st.vira.r}${st.vira.s}: curinga é o ${st.wildR}. Começa ${esc(st.names[st.turn])}.`}]; },
+  waiting(st){
+    if(st.phase === 'play') return [st.turn];
+    if(st.phase === 'roundEnd'){ const h = st.names.findIndex((_, i) => st.alive[i] && st.humans[i]); return [h >= 0 ? h : st.alive.indexOf(true)]; }
+    return [];
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = st.alive.map((a,i) => a ? i : -1).filter(i => i >= 0);
+    const order = w.concat(st.outOrder.slice().reverse());
+    return {winners:w, text:'Classificação: ' + order.map((i,k) => `${k+1}º ${esc(st.names[i])}`).join(' · ')};
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object') return {ok:false};
+    if(st.phase === 'roundEnd'){
+      if(a.t !== 'next') return {ok:false};
+      if(aliveN(st) <= 1){ st.phase = 'end'; return {events:[]}; }
+      st.round++; newRound(st);
+      return {events:[{k:'snd', s:'deal'}, {k:'log', text:`Rodada ${st.round} — vira ${st.vira.r}${st.vira.s}: curinga é o ${st.wildR}. Começa ${esc(st.names[st.turn])}.`}]};
+    }
+    if(st.phase !== 'play' || seat !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+    const h = st.hands[seat], ev = [];
+    if(!st.drew){
+      if(a.t === 'monte'){
+        if(!st.deck.length){
+          if(st.lixo.length <= 1 || st.reshuf >= 3) return {events:endRound(st, -1)};
+          const top = st.lixo.pop(); st.deck = shuffle(st.lixo); st.lixo = [top]; st.reshuf++;
+          ev.push({k:'log', text:'O monte acabou: o lixo foi embaralhado.'});
+        }
+        const c = st.deck.pop(); h.push(c); st.lastDraw = {from:'monte', id:c.id};
+      } else if(a.t === 'lixo'){
+        if(!st.lixo.length) return {ok:false, err:'O lixo está vazio: compre do monte.'};
+        const c = st.lixo.pop(); h.push(c); st.lastDraw = {from:'lixo', id:c.id};
+        st.pub[seat].push(c);
+        ev.push({k:'log', text:`${esc(st.names[seat])} pegou ${c.r}${c.s} do lixo.`});
+      } else return {ok:false, err:'Primeiro compre uma carta (monte ou lixo).'};
+      st.drew = true;
+      return {events:ev.concat([{k:'snd', s:'card'}])};
+    }
+    if(a.t === 'bater'){
+      const cv = cCanBater(st, h);
+      if(!cv) return {ok:false, err:'Ainda não dá para bater: as 10 cartas precisam formar jogos.'};
+      return {events:endRound(st, seat, cv)};
+    }
+    if(a.t === 'discard'){
+      const i = h.findIndex(c => c.id === a.id); if(i < 0) return {ok:false, err:'Escolha uma carta da sua mão.'};
+      if(st.lastDraw && st.lastDraw.from === 'lixo' && st.lastDraw.id === a.id) return {ok:false, err:'Não pode devolver ao lixo a carta que acabou de pegar dele.'};
+      const [c] = h.splice(i,1); st.lixo.push(c);
+      st.disc[seat].push(c); st.pub[seat] = st.pub[seat].filter(x => x.id !== c.id);
+      st.drew = false; st.turn = cNext(st, st.turn); st.lastDraw = null;
+      return {events:[{k:'snd', s:'card'}]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  bot(st, seat, o){ return cachetaBot(st, seat, (o && o.diff) || 'normal'); },
+  botFallback(st, seat){
+    if(st.phase === 'roundEnd') return {t:'next'};
+    if(!st.drew) return {t:'monte'};
+    const h = st.hands[seat], c = h.find(x => !(st.lastDraw && st.lastDraw.id === x.id)) || h[0];
+    return {t:'discard', id:c.id};
+  },
+  botDelay(st){ return st.phase === 'roundEnd' ? 3600 : st.drew ? 650 : 600; },
+  view(st, seat){
+    const me = seat >= 0 && seat < st.n ? seat : -1;
+    return {names:st.names, vidas:st.vidas, max:st.max, alive:st.alive, wins:st.wins, turn:st.turn, drew:st.drew, phase:st.phase, round:st.round,
+      hand: me >= 0 ? st.hands[me] : [], counts:st.hands.map(h => h.length), deck:st.deck.length, vira:st.vira, wildR:st.wildR,
+      lixo:st.lixo.slice(-1), lixoN:st.lixo.length, res:st.res, lastDraw: me === st.turn ? st.lastDraw : null,
+      canBater: me === st.turn && st.drew && st.phase === 'play' ? !!cCanBater(st, st.hands[me]) : false};
+  },
+  topInfo(g){ return `<div class="score">Rodada ${g.round} · curinga <span class="cur">${g.wildR}</span></div>`; },
+  rules:`<h3>Objetivo</h3><p>Ser o <b>último jogador com pontos</b>. Todos começam com o mesmo número de pontos (3, 5 ou 10). A cada rodada, quem <b>não bate</b> perde ponto; quem fica sem pontos sai da mesa.</p>
+  <h3>Cartas</h3><p>Dois baralhos sem coringas (104 cartas), de 2 a 6 jogadores. Cada um recebe <b>9 cartas</b>. Depois vira-se uma carta, a <b>vira</b>: a carta <b>seguinte em valor</b> é o <b>curinga</b> da rodada (vira 5 → curinga 6; vira K → curinga Ás; vira Ás → curinga 2). As 8 cartas desse valor, de todos os naipes, são curingas (marcadas com ★).</p>
+  <h3>Jogos</h3><ul><li><b>Trinca</b>: 3 ou 4 cartas do mesmo valor e naipes diferentes (ex.: 7♣ 7♥ 7♠).</li>
+  <li><b>Sequência</b>: 3 ou mais cartas seguidas do mesmo naipe (ex.: 4♦ 5♦ 6♦). O Ás vale antes do 2 (A-2-3) ou depois do Rei (Q-K-A), mas não vira (K-A-2 não vale).</li>
+  <li>O <b>curinga</b> substitui qualquer carta. Cada jogo precisa de pelo menos 2 cartas de verdade e não pode ter mais curingas que cartas de verdade. O curinga também pode valer como ele mesmo (ex.: com curinga 6, o 6♥ em 5♥ 6♥ 7♥).</li></ul>
+  <h3>Sua vez</h3><ol><li><b>Compre</b> uma carta: do monte ou a de cima do lixo (na primeira jogada o lixo está vazio).</li>
+  <li>Se as suas <b>10 cartas</b> formarem jogos, aperte <b>Bater!</b> — você mostra a mão e não precisa descartar.</li>
+  <li>Senão, <b>descarte</b> uma carta (não vale devolver a que acabou de pegar do lixo).</li></ol>
+  <h3>Pontos</h3><ul><li>Quem bate não perde nada; <b>cada um dos outros perde 1 ponto</b>.</li>
+  <li><b>Batida limpa</b> (sem usar curinga como curinga): os outros perdem <b>2 pontos</b>.</li>
+  <li>Quem chega a zero sai. O <b>último que sobra vence</b>.</li>
+  <li>Se o monte acabar, o lixo é embaralhado e vira monte (até 3 vezes); depois disso a rodada empata e ninguém perde ponto.</li></ul>
+  <h3>Por que 9 cartas?</h3><p>Há mesas que jogam com 10 cartas e batem descartando a 11ª. Aqui usamos a forma mais comum da cacheta: <b>9 na mão, compra a 10ª e bate com as 10 formadas</b>.</p>
+  <h3>Bots</h3><p><b>Fácil</b>: olha só a própria mão e descarta sem muito cálculo. <b>Normal</b>: conta as cartas que ainda podem sair (as "saídas") e pega do lixo quando vale a pena. <b>Difícil</b>: além disso, lembra o que cada um pegou do lixo e evita dar ao próximo jogador a carta que ele procura.</p>
+  <h3>Dicas da tela</h3><p>As cartas que já formam jogo ficam com contorno verde; os curingas têm uma ★. Toque numa carta para selecionar e toque de novo para descartar. Use <b>Ordenar</b> para alternar entre naipe e valor.</p>`,
+  render(g, v, ui){
+    const st = ui.stage, me = v.me < 0 ? 0 : v.me;
+    const W = st.clientWidth;
+    const cw = Math.floor(clamp((W - 30) / (Math.max(g.hand.length, 9) * 0.7 + 0.6), 38, 76)); st.style.setProperty('--cw', cw + 'px'); st.style.setProperty('--ch', Math.round(cw*1.43) + 'px');
+    if(!st.querySelector('.opps')){
+      st.innerHTML = `<div class="opps" id="opps"></div><div class="mid">
+        <div class="pilebox"><div id="pMonte"></div><span id="nMonte"></span></div>
+        <div class="pilebox vira"><div id="pVira"></div><span id="nVira"></span></div>
+        <div class="pilebox"><div id="pLixo"></div><span id="nLixo"></span></div></div>
+        <div id="wm" class="melds"></div>
+        <div class="status" id="st"></div><div class="vidas" id="myV"></div><div class="myhand" id="mh" data-seat="${me}"></div><div class="ctl" id="ctl"></div>`;
+      psel = null;
+    }
+    const n = g.names.length;
+    const dots = i => '●'.repeat(g.vidas[i]) + (g.max <= 10 ? `<i>${'●'.repeat(Math.max(0, g.max - g.vidas[i]))}</i>` : '');
+    let oh = '';
+    for(let k=1;k<n;k++){ const i = (me + k) % n;
+      oh += `<div class="opp ${g.turn === i && g.phase === 'play' ? 'vez' : ''} ${g.alive[i] ? '' : 'out'}" data-seat="${i}">${esc(g.names[i])}
+        <div class="vidas">${g.alive[i] ? dots(i) : 'fora'}</div>
+        <div class="fan">${'<div class="card back"></div>'.repeat(Math.min(g.counts[i], 10))}</div></div>`; }
+    $('#opps').innerHTML = oh;
+    const myTurn = v.waiting.includes(me) && g.phase === 'play' && v.me >= 0;
+    const pm = $('#pMonte'); pm.innerHTML = ''; const mc = cardEl(null, {back:true}); if(myTurn && !g.drew){ mc.classList.add('go'); mc.onclick = () => ui.act({t:'monte'}); } pm.appendChild(mc);
+    $('#nMonte').textContent = `Monte (${g.deck})`;
+    const pv = $('#pVira'); pv.innerHTML = ''; pv.appendChild(cardEl(g.vira));
+    $('#nVira').innerHTML = `Vira · curinga <span class="cur">${g.wildR}</span>`;
+    const pl = $('#pLixo'); pl.innerHTML = ''; const top = g.lixo[g.lixo.length-1];
+    const lc = top ? cardEl(top) : Object.assign(document.createElement('div'), {className:'card slot'});
+    if(top && top.r === g.wildR) lc.insertAdjacentHTML('beforeend', '<i class="wb">★</i>');
+    if(top && myTurn && !g.drew){ lc.classList.add('go'); lc.onclick = () => ui.act({t:'lixo'}); }
+    pl.appendChild(lc); $('#nLixo').textContent = `Lixo (${g.lixoN})`;
+    // resultado da rodada
+    const wm = $('#wm');
+    if(g.phase !== 'play' && g.res){
+      const r = g.res;
+      if(r.void) wm.innerHTML = `<div class="rlog">Rodada empatada: o monte acabou e ninguém perdeu ponto.</div>`;
+      else wm.innerHTML = `<div class="rlog">${esc(g.names[r.seat])} bateu${r.limpa ? ' limpo' : ''}!<small>${r.loss.map((l,i) => l ? `${esc(g.names[i])} −${l}` : '').filter(Boolean).join(' · ')}${r.out.length ? ' · saiu: ' + r.out.map(i => esc(g.names[i])).join(', ') : ''}</small></div>` +
+        r.sets.map(s => `<div class="grp">${s.map(c => { const e = cardEl(c); if(c.r === g.wildR) e.insertAdjacentHTML('beforeend', '<i class="wb">★</i>'); return e.outerHTML; }).join('')}</div>`).join('');
+    } else wm.innerHTML = '';
+    // minha mão
+    $('#myV').innerHTML = v.me >= 0 ? (g.alive[me] ? `Seus pontos: ${dots(me)}` : 'Você saiu da mesa — assista ao final') : '';
+    const isW = c => c.r === g.wildR;
+    const hand = sortHand(g.hand, sortMode, g.wildR);
+    const cv = g.hand.length ? coverFull(g.hand, isW) : {groups:[]};
+    const inGrp = new Set(); cv.groups.forEach(s => s.forEach(c => inGrp.add(c.id)));
+    const mh = $('#mh'); const prevIds = new Set($$('.card', mh).map(e => e.dataset.id));
+    mh.innerHTML = '';
+    if(psel && !g.hand.some(c => c.id === psel)) psel = null;
+    if(!(myTurn && g.drew)) psel = null;
+    hand.forEach(c => {
+      const el = cardEl(c); el.dataset.id = c.id;
+      if(isW(c)) el.insertAdjacentHTML('beforeend', '<i class="wb">★</i>');
+      if(inGrp.has(c.id)) el.classList.add('ingrp');
+      if(c.id === psel) el.classList.add('sel');
+      if(g.lastDraw && g.lastDraw.id === c.id) el.classList.add('hl');
+      el.onclick = () => { if(!(myTurn && g.drew)) return; if(psel === c.id){ ui.act({t:'discard', id:c.id}); psel = null; } else { psel = c.id; ui.rerender(); } };
+      mh.appendChild(el);
+      if(prevIds.size && !prevIds.has(c.id)) flyFrom(el, (g.lastDraw && g.lastDraw.from === 'lixo' ? $('#pLixo') : $('#pMonte')).getBoundingClientRect());
+    });
+    let s = '';
+    if(g.phase === 'roundEnd') s = 'Fim da rodada';
+    else if(myTurn) s = g.drew ? (g.canBater ? 'Suas 10 cartas formam jogos: BATA!' : psel ? 'Toque de novo na carta para descartar' : 'Escolha uma carta para descartar') : (top ? 'Sua vez: compre do monte ou do lixo' : 'Sua vez: compre do monte');
+    else if(g.phase === 'play') s = 'Vez de ' + (g.names[g.turn] || '');
+    $('#st').textContent = s;
+    let ch = `<button class="tbtn" id="bSort">⇅ Ordenar por ${sortMode === 'r' ? 'naipe' : 'valor'}</button>`;
+    if(myTurn && g.drew){
+      if(g.canBater) ch += `<button class="b-y" id="bBat">🏆 Bater!</button>`;
+      if(psel) ch += `<button class="b-no" id="bDis">Descartar</button>`;
+    }
+    if(g.phase === 'roundEnd' && v.waiting.includes(me) && v.me >= 0) ch += `<button class="b-ok" id="bNext">${g.alive.filter(Boolean).length <= 1 ? 'Ver resultado ▶' : 'Próxima rodada ▶'}</button>`;
+    $('#ctl').innerHTML = ch;
+    $('#bSort').onclick = () => { sortMode = sortMode === 'r' ? 's' : 'r'; ui.rerender(); };
+    if($('#bDis')) $('#bDis').onclick = () => { ui.act({t:'discard', id:psel}); psel = null; };
+    if($('#bNext')) $('#bNext').onclick = () => ui.act({t:'next'});
+    if($('#bBat')) $('#bBat').onclick = () => ui.act({t:'bater'});
+  }
+});
+let psel = null, sortMode = 's';
+</script>
+</body>
+</html>

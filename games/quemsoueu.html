@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<link rel="icon" href="../docs/img/icon-192.png">
+<title>Quem Sou Eu?</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;padding:8px 10px 10px;gap:10px}
+.qs-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0}
+.qs-side{flex:none;width:280px;display:flex;flex-direction:column;gap:6px;min-height:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px;flex:none}
+.tile{position:relative;background:rgba(0,0,0,.32);border:2px solid rgba(255,255,255,.12);border-radius:12px;padding:6px 6px 5px;text-align:center;min-width:0}
+.tile .pn{font-size:12px;font-weight:800;color:#cfe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .cd{margin:4px auto 3px;background:linear-gradient(170deg,#fffdf3,#efe5c9);color:#2a2a2a;border-radius:9px;padding:4px 4px 3px;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.tile .cd .em{font-size:26px;line-height:1.1}
+.tile .cd .nm{font-size:12px;font-weight:900;line-height:1.1;min-height:14px}
+.tile .cd.hid{background:repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 6px,transparent 6px 12px),linear-gradient(135deg,#7a3fb0,#3f1d6b);color:#fff}
+.tile .cd.hid .em{font-size:28px}
+.tile .st{font-size:11px;font-weight:700;color:#ffe6a6;white-space:nowrap}
+.tile.vez{border-color:var(--gold);animation:pulse 1.4s infinite}
+.tile.me{background:rgba(62,207,122,.12)}
+.tile.ok .cd{box-shadow:0 0 0 3px #3ecf7a}
+.tile.fora{opacity:.6}
+.tile .ans{position:absolute;top:-8px;right:-6px;border-radius:999px;font-size:11px;font-weight:900;padding:2px 7px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.ans.S{background:#3ecf7a;color:#06301a}.ans.N{background:#e2504a;color:#fff}.ans.T{background:#e7b43a;color:#3a2600}.ans.X{background:#666;color:#fff}
+.panel2{flex:1;min-height:0;background:rgba(0,0,0,.28);border:1px solid rgba(231,180,58,.35);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.ph h3{color:var(--gold);font-size:17px}
+.tbar{height:6px;border-radius:4px;background:rgba(0,0,0,.4);overflow:hidden;flex:none}
+.tbar i{display:block;height:100%;background:var(--gold);width:100%}
+.qbig{background:linear-gradient(180deg,#fffdf4,#efe6cc);color:#1f2a22;border-radius:12px;padding:10px 14px;font-weight:900;font-size:19px;text-align:center;box-shadow:0 5px 14px rgba(0,0,0,.4);animation:pop .3s}
+.qbig small{display:block;font-size:12px;color:#6b5a2a;font-weight:800;margin-bottom:2px}
+.about{display:flex;align-items:center;gap:10px;justify-content:center;font-weight:800;color:#ffe6a6}
+.about .cd{background:linear-gradient(170deg,#fffdf3,#efe5c9);color:#2a2a2a;border-radius:10px;padding:6px 12px;display:flex;align-items:center;gap:8px;font-size:18px;font-weight:900}
+.about .cd .em{font-size:30px}
+.rbtns{display:flex;gap:8px;justify-content:center}
+.rb{flex:1;max-width:150px;border:none;border-radius:12px;padding:13px 6px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.rb:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.rb.S{background:#3ecf7a;color:#06301a}.rb.N{background:#e2504a;color:#fff}.rb.T{background:#e7b43a;color:#3a2600}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;flex:none}
+.tabs button{border:2px solid rgba(255,255,255,.22);background:rgba(0,0,0,.3);color:#fff;border-radius:999px;padding:5px 11px;font-weight:800;font-size:13px;cursor:pointer}
+.tabs button.on{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:7px 10px;font-size:14px;font-weight:700;cursor:pointer;text-align:left}
+.chips button:hover{background:rgba(255,255,255,.18)}
+.chips button.used{opacity:.4;text-decoration:line-through}
+.frow{display:flex;gap:6px;flex:none}
+.frow input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font-size:16px;outline:none}
+.frow input:focus{border-color:var(--gold)}
+.bt{border:none;border-radius:10px;padding:10px 14px;font-weight:900;font-size:15px;cursor:pointer;white-space:nowrap}
+.bt.g{background:var(--nos);color:#06301a}.bt.y{background:var(--gold);color:#3a2600}.bt.d{background:#555;color:#fff}.bt.r{background:#c0182b;color:#fff}
+.bt:disabled{opacity:.45;cursor:default}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;flex:none}
+.info{font-size:14px;color:#e3f3ea;text-align:center;line-height:1.4}
+.info b{color:var(--gold)}
+.alist{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.alist span{background:rgba(0,0,0,.35);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700}
+.alist span i{font-style:normal;font-weight:900;margin-left:4px}
+.maj{font-size:22px;font-weight:900;text-align:center}
+.maj.S{color:#7ef0ad}.maj.N{color:#ff9d8f}.maj.T{color:#ffd86b}
+.clues{background:rgba(0,0,0,.28);border-radius:12px;padding:8px 10px;flex:1;min-height:0;overflow:auto}
+.clues h4{color:var(--gold);font-size:13px;letter-spacing:.5px;margin-bottom:4px}
+.clue{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0;border-top:1px solid rgba(255,255,255,.07)}
+.clue:first-of-type{border-top:none}
+.clue b{flex:none;font-weight:900}
+.clue b.S{color:#7ef0ad}.clue b.N{color:#ff9d8f}.clue b.T,.clue b.X{color:#ffd86b}
+.mycard{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.3);border-radius:12px;padding:8px 10px;flex:none}
+.mycard .cd{width:52px;height:64px;border-radius:9px;display:grid;place-items:center;font-size:30px;flex:none;color:#fff;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 6px,transparent 6px 12px),linear-gradient(135deg,#7a3fb0,#3f1d6b);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.mycard .cd.open{background:linear-gradient(170deg,#fffdf3,#efe5c9);color:#222}
+.mycard .tx{font-size:13px;line-height:1.35}
+.mycard .tx b{color:var(--gold);font-size:15px}
+.glist{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;max-height:46vh;overflow:auto;margin:8px 0}
+.glist button{display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:7px 8px;font-size:14px;font-weight:700;cursor:pointer;text-align:left}
+.glist button:hover{background:rgba(231,180,58,.25)}
+.glist button.x{opacity:.35;text-decoration:line-through}
+.mob-clues{display:none}
+@media (max-width:760px){
+  #stage{flex-direction:column;padding:6px 8px 8px;gap:6px}
+  .qs-side{display:none}
+  .mob-clues{display:block;flex:none}
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:5px}
+  .tile{padding:4px 4px 3px}
+  .tile .cd .em{font-size:20px}.tile .cd .nm{font-size:11px}
+  .qbig{font-size:17px;padding:8px 10px}
+  .rb{padding:11px 4px;font-size:17px}
+  .chips button{font-size:13.5px;padding:7px 9px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="quemsoueu-cartas.js"></script>
+<script>
+"use strict";
+/* ============================ QUEM SOU EU? ============================
+   Cada um tem uma carta que só os OUTROS veem. Na sua vez você pergunta
+   algo de sim/não sobre a própria carta (ou chuta quem é); os outros
+   respondem Sim / Não / Talvez. Menos perguntas = mais pontos. */
+const clock = () => window.QS_CLOCK ? window.QS_CLOCK() : Date.now();
+const TS = () => CFG.speed < 0.3 ? Math.max(CFG.speed, 0.002) : 1;
+const LIM = 20, MAX_ERROS = 3, T_VEZ = 75000, T_RESP = 35000, T_POS = 40000;
+const RESP_TXT = {S:'Sim', N:'Não', T:'Talvez', '-':'—'};
+const semAcento = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/* ---------- perguntas prontas ---------- */
+const PERG = {};
+QSE_GERAL.forEach(([id, txt, re]) => PERG[id] = {id, cat:'geral', txt, re});
+for(const c in QSE_CATS) QSE_CATS[c].perg.forEach(([k, txt, re]) => PERG[c + ':' + k] = {id:c + ':' + k, cat:c, k, txt, re});
+function respostaCarta(card, qid){
+  const p = PERG[qid]; if(!p) return 'T';
+  if(p.cat === 'geral') return card.c === qid.slice(2) ? 'S' : 'N';
+  if(p.cat !== card.c) return 'N';
+  return card.s.has(p.k) ? 'S' : card.t.has(p.k) ? 'T' : 'N';
+}
+const NOMES = QSE_CARTAS.map(c => semAcento(c.n));
+// pergunta escrita à mão: o bot tenta entender pelas palavras-chave
+function interpreta(txt, card){
+  const t = String(txt).toLowerCase(), u = semAcento(txt);
+  const m = u.match(/^\s*(eu\s+)?sou\s+(o\s+|a\s+|um\s+|uma\s+)?(.+?)\s*\?*\s*$/);
+  if(m){ const nmx = m[3].trim(); const i = NOMES.indexOf(nmx); if(i >= 0) return i === card.id ? 'S' : 'N'; }
+  const testa = re => re.test(t) || re.test(u);
+  for(const [k, , re] of QSE_CATS[card.c].perg) if(testa(re)) return respostaCarta(card, card.c + ':' + k);
+  for(const [id, , re] of QSE_GERAL) if(testa(re)) return respostaCarta(card, id);
+  for(const c in QSE_CATS) if(c !== card.c) for(const [k, , re] of QSE_CATS[c].perg) if(testa(re)) return 'N';
+  return 'T';
+}
+const textoPerg = cur => cur.q ? PERG[cur.q].txt : cur.txt;
+const maioria = ans => { let s = 0, n = 0; ans.forEach(a => { if(a === 'S') s++; else if(a === 'N') n++; }); return s > n ? 'S' : n > s ? 'N' : 'T'; };
+const nm = (st, s) => esc(st.names[s]);
+
+/* ---------- motor ---------- */
+function proximaVez(st, now){
+  st.nturn++;
+  if(st.nturn > st.n * 45){ st.fase = 'fim'; return []; }
+  for(let k=1;k<=st.n;k++){
+    const s = (st.vez + k) % st.n;
+    if(!st.status[s]){ st.vez = s; st.fase = 'vez'; st.cur = null; st.fim = now + T_VEZ * TS(); return [{k:'vez', seat:s}]; }
+  }
+  st.fase = 'fim'; return [];
+}
+function pergunta(st, s, a, now){
+  if(st.fase !== 'vez' || s !== st.vez) return {err:'Não é a sua vez de perguntar.'};
+  if(st.usadas[s] >= LIM) return {err:`Você já fez ${LIM} perguntas: agora precisa chutar.`};
+  let q = null, txt = '';
+  if(typeof a.q === 'string'){ if(!PERG[a.q]) return {err:'Pergunta inválida.'}; q = a.q; }
+  else if(typeof a.txt === 'string'){ txt = a.txt.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); if(txt.length < 4) return {err:'Escreva uma pergunta de sim ou não.'}; if(!/\?$/.test(txt)) txt += '?'; }
+  else return {err:'Pergunta inválida.'};
+  st.usadas[s]++;
+  st.cur = {s, q, txt, ans:st.names.map((_, i) => i === s ? '' : null)};
+  st.fase = 'resp'; st.fim = now + T_RESP * TS();
+  const tx = textoPerg(st.cur);
+  return {events:[{k:'say', seat:s, text:tx.length > 34 ? tx.slice(0, 33) + '…' : tx}, {k:'snd', s:'card'}, {k:'log', text:`<b>${nm(st, s)}</b>: “${esc(tx)}”`}]};
+}
+function fechaResp(st, now){
+  const c = st.cur; c.ans = c.ans.map((a, i) => i === c.s ? '' : (a || '-'));
+  c.maj = maioria(c.ans);
+  st.hist.push({s:c.s, q:c.q, txt:c.txt, ans:c.ans.slice(), maj:c.maj});
+  st.fase = 'pos'; st.fim = now + T_POS * TS();
+  return [{k:'snd', s:'deal', n:2}];
+}
+function responde(st, s, r, now){
+  if(st.fase !== 'resp' || s === st.vez) return {err:'Agora não é hora de responder.'};
+  if(!['S','N','T'].includes(r)) return {err:'Resposta inválida.'};
+  if(st.cur.ans[s] != null) return {err:'Você já respondeu.'};
+  st.cur.ans[s] = r;
+  const ev = [{k:'say', seat:s, text:RESP_TXT[r] + (r === 'S' ? '!' : '')}];
+  if(st.cur.ans.every(a => a != null)) ev.push(...fechaResp(st, now));
+  return {events:ev};
+}
+function chute(st, s, id, now){
+  if((st.fase !== 'vez' && st.fase !== 'pos') || s !== st.vez) return {err:'Só dá para chutar na sua vez.'};
+  if(!Number.isInteger(id) || !QSE_CARTAS[id]) return {err:'Escolha uma carta da lista.'};
+  const card = QSE_CARTAS[id], ok = id === st.cartas[s], ev = [];
+  st.chutes.push({s, id, ok});
+  if(ok){
+    const prim = !st.ordem.length;
+    st.status[s] = 'ok'; st.ordem.push(s);
+    st.pts[s] = Math.max(2, 20 - st.usadas[s] - 2 * st.erros[s]) + (prim ? 3 : 0);
+    ev.push({k:'banner', text:`${st.names[s]} acertou: ${card.n}!`}, {k:'acerto', seat:s}, {k:'say', seat:s, text:`Sou ${card.n}!`},
+      {k:'log', text:`🎯 <b>${nm(st, s)}</b> descobriu que é <b>${esc(card.n)}</b> com ${st.usadas[s]} pergunta(s): +${st.pts[s]} pts${prim ? ' (inclui +3 por ser o primeiro)' : ''}.`});
+  } else {
+    st.erros[s]++;
+    ev.push({k:'say', seat:s, text:`Sou ${card.n}?`}, {k:'erro', seat:s}, {k:'log', text:`❌ <b>${nm(st, s)}</b> chutou ${esc(card.n)} e errou.`});
+    if(st.erros[s] >= MAX_ERROS || st.usadas[s] >= LIM){ st.status[s] = 'fora'; ev.push({k:'log', text:`<b>${nm(st, s)}</b> está fora: era <b>${esc(QSE_CARTAS[st.cartas[s]].n)}</b>.`}); }
+  }
+  ev.push(...proximaVez(st, now));
+  return {events:ev};
+}
+function passa(st, s, now, forcado){
+  if(!forcado && (st.fase !== 'pos' || s !== st.vez)) return {err:'Agora não dá para passar a vez.'};
+  if(st.usadas[s] >= LIM){
+    if(!forcado) return {err:`Você já fez ${LIM} perguntas: precisa chutar.`};
+    st.status[s] = 'fora';
+  }
+  return {events:proximaVez(st, now)};
+}
+
+/* ---------- bots ---------- */
+const nivelBot = (st, s) => (st.dseat && st.dseat[s]) || st.diff;
+function candidatos(st, s){
+  const minha = QSE_CARTAS[st.cartas[s]], outras = new Set(st.cartas.filter((c, i) => i !== s));
+  const errados = new Set(st.chutes.filter(c => c.s === s).map(c => c.id));
+  let C = st.pool.filter(id => !outras.has(id) && !errados.has(id) && (!st.dica || QSE_CARTAS[id].c === minha.c));
+  const pistas = st.hist.filter(h => h.s === s && h.q && h.maj !== 'T');
+  if(!pistas.length) return C;
+  const err = C.map(id => pistas.reduce((e, h) => { const r = respostaCarta(QSE_CARTAS[id], h.q); return e + (r !== 'T' && r !== h.maj ? 1 : 0); }, 0));
+  const mn = Math.min(...err);
+  return C.filter((id, i) => err[i] === mn);
+}
+function melhoresPerguntas(st, s, C){
+  const feitas = new Set(st.hist.filter(h => h.s === s && h.q).map(h => h.q));
+  const cats = new Set(C.map(id => QSE_CARTAS[id].c));
+  const ids = [...(cats.size > 1 ? QSE_GERAL.map(g => g[0]) : []), ...[...cats].flatMap(c => QSE_CATS[c].perg.map(p => c + ':' + p[0]))].filter(q => !feitas.has(q));
+  return ids.map(q => { let S = 0, N = 0, T = 0; C.forEach(id => { const r = respostaCarta(QSE_CARTAS[id], q); if(r === 'S') S++; else if(r === 'N') N++; else T++; });
+    return {q, info:S > 0 && N > 0, sc:Math.abs(S - N) + T * 0.6}; }).sort((a, b) => a.sc - b.sc);
+}
+function botAcao(st, s){
+  if(st.fase === 'resp'){
+    const card = QSE_CARTAS[st.cartas[st.cur.s]];
+    return {t:'resp', r: st.cur.q ? respostaCarta(card, st.cur.q) : interpreta(st.cur.txt, card)};
+  }
+  const dif = nivelBot(st, s), C = candidatos(st, s), P = melhoresPerguntas(st, s, C), uteis = P.filter(p => p.info);
+  const chuta = () => ({t:'chute', id:pick(C.length ? C : st.pool)});
+  if(C.length <= 1 || st.usadas[s] >= LIM || !uteis.length) return chuta();
+  if(st.fase === 'pos'){
+    if(dif === 'facil' && C.length <= 3 && Math.random() < 0.5) return chuta();
+    if(dif === 'normal' && C.length === 2 && (st.usadas[s] >= 12 || Math.random() < 0.3)) return chuta();
+    return {t:'passa'};
+  }
+  if(dif === 'facil' && C.length <= 3 && Math.random() < 0.3) return chuta();
+  let q;
+  if(dif === 'dificil') q = uteis[0].q;
+  else if(dif === 'normal') q = (Math.random() < 0.3 ? pick(uteis) : pick(uteis.slice(0, 3))).q;
+  else q = Math.random() < 0.3 && P.length ? pick(P).q : pick(uteis).q;
+  return {t:'perg', q};
+}
+
+Mesa.run({
+  id:'quemsoueu', name:'Quem Sou Eu?', icon:'🎭', tagline:'Descubra a sua carta com perguntas de sim ou não',
+  seats: o => clamp(+o.jogadores || 4, 2, 8),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']]},
+    {key:'cartas', label:'Cartas', default:'todas', choices:[['todas','Todas'], ...Object.keys(QSE_CATS).map(c => [c, QSE_CATS[c].plural])]},
+    {key:'dica', label:'Categoria', default:'mostra', choices:[['mostra','Mostrar a minha'],['esconde','Esconder']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => `${o.cartas && o.cartas !== 'todas' && QSE_CATS[o.cartas] ? QSE_CATS[o.cartas].plural.toUpperCase() : 'TODAS AS CARTAS'} · BOT ${({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'})[o.diff] || 'NORMAL'}`,
+  seatLabel: s => 'Jogador ' + (s + 1),
+  tickMs: 500,
+  setup(players, o){
+    const n = players.length, cat = QSE_CATS[o.cartas] ? o.cartas : 'todas';
+    const pool = QSE_CARTAS.filter(c => cat === 'todas' || c.c === cat).map(c => c.id);
+    const st = {n, names:players.map(p => p.name), dica:o.dica !== 'esconde', diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal',
+      pool, cartas:shuffle(pool.slice()).slice(0, n), usadas:Array(n).fill(0), erros:Array(n).fill(0), pts:Array(n).fill(0), status:Array(n).fill(''),
+      ordem:[], hist:[], chutes:[], cur:null, fase:'vez', vez:Math.floor(Math.random() * n), nturn:0};
+    st.vez = (st.vez + n - 1) % n; proximaVez(st, clock()); st.nturn = 0;
+    return st;
+  },
+  startEvents(st){ return [{k:'vez', seat:st.vez}]; },
+  waiting(st){
+    if(st.fase === 'vez' || st.fase === 'pos') return [st.vez];
+    if(st.fase === 'resp') return st.cur.ans.map((a, i) => a == null ? i : -1).filter(i => i >= 0);
+    return [];
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || seat < 0 || seat >= st.n) return {ok:false, err:'Jogada inválida.'};
+    if(st.fase === 'fim') return {ok:false, err:'A partida acabou.'};
+    const now = clock(); let r;
+    if(a.t === 'perg') r = pergunta(st, seat, a, now);
+    else if(a.t === 'resp') r = responde(st, seat, a.r, now);
+    else if(a.t === 'chute') r = chute(st, seat, a.id, now);
+    else if(a.t === 'passa') r = passa(st, seat, now, false);
+    else r = {err:'Jogada inválida.'};
+    return r.err ? {ok:false, err:r.err} : r;
+  },
+  tick(st, o, agora){
+    const now = window.QS_CLOCK ? clock() : agora;
+    if(st.fase === 'fim' || now < st.fim) return null;
+    if(st.fase === 'resp') return {changed:true, events:fechaResp(st, now)};
+    const s = st.vez;
+    return {changed:true, events:[{k:'log', text:`⏰ Tempo esgotado para <b>${nm(st, s)}</b>.`}, ...passa(st, s, now, true).events]};
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    const mx = Math.max(...st.pts), w = mx > 0 ? st.pts.map((p, i) => p === mx ? i : -1).filter(i => i >= 0) : [];
+    const ord = st.pts.map((p, i) => i).sort((a, b) => st.pts[b] - st.pts[a] || st.usadas[a] - st.usadas[b]);
+    return {winners:w, draw:!w.length || w.length === st.n, scores:st.pts.slice(),
+      text:ord.map((s, k) => `${k + 1}º <b>${nm(st, s)}</b> — ${st.pts[s]} pts · era ${esc(QSE_CARTAS[st.cartas[s]].e + ' ' + QSE_CARTAS[st.cartas[s]].n)} (${st.status[s] === 'ok' ? st.usadas[s] + ' perguntas' : 'não descobriu'})`).join('<br>')};
+  },
+  bot(st, s){ return botAcao(st, s); },
+  botFallback(st, s){ if(st.fase === 'resp') return {t:'resp', r:'T'}; if(st.fase === 'pos' && st.usadas[s] < LIM) return {t:'passa'}; return {t:'chute', id:st.pool[0]}; },
+  botDelay(st, s){
+    if(st.fase === 'resp'){ const k = Math.max(1, st.cur.ans.filter((a, i) => a == null && !(Mesa._H && Mesa._H.seats && Mesa._H.seats[i] && Mesa._H.seats[i].human)).length); return (1300 + Math.random() * 1500) / k; }
+    if(st.fase === 'pos') return 1700;
+    return 2300;
+  },
+  view(st, seat){
+    const now = clock(), fim = st.fase === 'fim';
+    return {
+      n:st.n, names:st.names, dica:st.dica, lim:LIM, maxErros:MAX_ERROS, fase:st.fase, vez:st.vez, left:Math.max(0, st.fim - now),
+      dur:(st.fase === 'resp' ? T_RESP : st.fase === 'pos' ? T_POS : T_VEZ) * TS(),
+      jog:st.names.map((x, i) => {
+        const c = QSE_CARTAS[st.cartas[i]], aberta = i !== seat || fim || st.status[i];
+        return {carta:aberta ? {id:c.id, n:c.n, e:c.e, c:c.c} : null, cat:aberta || st.dica ? c.c : null, usadas:st.usadas[i], erros:st.erros[i], pts:st.pts[i], status:st.status[i]};
+      }),
+      cur:st.cur ? {s:st.cur.s, q:st.cur.q, tx:textoPerg(st.cur), ans:st.cur.ans.slice(), maj:st.cur.maj || null} : null,
+      hist:st.hist.slice(-80).map(h => ({s:h.s, tx:h.q ? PERG[h.q].txt : h.txt, q:h.q, maj:h.maj, ans:h.ans})),
+      erradas:st.chutes.filter(c => c.s === seat && !c.ok).map(c => c.id),
+      pool:st.pool.length === QSE_CARTAS.length ? null : st.pool
+    };
+  },
+  topInfo(g, v){ const me = v.me, j = g.jog[me]; return j ? `<div class="status">${g.fase === 'fim' ? 'Fim de jogo' : g.vez === me ? 'Sua vez!' : 'Vez de ' + esc(g.names[g.vez])} · Você: ${j.usadas}/${g.lim} perguntas${j.pts ? ' · ' + j.pts + ' pts' : ''}</div>` : ''; },
+  render(g, v, ui){ desenha(g, v, ui); },
+  onEvent(e, v){
+    const me = v ? v.me : -1;
+    if(e.k === 'vez' && e.seat === me){ banner('Sua vez!'); Snd.alert(); }
+    else if(e.k === 'acerto'){ if(e.seat === me){ Snd.fanfare(); confetti(); } else Snd.win(); }
+    else if(e.k === 'erro'){ if(e.seat === me) Snd.error(); else Snd.lose(); }
+  },
+  rules:`<h3>Objetivo</h3><p>Descobrir quem (ou o quê) você é fazendo <b>poucas perguntas</b> — quanto menos perguntas, mais pontos.</p>
+<h3>Como jogar</h3><ul>
+<li>Cada jogador recebe uma carta secreta: um <b>animal</b>, uma <b>profissão</b>, um <b>objeto</b>, um <b>personagem do folclore brasileiro</b> ou uma <b>comida</b>. Você vê as cartas de todo mundo — <b>menos a sua</b>.</li>
+<li>Na sua vez, faça <b>uma</b> pergunta de sim ou não sobre a sua carta: escolha uma pergunta pronta (por categoria) ou escreva a sua. Os outros respondem <b>Sim</b>, <b>Não</b> ou <b>Talvez</b> (quando depende ou ninguém tem certeza).</li>
+<li>Depois das respostas você pode <b>chutar</b> quem é (escolhendo na lista) ou <b>passar a vez</b>. Também dá para chutar logo no começo da vez, sem perguntar.</li>
+<li>Na opção “Categoria: Mostrar a minha”, você sabe de que categoria é a sua carta. Em “Esconder”, descubra isso também.</li>
+<li>As pistas que você já recebeu ficam listadas em “Pistas sobre você”.</li></ul>
+<h3>Pontos</h3><ul>
+<li>Acertou: <b>20 − perguntas feitas − 2 por chute errado</b> (mínimo 2). O primeiro a descobrir ganha <b>+3</b>.</li>
+<li>Limite: ${LIM} perguntas. Chegou no limite, precisa chutar; ${MAX_ERROS} chutes errados (ou errar no limite) e você está fora.</li>
+<li>Tempo: ${T_VEZ/1000} s para perguntar, ${T_RESP/1000} s para responder e ${T_POS/1000} s para decidir.</li></ul>
+<p>A partida acaba quando todos descobrirem (ou saírem). Vence quem tiver mais pontos.</p>
+<h3>Bots</h3><p>Os bots respondem às perguntas prontas pelos atributos de cada carta e entendem perguntas escritas quando reconhecem as palavras (se não reconhecem, respondem “Talvez”). Para adivinhar, filtram as cartas possíveis pelas respostas e escolhem a pergunta que mais divide as possibilidades. O <b>Fácil</b> pergunta sem muito critério e chuta cedo; o <b>Normal</b> é bom; o <b>Difícil</b> sempre escolhe a melhor pergunta e só chuta com certeza.</p>`
+});
+
+/* ================================ TELA ================================ */
+const LOC = {end:0, dur:1, tab:null, txt:'', key:''};
+const nomeJ = (v, g, s) => esc(v.seats[s] ? v.seats[s].name : g.names[s]);
+const catNome = c => QSE_CATS[c] ? QSE_CATS[c].nome : '';
+function tileHtml(g, v, s){
+  const j = g.jog[s], me = s === v.me, a = g.cur && (g.fase === 'resp' || g.fase === 'pos') && s !== g.cur.s ? g.cur.ans[s] : null;
+  const cd = j.carta ? `<div class="cd"><div class="em">${j.carta.e}</div><div class="nm">${esc(j.carta.n)}</div></div>`
+    : `<div class="cd hid"><div class="em">❓</div><div class="nm">${j.cat ? esc(catNome(j.cat)) : 'Você'}</div></div>`;
+  const st = j.status === 'ok' ? `✅ ${j.pts} pts` : j.status === 'fora' ? '❌ fora' : `${j.usadas} perg.${j.erros ? ` · ${j.erros}✗` : ''}`;
+  const badge = a && a !== '' ? `<span class="ans ${a === '-' ? 'X' : a}">${RESP_TXT[a]}</span>` : '';
+  return `<div class="tile ${g.vez === s && g.fase !== 'fim' ? 'vez' : ''} ${me ? 'me' : ''} ${j.status}" data-seat="${s}">${badge}<div class="pn">${nomeJ(v, g, s)}${me ? ' (você)' : ''}</div>${cd}<div class="st">${st}</div></div>`;
+}
+function pistasHtml(g, v){
+  const minhas = g.hist.filter(h => h.s === v.me);
+  return `<h4>PISTAS SOBRE VOCÊ (${minhas.length})</h4>` + (minhas.length ? minhas.slice().reverse().map(h => `<div class="clue"><span>${esc(h.tx)}</span><b class="${h.maj}">${RESP_TXT[h.maj]}</b></div>`).join('')
+    : '<div class="info" style="text-align:left;opacity:.8">Nenhuma pergunta ainda.</div>');
+}
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me, j = g.jog[me];
+  LOC.end = Date.now() + g.left; LOC.dur = g.dur;
+  const mob = S.clientWidth < 760;
+  const ativo = document.activeElement && document.activeElement.id === 'qTxt';
+  if(ativo) LOC.txt = document.activeElement.value;
+  const myCard = `<div class="mycard"><div class="cd ${j.carta ? 'open' : ''}">${j.carta ? j.carta.e : '❓'}</div><div class="tx">${j.carta ? `Você era <b>${esc(j.carta.n)}</b>` : `<b>Sua carta é secreta</b><br>${j.cat ? 'Categoria: ' + esc(catNome(j.cat)) : 'Categoria escondida'}`}<br>${j.usadas}/${g.lim} perguntas · ${j.erros}/${g.maxErros} chutes errados${j.pts ? ' · <b>' + j.pts + ' pts</b>' : ''}</div></div>`;
+  S.innerHTML = `<div class="qs-main"><div class="tiles">${g.names.map((_, s) => tileHtml(g, v, s)).join('')}</div>
+    <div class="panel2" id="pn"></div>${mob ? `<div class="mob-clues"><button class="bt d" id="bClues" style="width:100%">🔎 Pistas sobre você (${g.hist.filter(h => h.s === me).length})</button></div>` : ''}</div>
+    <div class="qs-side">${myCard}<div class="clues">${pistasHtml(g, v)}</div></div>`;
+  if($('#bClues', S)) $('#bClues', S).onclick = () => modal(myCard + '<div class="clues" style="margin-top:8px">' + pistasHtml(g, v) + '</div>', [{label:'Fechar'}]);
+  const P = $('#pn', S), tbar = '<div class="tbar"><i id="tb"></i></div>';
+  const vezNome = nomeJ(v, g, g.vez);
+  if(g.fase === 'fim'){
+    P.innerHTML = `<div class="ph"><h3>Fim de jogo!</h3></div><div class="info">Todas as cartas foram reveladas acima.</div>`;
+  } else if(g.fase === 'vez'){
+    if(g.vez === me){
+      const cats = j.cat ? [j.cat] : Object.keys(QSE_CATS);
+      const tabs = (j.cat ? [] : ['geral']).concat(cats);
+      if(!tabs.includes(LOC.tab)) LOC.tab = tabs[0];
+      const feitas = new Set(g.hist.filter(h => h.s === me && h.q).map(h => h.q));
+      const lista = LOC.tab === 'geral' ? QSE_GERAL.map(x => x[0]) : QSE_CATS[LOC.tab].perg.map(p => LOC.tab + ':' + p[0]);
+      const limite = j.usadas >= g.lim;
+      P.innerHTML = `<div class="ph"><h3>Sua vez! Pergunte sobre a sua carta</h3></div>${tbar}
+        ${limite ? `<div class="info">Você já usou as ${g.lim} perguntas. <b>Chute quem você é!</b></div>` : `
+        ${tabs.length > 1 ? `<div class="tabs">${tabs.map(t => `<button data-t="${t}" class="${t === LOC.tab ? 'on' : ''}">${t === 'geral' ? '❔ Geral' : QSE_CATS[t].ico + ' ' + esc(QSE_CATS[t].plural)}</button>`).join('')}</div>` : ''}
+        <div class="chips">${lista.map(q => `<button data-q="${q}" class="${feitas.has(q) ? 'used' : ''}">${esc(PERG[q].txt)}</button>`).join('')}</div>
+        <form class="frow" id="fTxt" onsubmit="return false"><input id="qTxt" maxlength="90" placeholder="Ou escreva: Sou maior que um carro?" autocomplete="off"><button class="bt g" id="bTxt">Perguntar</button></form>`}
+        <div class="acts"><button class="bt y" id="bChute">🎯 Chutar quem eu sou</button></div>`;
+      $$('.tabs button', P).forEach(b => b.onclick = () => { LOC.tab = b.dataset.t; ui.rerender(); });
+      $$('.chips button', P).forEach(b => b.onclick = () => ui.act({t:'perg', q:b.dataset.q}));
+      if($('#bTxt', P)){ const inp = $('#qTxt', P); inp.value = LOC.txt; inp.oninput = () => LOC.txt = inp.value; if(ativo) inp.focus();
+        $('#bTxt', P).onclick = () => { const t = inp.value.trim(); if(t.length < 4){ toast('Escreva uma pergunta de sim ou não.'); return; } LOC.txt = ''; ui.act({t:'perg', txt:t}); }; }
+      $('#bChute', P).onclick = () => abreChute(g, v, ui);
+    } else P.innerHTML = `<div class="ph"><h3>Vez de ${vezNome}</h3></div>${tbar}<div class="info">${vezNome} está pensando numa pergunta sobre a própria carta...</div>`;
+  } else if(g.fase === 'resp'){
+    const c = g.cur, card = g.jog[c.s].carta, sou = c.s === me, falta = c.ans[me] == null;
+    const lista = `<div class="alist">${c.ans.map((a, s) => s === c.s ? '' : `<span>${nomeJ(v, g, s)}<i>${a ? RESP_TXT[a] : '…'}</i></span>`).join('')}</div>`;
+    P.innerHTML = `<div class="ph"><h3>${sou ? 'Sua pergunta' : vezNome + ' pergunta'}</h3></div>${tbar}
+      <div class="qbig"><small>${sou ? 'Você perguntou' : 'Sobre a carta de ' + vezNome}</small>${esc(c.tx)}</div>
+      ${!sou && card ? `<div class="about">Responda pensando em<div class="cd"><span class="em">${card.e}</span>${esc(card.n)}</div></div>` : ''}
+      ${!sou && falta ? `<div class="rbtns"><button class="rb S" data-r="S">Sim</button><button class="rb N" data-r="N">Não</button><button class="rb T" data-r="T">Talvez</button></div>` : ''}
+      ${lista}`;
+    $$('.rb', P).forEach(b => b.onclick = () => { $$('.rb', P).forEach(x => x.disabled = true); ui.act({t:'resp', r:b.dataset.r}); });
+  } else if(g.fase === 'pos'){
+    const c = g.cur, sou = c.s === me, limite = j.usadas >= g.lim;
+    const lista = `<div class="alist">${c.ans.map((a, s) => s === c.s ? '' : `<span>${nomeJ(v, g, s)}<i>${RESP_TXT[a]}</i></span>`).join('')}</div>`;
+    P.innerHTML = `<div class="ph"><h3>${sou ? 'Respostas para você' : 'Respostas para ' + vezNome}</h3></div>${tbar}
+      <div class="qbig"><small>${sou ? 'Você perguntou' : vezNome + ' perguntou'}</small>${esc(c.tx)}</div>
+      <div class="maj ${c.maj}">${c.maj === 'S' ? 'SIM' : c.maj === 'N' ? 'NÃO' : 'TALVEZ / EMPATE'}</div>${lista}
+      ${sou ? `<div class="acts"><button class="bt y" id="bChute">🎯 Chutar quem eu sou</button>${limite ? '' : '<button class="bt d" id="bPassa">Passar a vez</button>'}</div>` : `<div class="info">${vezNome} vai decidir se chuta ou passa a vez.</div>`}`;
+    if($('#bChute', P)) $('#bChute', P).onclick = () => abreChute(g, v, ui);
+    if($('#bPassa', P)) $('#bPassa', P).onclick = () => ui.act({t:'passa'});
+  }
+  relogio();
+}
+function abreChute(g, v, ui){
+  const j = g.jog[v.me], err = new Set(g.erradas), outras = new Set(g.jog.map((x, i) => i !== v.me && x.carta ? x.carta.id : -1));
+  const lista = QSE_CARTAS.filter(c => (!g.pool || g.pool.includes(c.id)) && (!j.cat || c.c === j.cat)).sort((a, b) => a.n.localeCompare(b.n, 'pt'));
+  const box = pmodal(`<h2>🎯 Quem sou eu?</h2><p style="font-size:13px">Errar custa 2 pontos (e ${g.maxErros} erros tiram você do jogo). As cartas dos outros jogadores já estão riscadas.</p>
+    <input class="txt" id="gIn" placeholder="Digite para procurar..." autocomplete="off"><div class="glist" id="gl"></div>`, [{label:'Cancelar', cls:'b-no'}]);
+  const pinta = () => {
+    const f = semAcento($('#gIn', box).value.trim());
+    $('#gl', box).innerHTML = lista.filter(c => !f || semAcento(c.n).includes(f)).map(c => `<button data-id="${c.id}" class="${err.has(c.id) || outras.has(c.id) ? 'x' : ''}">${c.e} ${esc(c.n)}</button>`).join('') || '<div class="info">Nada encontrado.</div>';
+    $$('#gl button', box).forEach(b => b.onclick = () => { closePModal(); ui.act({t:'chute', id:+b.dataset.id}); });
+  };
+  $('#gIn', box).oninput = pinta; pinta();
+  setTimeout(() => { try{ if(window.matchMedia('(hover:hover)').matches) $('#gIn', box).focus(); }catch(_){} }, 50);
+}
+function relogio(){
+  const tb = $('#tb'); if(!tb) return;
+  tb.style.width = clamp((LOC.end - Date.now()) / LOC.dur, 0, 1) * 100 + '%';
+}
+setInterval(relogio, 250);
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); }, 150); });
+</script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Cobrinha</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:6px 8px 8px}
+.sz{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;min-height:0;width:100%}
+.hud{display:flex;gap:6px;align-items:stretch;justify-content:center;flex-wrap:nowrap}
+.sc{background:rgba(0,0,0,.45);border-radius:10px;padding:3px 10px;text-align:center;min-width:66px}
+.sc small{display:block;font-size:10px;font-weight:800;letter-spacing:1px;color:#cfe;text-transform:uppercase}
+.sc b{font-size:18px;color:#ffe6a6;font-variant-numeric:tabular-nums}
+.hud .tbtn{font-size:17px;padding:4px 11px;border-radius:10px}
+.arena{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;min-height:0;justify-content:flex-start}
+.arena.side{flex-direction:row;justify-content:center;gap:18px}
+.bwrap{position:relative;flex:none;touch-action:none;user-select:none;-webkit-user-select:none}
+.bwrap canvas{display:block;border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.5)}
+.ov{position:absolute;inset:0;border-radius:12px;display:none;place-items:center;text-align:center;color:#fff;background:rgba(6,20,12,.62);
+  font-weight:900;font-size:22px;padding:12px;z-index:3}
+.ov.show{display:grid}
+.ov small{display:block;font-size:13px;font-weight:700;opacity:.9;margin:6px 0 12px;line-height:1.35}
+.ov button{font:inherit;font-size:17px;font-weight:900;border:0;border-radius:999px;padding:12px 26px;background:var(--gold);color:#3a2600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+/* direcional */
+.pad{display:grid;grid-template-columns:repeat(3,var(--pb));grid-template-rows:repeat(3,var(--pb));gap:4px;flex:none;
+  padding:8px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.35),rgba(0,0,0,.15) 70%,transparent 72%);touch-action:none}
+.pad button{border:0;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.08));color:#fff;font-size:calc(var(--pb)*.42);
+  box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.25);cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;padding:0}
+.pad button.on{background:var(--gold);color:#3a2600;transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.pad .u{grid-area:1/2}.pad .l{grid-area:2/1}.pad .r{grid-area:2/3}.pad .d{grid-area:3/2}
+.pad .c{grid-area:2/2;border-radius:50%;font-size:calc(var(--pb)*.34);background:rgba(0,0,0,.3)}
+.hint{font-size:12px;opacity:.75;text-align:center;line-height:1.4}
+@media (max-width:720px){ .sc{min-width:58px;padding:3px 7px} .sc b{font-size:16px} .hud .tbtn{padding:4px 9px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   Motor da Cobrinha — puro e determinístico (passo fixo de 1/60 s).
+   O jogo roda na tela do jogador; no fim ele manda as teclas apertadas
+   (com o passo em que entraram) e o anfitrião refaz a partida para
+   conferir a pontuação.
+   ===================================================================== */
+const SN = (() => {
+  const TPS = 60, MAXT = TPS*60*120;           // passos por segundo; limite de 2 h
+  const SIZE = {p:15, m:19, g:25};
+  const SPEED = {facil:[5,12], normal:[6.5,15.5], dificil:[8.5,19.5]};   // casas/s no início e no máximo
+  const DX = [0,1,0,-1], DY = [-1,0,1,0];      // 0 cima, 1 direita, 2 baixo, 3 esquerda
+  function rnd(g){ let t = g.rng = (g.rng + 0x6D2B79F5) | 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+  const ri = (g, n) => Math.floor(rnd(g) * n);
+
+  function create(o, seed){
+    const N = SIZE[o.campo] || 19, sp = SPEED[o.vel] || SPEED.normal;
+    const g = {N, wrap:o.bordas === 'livre', v0:sp[0], vMax:sp[1], rng:seed | 0, tick:0, prog:0, dir:1, q:[], log:[],
+      body:[], prev:null, grow:0, wall:new Array(N*N).fill(0), food:-1, bonus:null, eaten:0, score:0, started:false, dead:false, won:false, moves:0};
+    const cy = N >> 1, cx = Math.max(3, N >> 2);
+    for(let i=0;i<3;i++) g.body.push(cy*N + cx - i);
+    if(o.obst === 'sim') walls(g, cx, cy);
+    g.food = freeCell(g);
+    return g;
+  }
+  function nb(g, c, d){
+    const N = g.N; let x = c % N + DX[d], y = (c / N | 0) + DY[d];
+    if(x < 0 || y < 0 || x >= N || y >= N){ if(!g.wrap) return -1; x = (x + N) % N; y = (y + N) % N; }
+    return y*N + x;
+  }
+  // obstáculos: pedaços retos e em L, longe da largada, sem fechar cantos sem saída
+  function walls(g, cx, cy){
+    const N = g.N, want = Math.round(N*N*0.055);
+    const safe = c => { const x = c % N, y = c / N | 0; return !(Math.abs(y - cy) <= 1 && x >= cx - 3 && x <= cx + 7); };
+    let placed = 0;
+    for(let tries=0; tries<400 && placed < want; tries++){
+      const len = 2 + ri(g, 4), d = ri(g, 2) ? 1 : 2, turn = ri(g, 3) === 0;
+      let c = ri(g, N*N); const cells = [];
+      for(let k=0;k<len;k++){
+        if(c < 0 || !safe(c) || g.wall[c]) { cells.length = 0; break; }
+        cells.push(c);
+        c = nb(g, c, (turn && k === (len >> 1)) ? (d === 1 ? 2 : 1) : d);
+        if(!g.wrap && c < 0) { cells.length = 0; break; }
+      }
+      if(!cells.length) continue;
+      cells.forEach(x => g.wall[x] = 1);
+      if(!openOK(g)){ cells.forEach(x => g.wall[x] = 0); continue; }
+      placed += cells.length;
+    }
+  }
+  // todas as casas livres ligadas entre si e cada uma com 2+ vizinhas livres
+  function openOK(g){
+    const N = g.N, seen = new Uint8Array(N*N); let free = 0, start = -1;
+    for(let c=0;c<N*N;c++) if(!g.wall[c]){
+      free++; if(start < 0) start = c;
+      let k = 0; for(let d=0;d<4;d++){ const n = nb(g, c, d); if(n >= 0 && !g.wall[n]) k++; }
+      if(k < 2) return false;
+    }
+    const st = [start]; seen[start] = 1; let cnt = 0;
+    while(st.length){ const c = st.pop(); cnt++; for(let d=0;d<4;d++){ const n = nb(g, c, d); if(n >= 0 && !g.wall[n] && !seen[n]){ seen[n] = 1; st.push(n); } } }
+    return cnt === free;
+  }
+  function freeCell(g){
+    const occ = new Uint8Array(g.N*g.N);
+    g.body.forEach(c => occ[c] = 1); if(g.bonus) occ[g.bonus.c] = 1; if(g.food >= 0) occ[g.food] = 1;
+    const free = []; for(let i=0;i<occ.length;i++) if(!occ[i] && !g.wall[i]) free.push(i);
+    return free.length ? free[ri(g, free.length)] : -1;
+  }
+  const speed = g => Math.min(g.vMax, g.v0 + g.eaten * 0.2);
+  const level = g => 1 + Math.floor(g.eaten / 5);
+  // entrada do jogador: direção 0..3, ou -1 = só começar
+  function input(g, d){
+    if(g.dead || g.won || g.q.length >= 3) return false;
+    g.q.push(d); g.log.push([g.tick, d]); return true;
+  }
+  function update(g){
+    const ev = [];
+    if(g.dead || g.won) return ev;
+    if(!g.started){ if(!g.q.length) return ev; g.started = true; }
+    g.tick++;
+    if(g.bonus && --g.bonus.t <= 0){ g.bonus = null; ev.push({k:'bonusOff'}); if(g.food < 0) placeFood(g, ev); }
+    g.prog += speed(g) / TPS;
+    if(g.prog >= 1){ g.prog -= 1; move(g, ev); }
+    return ev;
+  }
+  function placeFood(g, ev){ g.food = freeCell(g); if(g.food < 0 && !g.bonus){ g.won = true; ev.push({k:'win'}); } }
+  function move(g, ev){
+    while(g.q.length){ const d = g.q.shift(); if(d >= 0 && d !== g.dir && d !== (g.dir + 2) % 4){ g.dir = d; break; } }
+    const n = nb(g, g.body[0], g.dir), grow = g.grow > 0;
+    let hit = n < 0 || g.wall[n] === 1;
+    if(!hit){ const L = g.body.length - (grow ? 0 : 1); for(let i=0;i<L;i++) if(g.body[i] === n){ hit = true; break; } }
+    if(hit){ g.dead = true; g.prog = 0; ev.push({k:'die', c:n}); return; }
+    g.prev = g.body.slice();
+    g.body.unshift(n); if(grow) g.grow--; else g.body.pop();
+    g.moves++;
+    if(n === g.food){
+      const pts = 10 * level(g);
+      g.eaten++; g.score += pts; g.grow += 1; g.food = -1;
+      ev.push({k:'eat', c:n, pts});
+      if(g.eaten % 5 === 0) ev.push({k:'level', lv:level(g)});
+      if(g.eaten % 7 === 0 && !g.bonus){ const c = freeCell(g); if(c >= 0){ g.bonus = {c, t:TPS*7, T:TPS*7}; ev.push({k:'bonusOn', c}); } }
+      placeFood(g, ev);
+    } else if(g.bonus && n === g.bonus.c){
+      const pts = (20 + Math.ceil(g.bonus.t / TPS) * 5) * level(g);
+      g.score += pts; g.grow += 2; g.bonus = null;
+      ev.push({k:'bonus', c:n, pts});
+      if(g.food < 0) placeFood(g, ev);
+    }
+  }
+  // refaz a partida a partir das teclas registradas
+  function replay(o, seed, log, ticks){
+    const g = create(o, seed), lim = Math.min(ticks, MAXT); let i = 0;
+    for(;;){
+      while(i < log.length && log[i][0] <= g.tick) input(g, log[i++][1]);
+      if(g.dead || g.won || g.tick >= lim) break;
+      const t0 = g.tick; update(g);
+      if(g.tick === t0) break;
+    }
+    return g;
+  }
+  /* --- piloto automático (bot dos testes): caminho mais curto até a comida,
+         só se depois disso ainda sobrar espaço; senão, vai para onde há mais espaço --- */
+  function area(g, from, blocked){
+    const seen = new Uint8Array(g.N*g.N), st = [from]; seen[from] = 1; let n = 0;
+    while(st.length){ const c = st.pop(); n++; for(let d=0;d<4;d++){ const m = nb(g, c, d); if(m >= 0 && !blocked[m] && !seen[m]){ seen[m] = 1; st.push(m); } } }
+    return n;
+  }
+  function auto(g){
+    const N = g.N, blocked = new Uint8Array(N*N), h = g.body[0];
+    for(let c=0;c<N*N;c++) if(g.wall[c]) blocked[c] = 1;
+    const L = g.body.length - (g.grow > 0 ? 0 : 1); for(let i=0;i<L;i++) blocked[g.body[i]] = 1;
+    const opts = [];
+    for(let d=0;d<4;d++){ if(d === (g.dir + 2) % 4) continue; const n = nb(g, h, d); if(n >= 0 && !blocked[n]) opts.push([d, n]); }
+    if(!opts.length) return g.dir;
+    // BFS
+    const first = new Int8Array(N*N).fill(-1), q = [];
+    opts.forEach(([d, n]) => { first[n] = d; q.push(n); });
+    const tgt = g.bonus && g.bonus.t > TPS ? [g.bonus.c, g.food] : [g.food];
+    let goal = -1;
+    for(let qi=0; qi<q.length && goal < 0; qi++){
+      const c = q[qi]; if(tgt.includes(c)){ goal = c; break; }
+      for(let d=0;d<4;d++){ const m = nb(g, c, d); if(m >= 0 && !blocked[m] && first[m] < 0 && m !== h){ first[m] = first[c]; q.push(m); } }
+    }
+    const room = d => { const n = nb(g, h, d); blocked[h] = 1; const a = area(g, n, blocked); return a; };
+    if(goal >= 0){ const d = first[goal]; if(room(d) >= g.body.length + 2) return d; }
+    let best = opts[0][0], bv = -1;
+    opts.forEach(([d]) => { const v = room(d) * 4 + (d === g.dir ? 1 : 0); if(v > bv){ bv = v; best = d; } });
+    return best;
+  }
+  function autoplay(o, seed, maxTicks){
+    const g = create(o, seed);
+    input(g, -1);
+    while(!g.dead && !g.won && g.tick < maxTicks){
+      if(g.started && g.prog + speed(g) / TPS >= 1 && !g.q.length){ const d = auto(g); if(d !== g.dir) input(g, d); }
+      update(g);
+    }
+    return g;
+  }
+  return {TPS, MAXT, DX, DY, create, input, update, replay, autoplay, speed, level, nb};
+})();
+
+/* ------------------------------ regras da Mesa ------------------------------ */
+const VEL = {facil:'Lenta', normal:'Normal', dificil:'Rápida'}, CAMPO = {p:'Pequeno', m:'Médio', g:'Grande'};
+const recKey = o => `central.cobrinha.recorde.${o.vel}-${o.campo}-${o.bordas}-${o.obst}`;
+const gameOpts = o => ({vel:VEL[o.vel] ? o.vel : 'normal', campo:CAMPO[o.campo] ? o.campo : 'm', bordas:o.bordas === 'livre' ? 'livre' : 'parede', obst:o.obst === 'sim' ? 'sim' : 'nao'});
+
+Mesa.run({
+  id:'cobrinha', name:'Cobrinha', icon:'🐍', tagline:'Coma, cresça e não bata em nada',
+  options:[
+    {key:'vel', label:'Velocidade', default:'normal', choices:[['facil','Lenta'],['normal','Normal'],['dificil','Rápida']]},
+    {key:'campo', label:'Campo', default:'m', choices:[['p','Pequeno'],['m','Médio'],['g','Grande']]},
+    {key:'bordas', label:'Bordas', default:'parede', choices:[['parede','Parede'],['livre','Atravessar']]},
+    {key:'obst', label:'Obstáculos', default:'nao', choices:[['nao','Sem'],['sim','Com']]}
+  ],
+  solo:true, players:1,
+  modeLabel(o){ const g = gameOpts(o); return `${VEL[g.vel]} · ${CAMPO[g.campo]}`; },
+  setup(players, opts){
+    const o = gameOpts(opts);
+    return {gid:Math.floor(Math.random()*1e9), seed:Math.floor(Math.random()*2**31), o, rec:+(lsGet(recKey(o)) || 0), done:false, res:null};
+  },
+  waiting(st){ return st.done ? [] : [0]; },
+  over(st){
+    if(!st.done) return null;
+    const r = st.res;
+    const head = r.won ? '🎉 Você encheu o campo inteiro!' : r.dead ? 'A cobrinha bateu.' : 'Jogo encerrado.';
+    return {winners:r.newRec || r.won ? [0] : [], text:`${head} Pontuação: <b>${r.score}</b> · tamanho <b>${r.len}</b> · ${r.eaten} comida(s).` +
+      (r.newRec ? ' <b>Novo recorde!</b>' : ` Recorde: <b>${st.rec}</b>.`)};
+  },
+  apply(st, s, a){
+    if(st.done) return {ok:false, err:'A partida já terminou.'};
+    if(!a || a.t !== 'fim' || !Array.isArray(a.log) || a.log.length > 200000 || !Number.isInteger(a.ticks) || a.ticks < 0)
+      return {ok:false, err:'Jogada inválida.'};
+    let lt = 0;
+    for(const e of a.log){
+      if(!Array.isArray(e) || !Number.isInteger(e[0]) || !Number.isInteger(e[1]) || e[0] < lt || e[1] < -1 || e[1] > 3) return {ok:false, err:'Registro inválido.'};
+      lt = e[0];
+    }
+    const g = SN.replay(st.o, st.seed, a.log, a.ticks);   // o anfitrião confere refazendo a partida
+    const newRec = g.score > st.rec;
+    st.done = true;
+    st.res = {score:g.score, len:g.body.length, eaten:g.eaten, dead:g.dead, won:g.won, ticks:g.tick, newRec};
+    if(newRec){ lsSet(recKey(st.o), g.score); st.rec = g.score; }
+    return {events:newRec ? [{k:'banner', text:'Novo recorde!'}] : []};
+  },
+  bot(st){
+    const g = SN.autoplay(st.o, st.seed, SN.TPS*60*4);
+    return {t:'fim', log:g.log, ticks:g.tick};
+  },
+  botDelay(){ return 400; },
+  botFallback(){ return {t:'fim', log:[], ticks:0}; },
+  view(st){ return {gid:st.gid, seed:st.seed, o:st.o, rec:st.rec, done:st.done, res:st.res}; },
+  render, topInfo(g){ return `<div class="status">${g.o.bordas === 'livre' ? 'Bordas: atravessar' : 'Bordas: parede'}${g.o.obst === 'sim' ? ' · obstáculos' : ''}</div>`; },
+  rules: `<h3>Objetivo</h3><p>Guiar a cobrinha até a comida para ela crescer e fazer o máximo de pontos, sem bater em nada.</p>
+  <h3>Como jogar</h3><ul>
+  <li><b>PC:</b> setas ou W A S D para virar; <b>P</b>, <b>Esc</b> ou <b>Espaço</b> pausam.</li>
+  <li><b>Celular:</b> deslize o dedo no campo para o lado que quer ir, ou use o <b>direcional</b> embaixo do campo.</li>
+  <li>A cobrinha anda sozinha; você só escolhe para onde ela vira (não dá para dar meia-volta de uma vez).</li>
+  <li>Cada <b>maçã</b> 🍎 faz a cobrinha crescer uma casa e vale 10 pontos × o nível. A cada 5 maçãs sobe um <b>nível</b> — e a cobrinha vai ficando mais rápida.</li>
+  <li>De vez em quando aparece uma <b>estrela dourada</b> ⭐ por 7 segundos: quanto antes pegar, mais pontos (e a cobrinha cresce duas casas).</li></ul>
+  <h3>Fim de jogo</h3><ul>
+  <li>Bateu no próprio corpo, num obstáculo ou (no modo <b>Parede</b>) na borda do campo: acabou.</li>
+  <li>No modo <b>Atravessar</b>, a cobrinha sai de um lado e entra pelo outro.</li>
+  <li><b>Obstáculos</b> (opção): blocos de pedra espalhados pelo campo.</li>
+  <li>Encher o campo inteiro é vitória! O <b>recorde</b> fica guardado neste aparelho, separado por modo (velocidade, campo, bordas e obstáculos).</li>
+  <li>Se você sair da tela ou trocar de aplicativo, o jogo <b>pausa sozinho</b>.</li></ul>`
+});
+
+/* ------------------------------ interface ------------------------------ */
+const FIXED = 1000 / SN.TPS;
+let G = null, gidCur = null, curUi = null, built = null, paused = false, sentEnd = false, endAt = 0;
+let raf = 0, lastT = 0, acc = 0, cv = null, ctx = null, BS = 0, CELL = 0, dpr = 1;
+let wasStarted = false, fx = [], pops = [], shakeT = 0, flashT = 0, lastHud = '', deadAt = 0;
+const touchUI = () => matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+
+function render(g, v, ui){
+  curUi = ui;
+  if(g.gid !== gidCur){
+    gidCur = g.gid; G = SN.create(g.o, g.seed); paused = false; sentEnd = false; endAt = 0; deadAt = 0;
+    fx = []; pops = []; shakeT = 0; flashT = 0; built = null; lastHud = '';
+  }
+  const st = ui.stage, key = [g.gid, st.clientWidth, st.clientHeight].join(',');
+  if(built !== key || !$('#cv')){ built = key; build(g, ui); }
+  hud(true); overlay();
+  if(!raf){ lastT = performance.now(); raf = requestAnimationFrame(frame); }
+}
+function build(g, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight, touch = touchUI();
+  st.innerHTML = `<div class="sz">
+    <div class="hud"><div class="sc"><small>Pontos</small><b id="hScore">0</b></div><div class="sc"><small>Tamanho</small><b id="hLen">3</b></div>
+      <div class="sc"><small>Recorde</small><b id="hRec">0</b></div>
+      <button class="tbtn" id="bPause" title="Pausar">❚❚</button><button class="tbtn" id="bEnd" title="Encerrar">🏁</button></div>
+    <div class="arena" id="arena"><div class="bwrap" id="bw"><canvas id="cv"></canvas><div class="ov" id="ov"></div></div>
+      ${touch ? `<div class="pad" id="pad"><button class="u" data-d="0">▲</button><button class="l" data-d="3">◀</button><button class="c" data-d="p">❚❚</button><button class="r" data-d="1">▶</button><button class="d" data-d="2">▼</button></div>` : ''}</div>
+    ${touch ? '' : '<div class="hint">Setas ou W A S D para virar · P ou Espaço para pausar</div>'}</div>`;
+  // tamanho do campo a partir do palco
+  const hudH = 52, side = touch && W > H + 120;
+  let pb = touch ? clamp(Math.floor(Math.min(W, H) / 7.2), 46, 70) : 0;
+  const padW = pb*3 + 24;
+  let bs = side ? Math.min(H - hudH - 16, W - padW - 40) : Math.min(W - 12, H - hudH - (touch ? padW + 14 : 34));
+  if(!side && touch && bs < W*0.72){ pb = clamp(Math.floor((H - hudH - 14 - W*0.72 - 24) / 3), 40, pb); bs = Math.min(W - 12, H - hudH - (pb*3 + 38)); }
+  const N = G.N; CELL = Math.max(8, Math.floor(Math.min(bs, 760) / N)); BS = CELL * N;
+  if(touch && !side) pb = clamp(Math.floor((H - hudH - BS - 40) / 3), pb, 78);     // sobra espaço: direcional maior
+  if($('#pad')) $('#pad').style.setProperty('--pb', pb + 'px');
+  if(side) $('#arena').classList.add('side');
+  cv = $('#cv'); dpr = Math.min(2.5, window.devicePixelRatio || 1);
+  cv.width = BS*dpr; cv.height = BS*dpr; cv.style.width = BS + 'px'; cv.style.height = BS + 'px';
+  ctx = cv.getContext('2d');
+  $('#bPause').onclick = () => paused ? resume() : pause();
+  $('#bEnd').onclick = () => { if(endable()){ pause(); modal('<h2>Encerrar a partida?</h2><p>O jogo termina com a pontuação atual.</p>',
+    [{label:'Encerrar', cls:'b-up', fn:() => sendEnd()}, {label:'Continuar', cls:'b-no', fn:resume}]); } };
+  wireTouch(); hud(true); overlay();
+}
+const live = () => !!(curUi && curUi.view && curUi.view.phase === 'game' && G && !sentEnd);
+const endable = () => live() && !G.dead && !G.won;
+function hud(force){
+  if(!G || !$('#hScore')) return;
+  const v = curUi && curUi.view, rec = v && v.game ? v.game.rec : 0;
+  const k = G.score + ',' + G.body.length + ',' + rec;
+  if(!force && k === lastHud) return; lastHud = k;
+  $('#hScore').textContent = G.score; $('#hLen').textContent = G.body.length; $('#hRec').textContent = Math.max(rec, G.score);
+  $('#bPause').disabled = !endable() || !G.started; $('#bEnd').disabled = !endable();
+}
+function overlay(){
+  const ov = $('#ov'); if(!ov) return;
+  let html = '';
+  if(live() && !G.dead && !G.won){
+    if(paused) html = `<div>❚❚ Pausado<small>O jogo pausa sozinho quando você sai da tela.</small><button id="bGo">▶ Continuar</button></div>`;
+    else if(!G.started) html = `<div>🐍 Pronto?<small>${touchUI() ? 'Deslize o dedo no campo ou use o direcional.' : 'Aperte uma seta (ou W A S D) para começar.'}</small><button id="bGo">▶ Começar</button></div>`;
+  }
+  ov.innerHTML = html; ov.classList.toggle('show', !!html);
+  const b = $('#bGo'); if(b) b.onclick = e => { e.stopPropagation(); if(paused) resume(); else start(-1); };
+}
+function pause(){ if(!endable() || !G.started || paused) return; paused = true; overlay(); hud(true); }
+function resume(){ if(!paused) return; paused = false; acc = 0; lastT = performance.now(); overlay(); hud(true); }
+function start(d){ if(!endable() || G.started) return; SN.input(G, d); acc = 0; overlay(); hud(true); }
+function steer(d){
+  if(!endable()) return;
+  if(paused){ resume(); return; }
+  if(!G.started){ start(d); return; }
+  SN.input(G, d);
+}
+function sendEnd(){ if(sentEnd || !curUi) return; sentEnd = true; paused = false; overlay(); curUi.act({t:'fim', log:G.log, ticks:G.tick}); }
+
+/* --- controles --- */
+function wireTouch(){
+  const bw = $('#bw'); let p0 = null;
+  bw.addEventListener('pointerdown', e => { p0 = {x:e.clientX, y:e.clientY}; try{ bw.setPointerCapture(e.pointerId); }catch(_){} });
+  bw.addEventListener('pointermove', e => {
+    if(!p0) return; const dx = e.clientX - p0.x, dy = e.clientY - p0.y;
+    if(Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+    steer(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+    p0 = {x:e.clientX, y:e.clientY};                       // segue deslizando: pode virar de novo
+  });
+  const up = () => { p0 = null; };
+  bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', up);
+  $$('#pad button').forEach(b => {
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault(); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120);
+      if(b.dataset.d === 'p'){ if(paused) resume(); else if(G.started) pause(); else start(-1); }
+      else steer(+b.dataset.d);
+    });
+  });
+}
+document.addEventListener('keydown', e => {
+  if($('#modal.show') || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || !live()) return;
+  const d = {ArrowUp:0, ArrowRight:1, ArrowDown:2, ArrowLeft:3, w:0, d:1, s:2, a:3, W:0, D:1, S:2, A:3}[e.key];
+  if(d != null){ e.preventDefault(); if(!e.repeat) steer(d); return; }
+  if(['p','P','Escape',' ','Enter'].includes(e.key)){
+    e.preventDefault();
+    if(paused) resume(); else if(!G.started) start(-1); else if(e.key !== 'Enter') pause();
+  }
+});
+// pausa automática ao sair da tela / trocar de janela
+document.addEventListener('visibilitychange', () => { if(document.visibilityState !== 'visible') pause(); });
+window.addEventListener('blur', () => pause());
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+
+/* --- laço principal: passo fixo + desenho a 60 fps --- */
+function frame(t){
+  raf = requestAnimationFrame(frame);
+  let dt = t - lastT; lastT = t; if(dt > 100) dt = 100;
+  if(!G || !ctx) return;
+  if($('#modal.show') && endable() && G.started && !paused) pause();      // regras/encerrar abertos
+  if(live() && !paused && (G.started || G.q.length) && !G.dead && !G.won){
+    acc += dt;
+    while(acc >= FIXED){ acc -= FIXED; handle(SN.update(G)); if(G.dead || G.won) break; }
+  } else acc = 0;
+  if(G.started !== wasStarted){ wasStarted = G.started; overlay(); hud(true); }
+  if((G.dead || G.won) && !sentEnd && live() && performance.now() >= endAt) sendEnd();
+  draw(t); hud(false);
+}
+const cxy = c => [c % G.N, (c / G.N) | 0];
+function handle(ev){
+  ev.forEach(e => {
+    if(e.k === 'eat' || e.k === 'bonus'){
+      const [x, y] = cxy(e.c); burst(x, y, e.k === 'bonus' ? '#ffd84a' : '#ff5a4a', e.k === 'bonus' ? 22 : 12);
+      pops.push({x:x + .5, y:y, text:'+' + e.pts, t:0, gold:e.k === 'bonus'});
+      if(e.k === 'bonus'){ beep(784, .07, 'triangle', .07); beep(1046, .1, 'triangle', .07, .07); } else beep(620 + Math.min(10, G.eaten % 10)*20, .05, 'square', .04);
+    } else if(e.k === 'level'){ banner('Nível ' + e.lv + '!'); beep(523, .08, 'triangle', .06); beep(784, .12, 'triangle', .06, .08); }
+    else if(e.k === 'bonusOn'){ beep(1200, .05, 'sine', .05); beep(1500, .05, 'sine', .05, .06); }
+    else if(e.k === 'die'){ shakeT = 420; flashT = 420; deadAt = performance.now(); endAt = deadAt + 1100; beep(150, .25, 'sawtooth', .07); }
+    else if(e.k === 'win'){ endAt = performance.now() + 1200; Snd.fanfare(); }
+  });
+  hud(true);
+}
+function burst(x, y, col, n){
+  for(let i=0;i<n;i++){ const a = Math.random()*Math.PI*2, v = 1.5 + Math.random()*3.5;
+    fx.push({x:x + .5, y:y + .5, vx:Math.cos(a)*v, vy:Math.sin(a)*v, t:0, life:380 + Math.random()*260, col, r:.08 + Math.random()*.1}); }
+}
+
+/* --- desenho --- */
+function draw(t){
+  const N = G.N, c = CELL, now = performance.now();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  let sx = 0, sy = 0;
+  if(shakeT > 0){ const k = shakeT / 420 * 6; sx = (Math.random() - .5) * k; sy = (Math.random() - .5) * k; shakeT -= 16; }
+  ctx.clearRect(0, 0, BS, BS);
+  ctx.save(); ctx.translate(sx, sy);
+  // campo xadrezado
+  ctx.fillStyle = '#0f3a24'; ctx.fillRect(0, 0, BS, BS);
+  ctx.fillStyle = '#12432a';
+  for(let y=0;y<N;y++) for(let x=(y & 1);x<N;x+=2) ctx.fillRect(x*c, y*c, c, c);
+  // obstáculos (pedras)
+  for(let i=0;i<N*N;i++) if(G.wall[i]){ const [x, y] = cxy(i); stone(x*c, y*c, c); }
+  food(t); bonus(t);
+  snake(t);
+  // partículas e pontos
+  fx = fx.filter(p => (p.t += 16) < p.life);
+  fx.forEach(p => { const k = p.t / p.life; ctx.globalAlpha = 1 - k; ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc((p.x + p.vx*k)*c, (p.y + p.vy*k)*c, p.r*c*(1 - k*.5), 0, 7); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  pops = pops.filter(p => (p.t += 16) < 800);
+  pops.forEach(p => { const k = p.t / 800; ctx.globalAlpha = 1 - k*k; ctx.font = `900 ${Math.max(12, c*.62)}px system-ui,sans-serif`; ctx.textAlign = 'center';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(p.text, p.x*c, (p.y - k*1.4)*c);
+    ctx.fillStyle = p.gold ? '#ffd84a' : '#fff'; ctx.fillText(p.text, p.x*c, (p.y - k*1.4)*c); });
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  // borda: parede dourada ou tracejada (atravessar)
+  if(G.wrap){ ctx.setLineDash([c*.5, c*.35]); ctx.strokeStyle = 'rgba(120,220,255,.55)'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, BS - 3, BS - 3); ctx.setLineDash([]); }
+  else { ctx.strokeStyle = '#e7b43a'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, BS - 4, BS - 4); }
+  if(flashT > 0){ ctx.fillStyle = `rgba(255,40,40,${flashT/420*.35})`; ctx.fillRect(0, 0, BS, BS); flashT -= 16; }
+}
+function stone(x, y, c){
+  const p = c*.06, r = c*.22;
+  ctx.fillStyle = '#5d5048'; rrect(x + p, y + p, c - 2*p, c - 2*p, r); ctx.fill();
+  ctx.fillStyle = '#7a6c60'; rrect(x + p, y + p, c - 2*p, (c - 2*p)*.55, r); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(x + c*.62, y + c*.62, c*.1, 0, 7); ctx.fill();
+}
+function rrect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function food(t){
+  if(G.food < 0) return;
+  const [x, y] = cxy(G.food), c = CELL, s = 1 + Math.sin(t / 170) * .07, cx = (x + .5)*c, cy = (y + .54)*c, r = c*.34*s;
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx, (y + .9)*c, r*.8, r*.25, 0, 0, 7); ctx.fill();
+  const gr = ctx.createRadialGradient(cx - r*.35, cy - r*.4, r*.1, cx, cy, r);
+  gr.addColorStop(0, '#ff8a7a'); gr.addColorStop(.55, '#e2342b'); gr.addColorStop(1, '#9c1414');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx - r*.28, cy, r*.78, 0, 7); ctx.arc(cx + r*.28, cy, r*.78, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#5a3416'; ctx.lineWidth = Math.max(1.5, c*.07); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy - r*.6); ctx.quadraticCurveTo(cx + r*.1, cy - r*1.1, cx + r*.25, cy - r*1.2); ctx.stroke();
+  ctx.fillStyle = '#4fc24a'; ctx.beginPath(); ctx.ellipse(cx + r*.5, cy - r*.95, r*.38, r*.17, -.5 + Math.sin(t/300)*.15, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(cx - r*.45, cy - r*.3, r*.14, r*.24, .5, 0, 7); ctx.fill();
+}
+function bonus(t){
+  const b = G.bonus; if(!b) return;
+  if(b.t < SN.TPS*2 && Math.floor(t / 120) % 2) return;     // pisca quando está acabando
+  const [x, y] = cxy(b.c), c = CELL, cx = (x + .5)*c, cy = (y + .5)*c, R = c*.42*(1 + Math.sin(t/120)*.06);
+  ctx.save(); ctx.translate(cx, cy);
+  ctx.strokeStyle = 'rgba(255,216,74,.85)'; ctx.lineWidth = Math.max(2, c*.08);
+  ctx.beginPath(); ctx.arc(0, 0, c*.5, -Math.PI/2, -Math.PI/2 + Math.PI*2*b.t/b.T); ctx.stroke();
+  ctx.rotate(t / 600);
+  ctx.beginPath();
+  for(let i=0;i<10;i++){ const a = i*Math.PI/5 - Math.PI/2, rr = i % 2 ? R*.45 : R; ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr); }
+  ctx.closePath(); ctx.fillStyle = '#ffd84a'; ctx.fill(); ctx.strokeStyle = '#a86b00'; ctx.lineWidth = Math.max(1, c*.05); ctx.stroke();
+  ctx.restore();
+}
+// pontos do corpo com interpolação suave entre as casas
+function bodyPts(){
+  const N = G.N, a = G.dead || !G.started ? 1 : Math.min(1, G.prog), b = G.body, p = G.prev || b, pts = [];
+  for(let i=0;i<b.length;i++){
+    const [x1, y1] = cxy(b[i]); let [x0, y0] = cxy(p[Math.min(i, p.length - 1)]);
+    if(x1 - x0 > 1) x0 += N; else if(x0 - x1 > 1) x0 -= N;      // passou pela borda
+    if(y1 - y0 > 1) y0 += N; else if(y0 - y1 > 1) y0 -= N;
+    pts.push([x0 + (x1 - x0)*a + .5, y0 + (y1 - y0)*a + .5]);
+  }
+  return pts;
+}
+function snake(t){
+  const pts = bodyPts(), c = CELL, n = pts.length;
+  const offs = G.wrap ? [[0,0],[G.N,0],[-G.N,0],[0,G.N],[0,-G.N]] : [[0,0]];
+  const wid = i => c*(.84 - .3*i/Math.max(1, n - 1));
+  const segs = [];
+  for(let i=n-1;i>0;i--){ const A = pts[i], B = pts[i-1]; if(Math.abs(A[0] - B[0]) + Math.abs(A[1] - B[1]) < 1.6) segs.push([A, B, i]); }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  offs.forEach(([ox, oy]) => {
+    const P = q => [(q[0] + ox)*c, (q[1] + oy)*c];
+    // sombra, contorno, corpo com degradê, brilho
+    [[c*.1, 'rgba(0,0,0,.28)', 0, c*.08], [c*.12, '#7a4a0a', 0, 0]].forEach(([extra, col, , dy]) => {
+      ctx.strokeStyle = col;
+      segs.forEach(([A, B, i]) => { const a = P(A), b = P(B); ctx.lineWidth = wid(i) + extra; ctx.beginPath(); ctx.moveTo(a[0], a[1] + dy); ctx.lineTo(b[0], b[1] + dy); ctx.stroke(); });
+    });
+    segs.forEach(([A, B, i]) => {
+      const a = P(A), b = P(B), k = i / Math.max(1, n - 1);
+      ctx.strokeStyle = (i % 4 < 2) ? `hsl(${44 - k*14},92%,${62 - k*10}%)` : `hsl(${40 - k*14},88%,${55 - k*10}%)`;
+      ctx.lineWidth = wid(i); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    });
+    ctx.strokeStyle = 'rgba(255,255,255,.32)';
+    segs.forEach(([A, B, i]) => { const a = P(A), b = P(B), o = -wid(i)*.18; ctx.lineWidth = wid(i)*.25; ctx.beginPath(); ctx.moveTo(a[0], a[1] + o); ctx.lineTo(b[0], b[1] + o); ctx.stroke(); });
+    head(P(pts[0]), t);
+  });
+}
+function head([hx, hy], t){
+  const c = CELL, d = G.dir, fx_ = SN.DX[d], fy = SN.DY[d], px = -fy, py = fx_, r = c*.47;
+  // língua de vez em quando
+  if(!G.dead && G.started && (t % 2600) < 260){
+    ctx.strokeStyle = '#e8304a'; ctx.lineWidth = Math.max(1.5, c*.06); ctx.lineCap = 'round';
+    const L = r + c*.28; ctx.beginPath(); ctx.moveTo(hx + fx_*r*.8, hy + fy*r*.8); ctx.lineTo(hx + fx_*L, hy + fy*L);
+    ctx.lineTo(hx + fx_*(L + c*.1) + px*c*.08, hy + fy*(L + c*.1) + py*c*.08); ctx.moveTo(hx + fx_*L, hy + fy*L);
+    ctx.lineTo(hx + fx_*(L + c*.1) - px*c*.08, hy + fy*(L + c*.1) - py*c*.08); ctx.stroke();
+  }
+  ctx.fillStyle = '#7a4a0a'; ctx.beginPath(); ctx.arc(hx, hy, r + c*.06, 0, 7); ctx.fill();
+  const gr = ctx.createRadialGradient(hx - r*.3, hy - r*.35, r*.1, hx, hy, r);
+  gr.addColorStop(0, '#fff0a8'); gr.addColorStop(1, G.dead ? '#d0703a' : '#f2b43a');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(hx, hy, r, 0, 7); ctx.fill();
+  // olhos (piscam de vez em quando; viram X quando bate)
+  const blink = !G.dead && (t % 3700) < 120;
+  [1, -1].forEach(s => {
+    const ex = hx + fx_*r*.25 + px*r*.45*s, ey = hy + fy*r*.25 + py*r*.45*s, er = r*.3;
+    if(G.dead){
+      ctx.strokeStyle = '#3a1a00'; ctx.lineWidth = Math.max(1.5, c*.06);
+      ctx.beginPath(); ctx.moveTo(ex - er*.6, ey - er*.6); ctx.lineTo(ex + er*.6, ey + er*.6); ctx.moveTo(ex + er*.6, ey - er*.6); ctx.lineTo(ex - er*.6, ey + er*.6); ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, ey, er, blink ? er*.15 : er, 0, 0, 7); ctx.fill();
+    if(!blink){ ctx.fillStyle = '#1b1208'; ctx.beginPath(); ctx.arc(ex + fx_*er*.4, ey + fy*er*.4, er*.55, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + fx_*er*.2 - er*.15, ey + fy*er*.2 - er*.2, er*.18, 0, 7); ctx.fill(); }
+  });
+}
+</script>
+</body>
+</html>
