@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Território</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;padding:6px;gap:8px}
+#stage.port{flex-direction:column;gap:5px;padding:5px}
+.mapbox{position:relative;flex:1;min-width:0;min-height:0;border-radius:14px;overflow:hidden;
+  background:radial-gradient(ellipse at 60% 40%,#1d4f6e 0%,#123650 60%,#0b2438 100%);border:2px solid rgba(231,180,58,.35);box-shadow:0 10px 26px rgba(0,0,0,.45)}
+#tmap{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+#tmap .st{stroke:#0b2438;stroke-width:.9;stroke-linejoin:round;cursor:pointer;transition:fill .35s,opacity .2s}
+#tmap .st.sel{stroke:#fff;stroke-width:2.6}
+#tmap .st.tg{stroke:var(--gold);stroke-width:2.4;animation:tgp 1s ease-in-out infinite}
+#tmap .st.can{stroke:#fff6c8;stroke-width:1.6}
+#tmap .st.dim{opacity:.55}
+#tmap .st.flash{animation:flash .9s ease-out}
+@keyframes tgp{50%{stroke-width:4;stroke:#fff3b0}}
+@keyframes flash{0%{filter:brightness(2.2)}100%{filter:none}}
+#tmap .bd{cursor:pointer}
+#tmap .bd circle{stroke:#0b2438;stroke-width:1.6}
+#tmap .bd text{font:900 12px "Segoe UI",system-ui,Arial,sans-serif;text-anchor:middle;dominant-baseline:central;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:2.2px;pointer-events:none}
+#tmap .bd.lt text{fill:#2a1d00;stroke:rgba(255,255,255,.4)}
+#tmap .bd.sel circle{stroke:#fff;stroke-width:3}
+#tmap .bd.tg circle{stroke:var(--gold);stroke-width:3}
+#tmap .bd.bump circle{animation:bdb .6s ease-out}
+@keyframes bdb{30%{r:16}}
+#tmap .sg{font:700 7.5px "Segoe UI",system-ui,Arial,sans-serif;fill:rgba(255,255,255,.78);text-anchor:middle;pointer-events:none;letter-spacing:.3px}
+#tmap .ld{stroke:rgba(255,255,255,.55);stroke-width:.8;fill:none;pointer-events:none}
+#tmap .arw{fill:none;stroke-width:3.2;stroke-linecap:round;pointer-events:none;opacity:.95}
+#tmap .arw.cur{stroke:#fff;stroke-dasharray:6 5;animation:dash .7s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-11}}
+#tmap .rgl{font:900 13px "Segoe UI",system-ui,Arial,sans-serif;fill:#fff;text-anchor:middle;paint-order:stroke;stroke:rgba(0,0,0,.6);stroke-width:3px;pointer-events:none;letter-spacing:1px}
+.zb{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:5px;z-index:3}
+.zb button{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.45);color:#fff;font-size:18px;font-weight:900;cursor:pointer;line-height:1}
+.zb button.on{background:var(--gold);color:#3a2600}
+.dice{position:absolute;left:8px;bottom:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:12px;padding:6px 9px;display:flex;flex-direction:column;gap:4px;
+  font-size:12px;font-weight:700;color:#e3f3ea;max-width:calc(100% - 16px);pointer-events:none}
+.dice:empty{display:none}
+.dice .dr{display:flex;gap:4px;align-items:center}
+.dice .dd{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-weight:900;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.dice .dd.a{background:#d8433a;color:#fff}.dice .dd.d{background:#f4efe2;color:#222}
+.dice .dd.x{opacity:.4;text-decoration:line-through}
+.dice .vs{margin:0 4px;color:var(--gold)}
+.dice.roll .dd{animation:roll .5s ease-out}
+@keyframes roll{0%{transform:rotate(-200deg) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+.rlegend{position:absolute;left:8px;top:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:10px;padding:6px 9px;font-size:12px;font-weight:700;line-height:1.55;pointer-events:none}
+.rlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.side{width:300px;flex:none;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
+#stage.port .side{width:auto;display:contents}
+.plist{display:flex;flex-direction:column;gap:5px}
+#stage.port .plist{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;order:-1}
+#stage.port .plist.n2{grid-template-columns:1fr 1fr}
+.pl{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.35);border:2px solid transparent;border-radius:11px;padding:5px 9px;font-weight:800;font-size:13.5px;min-width:0}
+.pl.vez{border-color:var(--gold);animation:pulse 1.2s infinite}
+.pl.out{opacity:.42}
+.pl .sw{width:16px;height:16px;border-radius:50%;flex:none;border:2px solid rgba(0,0,0,.5)}
+.pl .nmx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .nums{font-size:11.5px;color:#ffe6a6;white-space:nowrap;font-weight:700}
+#stage.port .pl{padding:3px 6px;font-size:12px;gap:5px;flex-wrap:wrap;row-gap:0}
+#stage.port .pl .sw{width:12px;height:12px}
+#stage.port .pl .nums{font-size:10.5px;width:100%;padding-left:17px}
+.acts{background:rgba(0,0,0,.32);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(255,255,255,.08)}
+#stage.port .acts{padding:7px 8px;gap:6px;min-height:96px}
+.acts .msg2{font-size:14px;font-weight:700;color:#e3f3ea;line-height:1.35;text-align:center}
+.acts .msg2 b{color:var(--gold)}
+.acts .row2{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.ab{flex:1 1 auto;min-width:0;min-height:42px;padding:8px 12px;border-radius:11px;border:none;font-weight:900;font-size:14.5px;cursor:pointer;background:#4a4a4a;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.ab:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.ab.y{background:var(--gold);color:#3a2600}.ab.g{background:var(--nos);color:#06301a}.ab.r{background:#d8433a;color:#fff}
+.ab.on{outline:3px solid #fff}
+.ab:disabled{opacity:.4;cursor:default}
+.cards{display:flex;gap:5px;justify-content:center;align-items:center;font-size:12.5px;color:#cfe;font-weight:700}
+.cd{width:26px;height:34px;border-radius:5px;background:linear-gradient(160deg,#fffef9,#ece4cf);color:#7a2a10;display:grid;place-items:center;font-size:16px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.regs{background:rgba(0,0,0,.25);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.6}
+.regs .rr{display:flex;justify-content:space-between;gap:6px}
+.regs .rr span:last-child{color:#ffe6a6}
+.regs i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:4px;vertical-align:-1px;border:1px solid rgba(0,0,0,.5)}
+.tip{position:absolute;z-index:4;background:rgba(0,0,0,.82);color:#fff;font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px;pointer-events:none;white-space:nowrap;transform:translate(-50%,-130%)}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="territorio-mapa.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================== TERRITÓRIO ==============================
+   Guerra de territórios no mapa do Brasil: 27 estados em 5 regiões.
+   Turno: reforço → ataques (dados 3×2) → mover tropas ao conquistar → 1 fortificação.
+   Cartas simples (▲ ■ ●): ganha 1 por turno com conquista; 3 iguais ou 3 diferentes = tropas extras.
+   ======================================================================== */
+const UFS = Object.keys(TMAPA);
+const ADJ = {ac:['am','ro'], am:['ac','ro','mt','pa','rr'], rr:['am','pa'], pa:['ap','am','rr','mt','to','ma'], ap:['pa'],
+  ro:['ac','am','mt'], to:['pa','ma','pi','ba','go','mt'], ma:['pa','to','pi'], pi:['ma','to','ba','pe','ce'],
+  ce:['pi','pe','pb','rn'], rn:['ce','pb'], pb:['rn','ce','pe'], pe:['pb','ce','pi','ba','al'], al:['pe','ba','se'],
+  se:['al','ba'], ba:['se','al','pe','pi','to','go','mg','es'], mt:['ro','am','pa','to','go','ms'],
+  ms:['mt','go','mg','sp','pr'], go:['mt','to','ba','mg','ms','df'], df:['go','mg'], mg:['ba','go','df','ms','sp','rj','es'],
+  es:['ba','mg','rj'], rj:['es','mg','sp'], sp:['mg','rj','pr','ms'], pr:['sp','ms','sc'], sc:['pr','rs'], rs:['sc']};
+const REG = [
+  {id:'N',  n:'Norte',        b:4, c:'#3f9e6a', uf:['ac','am','rr','pa','ap','ro','to'], l:[215,175]},
+  {id:'NE', n:'Nordeste',     b:5, c:'#d08a3a', uf:['ma','pi','ce','rn','pb','pe','al','se','ba'], l:[505,235]},
+  {id:'CO', n:'Centro-Oeste', b:3, c:'#b8a23a', uf:['mt','ms','go','df'], l:[300,345]},
+  {id:'SE', n:'Sudeste',      b:3, c:'#4a7fc0', uf:['mg','es','rj','sp'], l:[455,410]},
+  {id:'S',  n:'Sul',          b:2, c:'#9a5bb0', uf:['pr','sc','rs'], l:[345,520]}];
+const REGOF = {}; REG.forEach((R, i) => R.uf.forEach(u => REGOF[u] = i));
+const COL = [{n:'Vermelho', c:'#e0463c'}, {n:'Azul', c:'#2f7fe0'}, {n:'Amarelo', c:'#e8b81e', lt:1}, {n:'Verde', c:'#2fae5f'},
+             {n:'Roxo', c:'#9a5bd6'}, {n:'Laranja', c:'#ef7f1a'}];
+const CARD = ['▲','■','●'];
+const TROCA = [4,6,8,10,12,15];
+const bonusTroca = k => k < TROCA.length ? TROCA[k] : 15 + 5 * (k - TROCA.length + 1);
+const INI = {2:30, 3:25, 4:21, 5:18, 6:16};       // tropas iniciais por jogador
+const DIFS = {facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'};
+const nome = u => TMAPA[u].n;
+
+/* ---------------------- dados: probabilidades exatas ---------------------- */
+const ROLL = {};   // ROLL[a*10+d] = [[perdasAtq, perdasDef, prob], ...]
+for(let a=1;a<=3;a++) for(let d=1;d<=2;d++){
+  const acc = {}, tot = Math.pow(6, a + d);
+  for(let k=0;k<tot;k++){
+    let x = k; const A = [], D = [];
+    for(let i=0;i<a;i++){ A.push(x % 6); x = Math.floor(x / 6); }
+    for(let i=0;i<d;i++){ D.push(x % 6); x = Math.floor(x / 6); }
+    A.sort((p, q) => q - p); D.sort((p, q) => q - p);
+    let la = 0, ld = 0;
+    for(let i=0;i<Math.min(a, d);i++){ if(A[i] > D[i]) ld++; else la++; }
+    acc[la + ',' + ld] = (acc[la + ',' + ld] || 0) + 1;
+  }
+  ROLL[a*10 + d] = Object.keys(acc).map(k => { const [la, ld] = k.split(',').map(Number); return [la, ld, acc[k] / tot]; });
+}
+const PW = new Float64Array(81 * 81).fill(-1);
+// chance de conquistar: A tropas atacando (sem contar a que fica) contra D defensores, atacando até o fim
+function pWin(A, D){
+  if(D <= 0) return 1; if(A <= 0) return 0;
+  A = Math.min(A, 80); D = Math.min(D, 80);
+  const k = A * 81 + D; if(PW[k] >= 0) return PW[k];
+  let p = 0;
+  for(const [la, ld, q] of ROLL[Math.min(3, A)*10 + Math.min(2, D)]) p += q * pWin(A - la, D - ld);
+  return PW[k] = p;
+}
+
+/* ------------------------------ regras ------------------------------ */
+const isUF = u => typeof u === 'string' && Object.prototype.hasOwnProperty.call(ADJ, u);
+const countOf = (st, s) => UFS.reduce((n, u) => n + (st.own[u] === s), 0);
+const troopsOf = (st, s) => UFS.reduce((n, u) => n + (st.own[u] === s ? st.tr[u] : 0), 0);
+const regionsOf = (st, s) => REG.filter(R => R.uf.every(u => st.own[u] === s));
+function reforcoDe(st, s){
+  return Math.max(3, Math.floor(countOf(st, s) / 3)) + regionsOf(st, s).reduce((n, R) => n + R.b, 0);
+}
+// índices de 3 cartas que formam um conjunto (3 iguais ou 3 diferentes), ou null
+function acharTroca(c){
+  if(!Array.isArray(c) || c.length < 3) return null;
+  const by = [[],[],[]]; c.forEach((x, i) => by[x] && by[x].push(i));
+  if(by.every(b => b.length)) return [by[0][0], by[1][0], by[2][0]];
+  const t = by.find(b => b.length >= 3); return t ? t.slice(0, 3) : null;
+}
+function fazerTroca(st, s, ev){
+  const idx = acharTroca(st.cards[s]); if(!idx) return false;
+  const b = bonusTroca(st.trocas++);
+  st.cards[s] = st.cards[s].filter((_, i) => !idx.includes(i));
+  st.pool += b;
+  ev.push({k:'log', text:`${esc(st.names[s])} trocou cartas: +${b} tropas`}, {k:'snd', s:'deal'});
+  return true;
+}
+// estados meus ligados a "from" por estados meus (para a fortificação)
+function conectados(st, from){
+  const s = st.own[from], seen = new Set([from]), q = [from];
+  while(q.length){ const u = q.pop(); for(const v of ADJ[u]) if(!seen.has(v) && st.own[v] === s){ seen.add(v); q.push(v); } }
+  seen.delete(from); return seen;
+}
+function iniciarVez(st, ev){
+  const s = st.turn;
+  st.fase = 'reforco'; st.conq = false; st.placed = {}; st.pend = null; st.tn++;
+  st.pool = reforcoDe(st, s);
+  while(st.cards[s].length >= 5 && fazerTroca(st, s, ev));
+  ev.push({k:'vez', seat:s, pool:st.pool});
+}
+function ordem(st, x){ return (x - st.start + st.n) % st.n; }
+function fimDeVez(st, ev){
+  const s = st.turn;
+  if(st.conq){ st.cards[s].push(Math.floor(Math.random() * 3)); ev.push({k:'card', seat:s}); }
+  let nx = s; do { nx = (nx + 1) % st.n; } while(!st.vivo[nx]);
+  if(ordem(st, nx) <= ordem(st, s)){
+    st.rodada++;
+    if(st.rodada > st.limR){ encerrarPorContagem(st, ev); return; }
+  }
+  st.turn = nx;
+  iniciarVez(st, ev);
+}
+function encerrarPorContagem(st, ev){
+  st.rodada = st.limR;
+  const sc = st.names.map((_, s) => st.vivo[s] ? countOf(st, s) * 1000 + troopsOf(st, s) : -1);
+  const best = Math.max(...sc), win = sc.map((x, s) => x === best ? s : -1).filter(s => s >= 0);
+  const c = countOf(st, win[0]);
+  st.res = {winners:win, draw:win.length > 1,
+    text:`Fim das ${st.limR} rodadas. ` + (win.length > 1 ? 'Empate entre ' + win.map(s => `<b>${esc(st.names[s])}</b>`).join(' e ') + ` (${c} estados).`
+      : `<b>${esc(st.names[win[0]])}</b> tem o maior território: ${c} estados.`)};
+  ev.push({k:'banner', text:'Fim das rodadas!'});
+}
+function checarVitoria(st, s){
+  const vivos = st.vivo.filter(Boolean).length, c = countOf(st, s);
+  if(vivos === 1 || c >= UFS.length) st.res = {winners:[s], text:`<b>${esc(st.names[s])}</b> dominou o Brasil inteiro!`};
+  else if(c >= st.alvo) st.res = {winners:[s], text:`<b>${esc(st.names[s])}</b> chegou a ${c} estados e venceu!`};
+}
+function rolar(n){ return Array.from({length:n}, () => 1 + Math.floor(Math.random() * 6)).sort((a, b) => b - a); }
+
+const diffOf = (st, s, o) => (st.dl && st.dl[s]) || (o && o.diff) || 'normal';
+
+function setup(players, o){
+  const n = players.length;
+  const st = {n, names:players.map(p => p.name), own:{}, tr:{}, cards:players.map(() => []), vivo:players.map(() => true),
+    start:Math.floor(Math.random() * n), turn:0, rodada:1, fase:'reforco', pool:0, conq:false, trocas:0, pend:null,
+    last:null, seq:0, tn:0, mv:null, placed:{}, res:null, obj:o.obj === 'rapido' ? 'rapido' : 'total',
+    limR:o.obj === 'rapido' ? 15 : 60, alvo:o.obj === 'rapido' ? (n === 2 ? 18 : 15) : UFS.length, elim:[]};
+  st.turn = st.start;
+  // distribui os estados: quem joga por último recebe as sobras
+  shuffle(UFS.slice()).forEach((u, i) => { st.own[u] = (st.start + n - 1 - (i % n)) % n; st.tr[u] = 1; });
+  for(let s=0;s<n;s++){
+    const mine = UFS.filter(u => st.own[u] === s);
+    for(let k=mine.length;k<INI[n];k++) st.tr[pick(mine)]++;
+  }
+  const ev = []; iniciarVez(st, ev);
+  st.ev0 = ev;
+  return st;
+}
+
+function apply(st, s, a){
+  if(st.res) return {ok:false, err:'A partida acabou.'};
+  if(s !== st.turn) return {ok:false, err:'Não é a sua vez.'};
+  if(!a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+  const ev = [], nm = esc(st.names[s]);
+  switch(st.fase){
+    case 'reforco': {
+      if(a.t === 'troca'){
+        if(!fazerTroca(st, s, ev)) return {ok:false, err:'Você não tem 3 cartas iguais ou 3 diferentes.'};
+        return {events:ev};
+      }
+      if(a.t !== 'por') return {ok:false, err:'Primeiro distribua suas tropas.'};
+      if(!isUF(a.id) || st.own[a.id] !== s) return {ok:false, err:'Escolha um estado seu.'};
+      const n = Math.floor(+a.n);
+      if(!(n >= 1 && n <= st.pool)) return {ok:false, err:'Quantidade inválida.'};
+      st.tr[a.id] += n; st.pool -= n; st.placed[a.id] = (st.placed[a.id] || 0) + n;
+      ev.push({k:'snd', s:'move'}, {k:'put', uf:a.id});
+      if(st.pool === 0){ st.fase = 'ataque'; ev.push({k:'log', text:`${nm} reforçou ${Object.keys(st.placed).map(u => `${u.toUpperCase()} +${st.placed[u]}`).join(', ')}`}); }
+      return {events:ev};
+    }
+    case 'ataque': {
+      if(a.t === 'fim'){ st.fase = 'fortificar'; return {events:ev}; }
+      if(a.t !== 'atk') return {ok:false, err:'Escolha um ataque ou encerre os ataques.'};
+      const {from, to} = a;
+      if(!isUF(from) || !isUF(to) || st.own[from] !== s) return {ok:false, err:'Ataque a partir de um estado seu.'};
+      if(st.own[to] === s) return {ok:false, err:'Esse estado já é seu.'};
+      if(!ADJ[from].includes(to)) return {ok:false, err:'Só dá para atacar um estado vizinho.'};
+      if(st.tr[from] < 2) return {ok:false, err:'É preciso ter pelo menos 2 tropas para atacar.'};
+      const para = a.ate ? clamp(Math.floor(+a.para) || 1, 1, 999) : 0, def = st.own[to];
+      let rolls = 0, LA = 0, LD = 0, ad = 0, A, Dd;
+      do {
+        ad = Math.min(3, st.tr[from] - 1); const dd = Math.min(2, st.tr[to]);
+        A = rolar(ad); Dd = rolar(dd);
+        for(let i=0;i<Math.min(ad, dd);i++){ if(A[i] > Dd[i]){ st.tr[to]--; LD++; } else { st.tr[from]--; LA++; } }
+        rolls++;
+      } while(a.ate && st.tr[to] > 0 && st.tr[from] >= 2 && st.tr[from] > para && rolls < 500);
+      const conq = st.tr[to] === 0;
+      st.last = {seq:++st.seq, seat:s, def, from, to, a:A, d:Dd, la:LA, ld:LD, rolls, conq};
+      ev.push({k:'snd', s:'capture'});
+      if(conq){
+        st.own[to] = s; st.conq = true;
+        const min = ad, max = st.tr[from] - 1;
+        ev.push({k:'log', text:`${nm} conquistou <b>${nome(to)}</b> de ${esc(st.names[def])}`}, {k:'conq', uf:to, seat:s});
+        const R = REG[REGOF[to]];
+        if(R.uf.every(u => st.own[u] === s)) ev.push({k:'banner', text:`${st.names[s]} domina o ${R.n}!`});
+        if(countOf(st, def) === 0){
+          st.vivo[def] = false; st.elim.push(def);
+          st.cards[s] = st.cards[s].concat(st.cards[def]); st.cards[def] = [];
+          ev.push({k:'banner', text:`${st.names[def]} foi eliminado!`, bad:true}, {k:'log', text:`<b>${esc(st.names[def])}</b> foi eliminado por ${nm}`});
+        }
+        if(min >= max){ st.tr[from] -= max; st.tr[to] = max; st.mv = {from, to}; }
+        else { st.pend = {from, to, min, max}; st.fase = 'mover'; }
+        checarVitoria(st, s);
+      }
+      return {events:ev};
+    }
+    case 'mover': {
+      const p = st.pend, n = Math.floor(+a.n);
+      if(a.t !== 'mov' || !(n >= p.min && n <= p.max)) return {ok:false, err:`Mova de ${p.min} a ${p.max} tropas.`};
+      st.tr[p.from] -= n; st.tr[p.to] = n; st.mv = {from:p.from, to:p.to}; st.pend = null; st.fase = 'ataque';
+      ev.push({k:'snd', s:'move'});
+      return {events:ev};
+    }
+    case 'fortificar': {
+      if(a.t === 'fim'){ fimDeVez(st, ev); return {events:ev}; }
+      if(a.t !== 'fort') return {ok:false, err:'Mova tropas ou encerre a vez.'};
+      const {from, to} = a, n = Math.floor(+a.n);
+      if(!isUF(from) || !isUF(to) || st.own[from] !== s || st.own[to] !== s || from === to) return {ok:false, err:'Escolha dois estados seus.'};
+      if(!conectados(st, from).has(to)) return {ok:false, err:'Os estados precisam estar ligados por estados seus.'};
+      if(!(n >= 1 && n <= st.tr[from] - 1)) return {ok:false, err:'Pelo menos 1 tropa tem de ficar no estado.'};
+      st.tr[from] -= n; st.tr[to] += n; st.mv = {from, to};
+      ev.push({k:'snd', s:'move'}, {k:'log', text:`${nm} moveu ${n} de ${from.toUpperCase()} para ${to.toUpperCase()}`});
+      fimDeVez(st, ev);
+      return {events:ev};
+    }
+  }
+  return {ok:false, err:'Jogada inválida.'};
+}
+
+/* ------------------------------- BOTS -------------------------------
+   Ideias: escolhe uma região-alvo (barata de completar e valiosa), concentra o reforço numa
+   fronteira de onde pode atacar, só ataca com boa chance (probabilidade exata dos dados),
+   valoriza a 1ª conquista do turno (carta), quebrar região do adversário e eliminar jogadores;
+   protege regiões completas e leva tropas do interior para a fronteira. */
+function analise(st, s){
+  const enemyN = {}, danger = {};
+  for(const u of UFS){
+    const en = ADJ[u].filter(v => st.own[v] !== s); enemyN[u] = en;
+    danger[u] = en.reduce((n, v) => n + st.tr[v] - 1, 0);
+  }
+  const cnt = st.names.map((_, k) => countOf(st, k)), lead = cnt.indexOf(Math.max(...cnt));
+  // pontuação das regiões para o jogador s
+  const rs = REG.map(R => {
+    let o = 0, cost = 0;
+    for(const u of R.uf){ if(st.own[u] === s) o++; else cost += st.tr[u] + 1; }
+    return {R, o, cost, full:o === R.uf.length, score:o === R.uf.length ? -1 : (R.b + 1.5) * (o + 1) / R.uf.length / (cost + 3)};
+  });
+  const alvo = rs.reduce((b, x) => x.score > b.score ? x : b, rs[0]);
+  return {enemyN, danger, cnt, lead, rs, alvo:alvo.score > 0 ? REG.indexOf(alvo.R) : -1};
+}
+// quanto vale conquistar o estado v
+function valor(st, s, v, A, lv){
+  const R = REG[REGOF[v]], def = st.own[v];
+  let val = 1;
+  if(REGOF[v] === A.alvo) val += 2;
+  if(R.uf.every(u => u === v || st.own[u] === s)) val += R.b * 1.6;
+  if(R.uf.every(u => st.own[u] === def)) val += R.b * (lv === 'facil' ? .5 : 1.3);
+  if(!st.conq) val += 2.5;
+  if(lv !== 'facil'){
+    if(A.cnt[def] === 1) val += 3 + st.cards[def].length * 1.2;
+    if(def === A.lead && st.n > 2) val += .6;
+    // não abrir a guarda: estado de onde sai fica fraco
+  }
+  return val;
+}
+function botReforco(st, s, lv){
+  if(acharTroca(st.cards[s])) return {t:'troca'};
+  const A = analise(st, s), pool = st.pool;
+  const mine = UFS.filter(u => st.own[u] === s && A.enemyN[u].length);
+  if(!mine.length){ const any = UFS.find(u => st.own[u] === s); return {t:'por', id:any, n:pool}; }
+  // defesa: fronteira de região completa sob ameaça
+  if(lv !== 'facil'){
+    let need = null, nd = 0;
+    for(const u of mine){
+      const R = REG[REGOF[u]];
+      if(!R.uf.every(x => st.own[x] === s)) continue;
+      const gap = A.danger[u] - st.tr[u] + 2;
+      if(gap > nd){ nd = gap; need = u; }
+    }
+    if(need && nd > 0 && (lv === 'dificil' || nd >= 3)){
+      const n = Math.min(pool, Math.ceil(nd * (lv === 'dificil' ? 1 : .7)));
+      if(n > 0 && n < pool || nd >= pool * .8) return {t:'por', id:need, n:Math.max(1, Math.min(pool, n))};
+    }
+  }
+  // ataque: onde o reforço gera o melhor ataque
+  const sc = mine.map(u => {
+    let best = 0;
+    for(const v of A.enemyN[u]){
+      const p = pWin(st.tr[u] - 1 + pool, st.tr[v]);
+      best = Math.max(best, p * valor(st, s, v, A, lv) - (1 - p) * 1.5);
+    }
+    const defense = lv === 'facil' ? 0 : Math.max(0, A.danger[u] - st.tr[u]) * .08;
+    return [u, best + defense];
+  }).sort((x, y) => y[1] - x[1]);
+  if(lv === 'facil'){
+    const [u] = pick(sc.slice(0, 3));
+    return {t:'por', id:u, n:Math.max(1, Math.min(pool, Math.ceil(pool / 2)))};
+  }
+  return {t:'por', id:sc[0][0], n:pool};
+}
+function botAtaque(st, s, lv){
+  const A = analise(st, s);
+  const thr = {facil:.5, normal:.6, dificil:.58}[lv];
+  let cands = [];
+  for(const u of UFS){
+    if(st.own[u] !== s || st.tr[u] < 2) continue;
+    for(const v of A.enemyN[u]){
+      const p = pWin(st.tr[u] - 1, st.tr[v]);
+      if(p < thr) continue;
+      let val = valor(st, s, v, A, lv);
+      // deixar uma região completa desprotegida custa caro
+      if(lv !== 'facil'){
+        const R = REG[REGOF[u]];
+        const others = A.enemyN[u].filter(x => x !== v);
+        if(others.length && R.uf.every(x => st.own[x] === s)){
+          const thr2 = others.reduce((n, x) => n + st.tr[x] - 1, 0);
+          val -= Math.min(R.b, thr2 * .35);
+        }
+        if(lv === 'dificil' && st.tr[u] - 1 < st.tr[v] + 1 && st.conq) val -= 1;
+      }
+      const score = p * val - (1 - p) * (lv === 'dificil' ? 2 : 1.2);
+      if(score > (st.conq ? .7 : .2)) cands.push([u, v, score, p]);
+    }
+  }
+  if(!cands.length) return null;
+  cands.sort((x, y) => y[2] - x[2]);
+  let c = cands[0];
+  if(lv === 'facil'){
+    if(st.conq && Math.random() < .3) return null;
+    c = pick(cands.slice(0, 3));
+  }
+  const para = lv === 'facil' ? 1 : Math.max(1, Math.floor(st.tr[c[0]] / 3));
+  return {t:'atk', from:c[0], to:c[1], ate:true, para};
+}
+function botMover(st, s, lv){
+  const p = st.pend, A = analise(st, s);
+  const ef = A.enemyN[p.from].length, et = A.enemyN[p.to].length;
+  if(lv === 'facil') return ef ? Math.max(p.min, Math.ceil(p.max / 2)) : p.max;
+  if(!ef) return p.max;
+  if(!et) return p.min;
+  const T = p.max + 1;
+  const wf = A.danger[p.from] + 1 + (REG[REGOF[p.from]].uf.every(x => st.own[x] === s) ? 3 : 0);
+  const wt = A.danger[p.to] + 1 + 3;
+  return clamp(Math.round(T * wt / (wt + wf)), p.min, p.max);
+}
+function botFort(st, s, lv){
+  if(lv === 'facil' && Math.random() < .5) return null;
+  const A = analise(st, s);
+  const need = u => A.danger[u] - st.tr[u] + (REG[REGOF[u]].uf.every(x => st.own[x] === s) ? 3 : 0) + (REGOF[u] === A.alvo ? 2 : 0);
+  let best = null, bs = 0;
+  for(const u of UFS){
+    if(st.own[u] !== s || st.tr[u] < 2) continue;
+    const interior = !A.enemyN[u].length;
+    const spare = interior ? st.tr[u] - 1 : (lv === 'dificil' ? st.tr[u] - 1 - Math.max(2, A.danger[u] + 1) : 0);
+    if(spare < 1) continue;
+    for(const v of conectados(st, u)){
+      if(!A.enemyN[v].length) continue;
+      const sc = spare * (1 + Math.max(0, need(v)) * .2) - (interior ? 0 : need(u) * .2);
+      if(sc > bs){ bs = sc; best = {t:'fort', from:u, to:v, n:spare}; }
+    }
+  }
+  return best;
+}
+/* ---- Difícil: avaliação da posição + valor esperado sobre os resultados exatos dos dados ---- */
+// valor da posição para s: (tropas + 3×renda + cartas) dele menos a média dos rivais, menos o risco nas fronteiras
+function avaliar(st, s){
+  const n = st.n, T = new Array(n).fill(0), S = new Array(n).fill(0), I = new Array(n).fill(0);
+  for(const u of UFS){ T[st.own[u]]++; S[st.own[u]] += st.tr[u]; }
+  for(let k=0;k<n;k++) I[k] = T[k] ? Math.max(3, Math.floor(T[k] / 3)) : 0;
+  const full = REG.map(R => { const o = st.own[R.uf[0]]; return R.uf.every(u => st.own[u] === o) ? o : -1; });
+  full.forEach((o, i) => { if(o >= 0) I[o] += REG[i].b; });
+  const cv = bonusTroca(st.trocas) / 3;
+  const nc = k => (Array.isArray(st.cards[k]) ? st.cards[k].length : st.cards[k]) + (k === st.turn && st.conq ? 1 : 0);
+  const V = k => S[k] + 3 * I[k] + nc(k) * cv;
+  let opp = 0, alive = 0;
+  for(let k=0;k<n;k++) if(k !== s && T[k]){ opp += V(k); alive++; }
+  let score = V(s) - (alive ? opp / alive : 0) + (alive ? 0 : 1000);
+  // risco: cada fronteira minha pode cair na próxima rodada (rival concentra a renda dele ali)
+  for(const u of UFS){
+    if(st.own[u] !== s) continue;
+    let best = 0;
+    for(const x of ADJ[u]){ const k = st.own[x]; if(k !== s){ const a = st.tr[x] - 1 + I[k] * .7; if(a > best) best = a; } }
+    if(best <= 0) continue;
+    const r = REGOF[u], loss = 1 + (full[r] === s ? 3 * REG[r].b : 0) + st.tr[u] * .3;
+    score -= pWin(Math.round(best), st.tr[u]) * loss;
+  }
+  return score;
+}
+// distribuição final de um ataque "até o fim": [[atqRestante, defRestante, prob], ...]
+function distAtaque(A, D){
+  let cur = new Map([[A * 1000 + D, 1]]); const out = [];
+  while(cur.size){
+    const nx = new Map();
+    for(const [k, p] of cur){
+      const a = Math.floor(k / 1000), d = k % 1000;
+      if(a === 0 || d === 0){ out.push([a, d, p]); continue; }
+      for(const [la, ld, q] of ROLL[Math.min(3, a)*10 + Math.min(2, d)]){ const kk = (a - la) * 1000 + d - ld; nx.set(kk, (nx.get(kk) || 0) + p * q); }
+    }
+    cur = nx;
+  }
+  return out;
+}
+// valor esperado de atacar u→v até o fim (simula cada resultado no próprio estado e desfaz)
+function evAtaque(st, s, u, v){
+  const tu = st.tr[u], tv = st.tr[v], ov = st.own[v], oc = st.conq;
+  let ev = 0;
+  for(const [a, d, p] of distAtaque(tu - 1, tv)){
+    if(p < 1e-4) continue;
+    if(d === 0){
+      st.own[v] = s; st.conq = true;
+      const mv = Math.min(a, Math.max(Math.min(3, a), moverHeur(st, s, u, v, a)));
+      st.tr[u] = a + 1 - mv; st.tr[v] = mv;
+      // eliminar um rival: ficamos com as cartas dele
+      let extra = 0; if(countOf(st, ov) === 0) extra = (st.cards[ov].length || 0) * bonusTroca(st.trocas) / 3 + 4;
+      ev += p * (avaliar(st, s) + extra);
+      st.own[v] = ov; st.conq = oc;
+    } else { st.tr[u] = 1; st.tr[v] = d; ev += p * avaliar(st, s); }
+  }
+  st.tr[u] = tu; st.tr[v] = tv;
+  return ev;
+}
+// quantas tropas levar (heurística rápida usada dentro da simulação)
+function moverHeur(st, s, from, to, max){
+  const ef = ADJ[from].some(x => st.own[x] !== s), et = ADJ[to].some(x => st.own[x] !== s);
+  if(!ef) return max; if(!et) return 1;
+  let df = 0, dt = 0;
+  for(const x of ADJ[from]) if(st.own[x] !== s) df += st.tr[x];
+  for(const x of ADJ[to]) if(st.own[x] !== s) dt += st.tr[x];
+  return Math.round((max + 1) * (dt + 3) / (dt + df + 4));
+}
+function ataqueDificil(st, s){
+  const base = avaliar(st, s);
+  let best = null, bg = .35;
+  for(const u of UFS){
+    if(st.own[u] !== s || st.tr[u] < 2) continue;
+    for(const v of ADJ[u]){
+      if(st.own[v] === s || pWin(st.tr[u] - 1, st.tr[v]) < .3) continue;
+      const g = evAtaque(st, s, u, v) - base;
+      if(g > bg){ bg = g; best = {t:'atk', from:u, to:v, ate:true, para:Math.max(1, Math.floor(st.tr[u] / 4))}; }
+    }
+  }
+  return best;
+}
+function reforcoDificil(st, s){
+  if(acharTroca(st.cards[s])) return {t:'troca'};
+  const pool = st.pool;
+  let best = null, bs = -1e9;
+  for(const u of UFS){
+    if(st.own[u] !== s || !ADJ[u].some(x => st.own[x] !== s)) continue;
+    for(const n of [...new Set([pool, Math.ceil(pool / 2)])]){
+      st.tr[u] += n;
+      let sc = avaliar(st, s);
+      // melhor ataque que esse reforço permite
+      if(n === pool){
+        const base = sc; let g = 0;
+        for(const v of ADJ[u]) if(st.own[v] !== s && pWin(st.tr[u] - 1, st.tr[v]) > .3) g = Math.max(g, evAtaque(st, s, u, v) - base);
+        sc += g;
+      }
+      st.tr[u] -= n;
+      if(sc > bs){ bs = sc; best = {t:'por', id:u, n}; }
+    }
+  }
+  return best || {t:'por', id:UFS.find(u => st.own[u] === s), n:pool};
+}
+function moverDificil(st, s){
+  const p = st.pend; let best = p.max, bs = -1e9;
+  const step = Math.max(1, Math.floor((p.max - p.min) / 12));
+  for(let n=p.min;n<=p.max;n+=step){
+    st.tr[p.from] -= n; st.tr[p.to] = n;
+    const sc = avaliar(st, s);
+    st.tr[p.from] += n; st.tr[p.to] = 0;
+    if(sc > bs){ bs = sc; best = n; }
+  }
+  return best;
+}
+function fortDificil(st, s){
+  const base = avaliar(st, s); let best = null, bg = .05;
+  for(const u of UFS){
+    if(st.own[u] !== s || st.tr[u] < 2) continue;
+    const con = conectados(st, u);
+    for(const v of con){
+      for(const n of [...new Set([st.tr[u] - 1, Math.ceil((st.tr[u] - 1) / 2)])]){
+        st.tr[u] -= n; st.tr[v] += n;
+        const g = avaliar(st, s) - base;
+        st.tr[u] += n; st.tr[v] -= n;
+        if(g > bg){ bg = g; best = {t:'fort', from:u, to:v, n}; }
+      }
+    }
+  }
+  return best;
+}
+function bot(st, s, o){
+  const lv = diffOf(st, s, o);
+  if(lv === 'dificil') switch(st.fase){
+    case 'reforco': return reforcoDificil(st, s);
+    case 'ataque': return ataqueDificil(st, s) || {t:'fim'};
+    case 'mover': return {t:'mov', n:moverDificil(st, s)};
+    case 'fortificar': return fortDificil(st, s) || {t:'fim'};
+  }
+  switch(st.fase){
+    case 'reforco': return botReforco(st, s, lv);
+    case 'ataque': return botAtaque(st, s, lv) || {t:'fim'};
+    case 'mover': return {t:'mov', n:botMover(st, s, lv)};
+    case 'fortificar': return botFort(st, s, lv) || {t:'fim'};
+  }
+  return {t:'fim'};
+}
+function botFallback(st, s){
+  if(st.fase === 'reforco') return {t:'por', id:UFS.find(u => st.own[u] === s), n:st.pool};
+  if(st.fase === 'mover') return {t:'mov', n:st.pend.min};
+  return {t:'fim'};
+}
+
+/* ------------------------------- TELA ------------------------------- */
+const VB0 = {x:-6, y:-6, w:652, h:652};
+let VB = Object.assign({}, VB0), layoutKey = '', SEL = {key:'', from:null, to:null}, AMT = 1, REGMODE = false;
+let lastSeq = -1, diceRolling = 0, gestures = null;
+
+function mapSVG(){
+  let paths = '', lines = '', bads = '', sig = '', rl = '';
+  for(const u of UFS){
+    const m = TMAPA[u];
+    paths += `<path class="st" id="p_${u}" data-uf="${u}" d="${m.d}"/>`;
+    if(m.a) lines += `<path class="ld" d="M${m.a[0]} ${m.a[1]}L${m.l[0]} ${m.l[1]}"/><circle cx="${m.a[0]}" cy="${m.a[1]}" r="1.6" fill="rgba(255,255,255,.7)"/>`;
+    bads += `<g class="bd" id="b_${u}" data-uf="${u}" transform="translate(${m.l[0]},${m.l[1]})"><circle r="11"/><text id="t_${u}">1</text></g>`;
+    sig += `<text class="sg" x="${m.a ? m.l[0] + 15 : m.l[0]}" y="${m.a ? m.l[1] + 3 : m.l[1] + 20}">${u.toUpperCase()}</text>`;
+  }
+  REG.forEach(R => rl += `<text class="rgl" x="${R.l[0]}" y="${R.l[1]}">${R.n.toUpperCase()} +${R.b}</text>`);
+  return `<g id="gst">${paths}</g><g>${lines}</g><g id="garw"></g><g id="gbd">${bads}</g><g id="gsg">${sig}</g><g id="grl" style="display:none">${rl}</g>`;
+}
+function setVB(){
+  const svg = $('#tmap'); if(!svg) return;
+  VB.w = clamp(VB.w, 110, VB0.w); VB.h = VB.w;
+  VB.x = clamp(VB.x, VB0.x - VB.w * .3, VB0.x + VB0.w - VB.w * .7); VB.y = clamp(VB.y, VB0.y - VB.h * .3, VB0.y + VB0.h - VB.h * .7);
+  svg.setAttribute('viewBox', `${VB.x} ${VB.y} ${VB.w} ${VB.h}`);
+}
+// unidades do mapa por pixel de tela (viewBox quadrado, "meet")
+function upp(){ const r = $('#tmap').getBoundingClientRect(); return VB.w / Math.min(r.width, r.height); }
+function toMap(cx, cy){
+  const r = $('#tmap').getBoundingClientRect(), k = upp();
+  return [VB.x + VB.w/2 + (cx - r.left - r.width/2) * k, VB.y + VB.h/2 + (cy - r.top - r.height/2) * k];
+}
+function zoomAt(f, cx, cy){
+  const [mx, my] = cx == null ? [VB.x + VB.w/2, VB.y + VB.h/2] : toMap(cx, cy);
+  const nw = clamp(VB.w / f, 110, VB0.w), k = nw / VB.w;
+  VB.x = mx - (mx - VB.x) * k; VB.y = my - (my - VB.y) * k; VB.w = nw; VB.h = nw; setVB();
+}
+function wireMap(ui){
+  const svg = $('#tmap'), P = new Map();
+  let start = null, moved = false, pinch = null;
+  svg.addEventListener('pointerdown', e => {
+    P.set(e.pointerId, [e.clientX, e.clientY]);
+    try{ svg.setPointerCapture(e.pointerId); }catch(_){}
+    if(P.size === 1){ const t = e.target.closest('[data-uf]'); start = {x:e.clientX, y:e.clientY, vx:VB.x, vy:VB.y, uf:t && t.dataset.uf}; moved = false; }
+    if(P.size === 2){ const [a, b] = [...P.values()]; pinch = {d:Math.hypot(a[0]-b[0], a[1]-b[1]), w:VB.w}; moved = true; }
+  });
+  svg.addEventListener('pointermove', e => {
+    if(!P.has(e.pointerId)) { hoverTip(e); return; }
+    P.set(e.pointerId, [e.clientX, e.clientY]);
+    if(P.size >= 2 && pinch){
+      const [a, b] = [...P.values()], d = Math.hypot(a[0]-b[0], a[1]-b[1]);
+      zoomAt(VB.w / (pinch.w * pinch.d / Math.max(20, d)), (a[0]+b[0])/2, (a[1]+b[1])/2);
+    } else if(start){
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if(Math.hypot(dx, dy) > 8) moved = true;
+      if(moved && VB.w < VB0.w - 1){ const k = upp(); VB.x = start.vx - dx * k; VB.y = start.vy - dy * k; setVB(); }
+    }
+  });
+  const up = e => {
+    P.delete(e.pointerId);
+    if(P.size < 2) pinch = null;
+    if(P.size === 0){ if(start && !moved && start.uf) tapUF(start.uf, ui); start = null; }
+  };
+  svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', e => { P.delete(e.pointerId); start = null; pinch = null; });
+  svg.addEventListener('pointerleave', () => { const t = $('#ttip'); if(t) t.remove(); });
+  svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.18 : 1/1.18, e.clientX, e.clientY); }, {passive:false});
+  $('#zIn').onclick = () => zoomAt(1.35); $('#zOut').onclick = () => zoomAt(1/1.35);
+  $('#zFit').onclick = () => { VB = Object.assign({}, VB0); setVB(); };
+  $('#zReg').onclick = () => { REGMODE = !REGMODE; ui.rerender(); };
+}
+function hoverTip(e){
+  if(e.pointerType !== 'mouse') return;
+  const t = e.target.closest && e.target.closest('[data-uf]'), box = $('.mapbox');
+  let tip = $('#ttip');
+  if(!t || !box){ if(tip) tip.remove(); return; }
+  const v = Mesa.ui.view, g = v && v.game; if(!g) return;
+  const u = t.dataset.uf, r = box.getBoundingClientRect();
+  if(!tip){ tip = document.createElement('div'); tip.id = 'ttip'; tip.className = 'tip'; box.appendChild(tip); }
+  tip.textContent = `${nome(u)} · ${g.tr[u]} tropa${g.tr[u] > 1 ? 's' : ''} · ${pname(v, g.own[u])} · ${REG[REGOF[u]].n}`;
+  tip.style.left = (e.clientX - r.left) + 'px'; tip.style.top = (e.clientY - r.top) + 'px';
+}
+const pname = (v, s) => v.seats && v.seats[s] ? v.seats[s].name : '';
+const myTurn = (v, g) => v.phase === 'game' && g.turn === v.me && v.waiting.includes(v.me);
+
+// toque num estado
+function tapUF(u, ui){
+  const v = ui.view, g = v && v.game; if(!g || !isUF(u)) return;
+  if(!myTurn(v, g)){ if(v.phase === 'game') toast(`${nome(u)}: ${g.tr[u]} tropa(s) de ${pname(v, g.own[u])}`); return; }
+  const me = v.me, mine = g.own[u] === me;
+  if(g.fase === 'reforco'){
+    if(!mine){ toast('Toque num estado seu para colocar tropas.'); return; }
+    const n = AMT === 'all' ? g.pool : Math.min(AMT, g.pool);
+    ui.act({t:'por', id:u, n}); return;
+  }
+  if(g.fase === 'ataque'){
+    if(mine){
+      if(SEL.from === u){ SEL.from = SEL.to = null; }
+      else if(g.tr[u] < 2) toast('Precisa de 2 ou mais tropas para atacar.');
+      else if(!ADJ[u].some(x => g.own[x] !== me)) toast('Esse estado não faz fronteira com inimigos.');
+      else { SEL.from = u; SEL.to = null; }
+    } else if(SEL.from && ADJ[SEL.from].includes(u)){
+      if(SEL.to === u) ui.act({t:'atk', from:SEL.from, to:u});
+      else SEL.to = u;
+    } else {
+      const from = ADJ[u].filter(x => g.own[x] === me && g.tr[x] >= 2).sort((a, b) => g.tr[b] - g.tr[a])[0];
+      if(from){ SEL.from = from; SEL.to = u; } else toast('Nenhum estado seu com 2+ tropas faz fronteira com ' + nome(u) + '.');
+    }
+    ui.rerender(); return;
+  }
+  if(g.fase === 'fortificar'){
+    if(!mine){ toast('Na fortificação, escolha estados seus.'); return; }
+    if(SEL.from === u){ SEL.from = SEL.to = null; }
+    else if(SEL.from && conectados(g, SEL.from).has(u)) SEL.to = u;
+    else if(g.tr[u] >= 2){ SEL.from = u; SEL.to = null; }
+    else toast('Escolha um estado com 2 ou mais tropas.');
+    ui.rerender();
+  }
+}
+
+function render(g, v, ui){
+  const st = ui.stage, W = st.clientWidth, H = st.clientHeight;
+  const port = !(W >= 760 && W > H * 1.05);
+  const key = (port ? 'p' : 'l') + g.n;
+  if(layoutKey !== key || !$('#tmap')){
+    layoutKey = key;
+    st.classList.toggle('port', port);
+    st.innerHTML = `<div class="mapbox"><svg id="tmap" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${mapSVG()}</svg>
+      <div class="zb"><button id="zIn" title="Aproximar">+</button><button id="zOut" title="Afastar">−</button><button id="zFit" title="Ver o mapa todo">⤢</button><button id="zReg" title="Ver regiões" style="font-size:14px">🗺</button></div>
+      <div class="dice" id="dice"></div><div id="rleg"></div></div>
+      <div class="side"><div class="plist" id="plist"></div><div class="acts" id="acts"></div><div class="regs" id="regs"></div></div>`;
+    setVB(); wireMap(ui); lastSeq = -1;
+  }
+  const me = v.me, live = v.phase === 'game', mt = myTurn(v, g);
+  const skey = g.tn + '|' + g.fase + '|' + g.turn;
+  if(SEL.key !== skey){ SEL = {key:skey, from:null, to:null}; }
+  // valida a seleção (o estado pode ter mudado)
+  if(SEL.from && (g.own[SEL.from] !== me || g.tr[SEL.from] < 2)) SEL.from = SEL.to = null;
+  if(g.fase === 'ataque' && SEL.to && (g.own[SEL.to] === me || !SEL.from)) SEL.to = null;
+  if(g.fase === 'fortificar' && SEL.to && (g.own[SEL.to] !== me || !SEL.from || !conectados(g, SEL.from).has(SEL.to))) SEL.to = null;
+  if(g.fase === 'mover' && g.pend && g.turn === me){ SEL.from = g.pend.from; SEL.to = g.pend.to; }
+
+  // alvos possíveis
+  const tg = new Set(), can = new Set();
+  if(mt){
+    if(g.fase === 'reforco') UFS.forEach(u => g.own[u] === me && can.add(u));
+    if(g.fase === 'ataque'){
+      if(SEL.from) ADJ[SEL.from].forEach(x => g.own[x] !== me && tg.add(x));
+      else UFS.forEach(u => g.own[u] === me && g.tr[u] >= 2 && ADJ[u].some(x => g.own[x] !== me) && can.add(u));
+    }
+    if(g.fase === 'fortificar'){
+      if(SEL.from) conectados(g, SEL.from).forEach(x => tg.add(x));
+      else UFS.forEach(u => g.own[u] === me && g.tr[u] >= 2 && conectados(g, u).size && can.add(u));
+    }
+  }
+  const selecting = mt && (g.fase === 'ataque' || g.fase === 'fortificar') && SEL.from;
+  for(const u of UFS){
+    const p = $('#p_' + u), o = g.own[u], b = $('#b_' + u);
+    p.style.fill = REGMODE ? REG[REGOF[u]].c : COL[o].c;
+    p.classList.toggle('sel', u === SEL.from || u === SEL.to);
+    p.classList.toggle('tg', tg.has(u) && u !== SEL.to);
+    p.classList.toggle('can', can.has(u));
+    p.classList.toggle('dim', !!selecting && !tg.has(u) && u !== SEL.from);
+    b.querySelector('circle').style.fill = COL[o].c;
+    b.classList.toggle('lt', !!COL[o].lt);
+    b.classList.toggle('sel', u === SEL.from || u === SEL.to);
+    b.classList.toggle('tg', tg.has(u));
+    const t = $('#t_' + u), val = String(g.tr[u]);
+    if(t.textContent !== val){ t.textContent = val; if(live){ b.classList.remove('bump'); void b.getBBox(); b.classList.add('bump'); } }
+  }
+  $('#grl').style.display = REGMODE ? '' : 'none';
+  $('#gsg').style.display = REGMODE ? 'none' : '';
+  $('#zReg').classList.toggle('on', REGMODE);
+  $('#rleg').innerHTML = REGMODE ? `<div class="rlegend">${REG.map(R => `<div><i style="background:${R.c}"></i>${R.n} +${R.b}</div>`).join('')}</div>` : '';
+  // setas: último ataque (cor do atacante) e seleção atual
+  const arrow = (a, b, cls, col) => {
+    const [x1, y1] = TMAPA[a].l, [x2, y2] = TMAPA[b].l, dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+    const sx = x1 + dx / L * 12, sy = y1 + dy / L * 12, ex = x2 - dx / L * 14, ey = y2 - dy / L * 14;
+    const mx = (sx + ex) / 2 - dy / L * L * .15, my = (sy + ey) / 2 + dx / L * L * .15;
+    const ang = Math.atan2(ey - my, ex - mx), h = 7;
+    return `<path class="arw ${cls}" style="stroke:${col}" d="M${sx} ${sy}Q${mx} ${my} ${ex} ${ey}M${ex - h*Math.cos(ang - .5)} ${ey - h*Math.sin(ang - .5)}L${ex} ${ey}L${ex - h*Math.cos(ang + .5)} ${ey - h*Math.sin(ang + .5)}"/>`;
+  };
+  let arws = '';
+  if(g.last && g.last.seat === g.turn && g.fase !== 'reforco') arws += arrow(g.last.from, g.last.to, '', COL[g.last.seat].c);
+  if(g.mv && g.fase !== 'reforco' && (!g.last || g.mv.to !== g.last.to)) arws += arrow(g.mv.from, g.mv.to, '', 'rgba(255,255,255,.6)');
+  if(mt && SEL.from && SEL.to) arws += arrow(SEL.from, SEL.to, 'cur', '#fff');
+  $('#garw').innerHTML = arws;
+
+  // dados
+  const dice = $('#dice'), L = g.last;
+  if(L && L.seat === g.turn && g.fase !== 'reforco'){
+    const used = Math.min(L.a.length, L.d.length);
+    const dd = (arr, cls) => arr.map((x, i) => `<span class="dd ${cls} ${i >= used ? 'x' : ''}">${x}</span>`).join('');
+    dice.innerHTML = `<div>${esc(pname(v, L.seat))}: ${L.from.toUpperCase()} → ${L.to.toUpperCase()}${L.rolls > 1 ? ` · ${L.rolls} rolagens` : ''}</div>
+      <div class="dr">${dd(L.a, 'a')}<span class="vs">×</span>${dd(L.d, 'd')}</div>
+      <div>Atacante −${L.la} · Defensor −${L.ld}${L.conq ? ' · <b style="color:var(--gold)">Conquistou!</b>' : ''}</div>`;
+    if(L.seq !== lastSeq){ dice.classList.remove('roll'); void dice.offsetWidth; dice.classList.add('roll'); if(L.conq){ const p = $('#p_' + L.to); p.classList.remove('flash'); void p.getBBox(); p.classList.add('flash'); } }
+  } else dice.innerHTML = '';
+  if(L) lastSeq = L.seq;
+
+  // jogadores
+  const pl = $('#plist'); pl.classList.toggle('n2', g.n === 2);
+  pl.innerHTML = g.names.map((nm, s) => {
+    const c = countOf(g, s), t = troopsOf(g, s), nc = Array.isArray(g.cards[s]) ? g.cards[s].length : g.cards[s];
+    return `<div class="pl ${g.turn === s && live ? 'vez' : ''} ${g.vivo[s] ? '' : 'out'}" data-seat="${s}"><span class="sw" style="background:${COL[s].c}"></span>
+      <span class="nmx">${esc(pname(v, s) || nm)}${s === me ? ' (você)' : ''}</span><span class="nums">${g.vivo[s] ? `🗺${c} ⚔${t} 🂠${nc}` : 'eliminado'}</span></div>`;
+  }).join('');
+  // regiões (painel lateral no PC)
+  $('#regs').style.display = port ? 'none' : '';
+  if(!port) $('#regs').innerHTML = '<div style="font-weight:800;color:#ffe6a6;margin-bottom:2px">Regiões (bônus)</div>' + REG.map(R => {
+    const o = R.uf.map(u => g.own[u]), full = o.every(x => x === o[0]) ? o[0] : -1;
+    return `<div class="rr"><span>${R.n}${full >= 0 ? `<i style="background:${COL[full].c}"></i>` : ''}</span><span>${R.uf.length} est. · +${R.b}</span></div>`;
+  }).join('') + `<div style="opacity:.75;margin-top:4px">Próxima troca de cartas: +${bonusTroca(g.trocas)}</div>`;
+  renderActs(g, v, ui, mt);
+}
+
+function renderActs(g, v, ui, mt){
+  const box = $('#acts'), me = v.me;
+  let h = '';
+  const cards = Array.isArray(g.cards[me]) ? g.cards[me] : [];
+  const cardsHTML = me >= 0 && cards.length ? `<div class="cards">Suas cartas: ${cards.map(c => `<span class="cd">${CARD[c]}</span>`).join('')}</div>` : '';
+  if(v.phase !== 'game'){ box.innerHTML = '<div class="msg2">Partida encerrada.</div>'; return; }
+  if(!mt){
+    const who = esc(pname(v, g.turn));
+    const what = {reforco:'reforçando', ataque:'atacando', mover:'movendo tropas', fortificar:'fortificando'}[g.fase];
+    h = `<div class="msg2"><span style="color:${COL[g.turn].c}">●</span> Vez de <b>${who}</b> — ${what}…</div>${cardsHTML}`;
+    if(me >= 0 && !g.vivo[me]) h += '<div class="msg2" style="opacity:.8">Você foi eliminado. Acompanhe o fim da partida.</div>';
+    box.innerHTML = h; return;
+  }
+  if(g.fase === 'reforco'){
+    const tr = acharTroca(cards);
+    h = `<div class="msg2">Distribua <b>${g.pool}</b> tropa${g.pool > 1 ? 's' : ''}: toque nos seus estados.</div>
+      <div class="row2">${[[1,'+1'],[3,'+3'],['all','Todas']].map(([k, l]) => `<button class="ab ${AMT === k ? 'y' : ''}" data-amt="${k}">${l}</button>`).join('')}
+      ${tr ? `<button class="ab g" id="bTroca">Trocar cartas (+${bonusTroca(g.trocas)})</button>` : ''}</div>${cardsHTML}`;
+  } else if(g.fase === 'ataque'){
+    if(SEL.from && SEL.to){
+      const A = g.tr[SEL.from] - 1, D = g.tr[SEL.to], p = Math.round(pWin(A, D) * 100);
+      h = `<div class="msg2"><b>${nome(SEL.from)}</b> (${g.tr[SEL.from]}) → <b>${nome(SEL.to)}</b> (${D})<br><small>${Math.min(3, A)} dado(s) contra ${Math.min(2, D)} · chance de conquistar indo até o fim: ${p}%</small></div>
+        <div class="row2"><button class="ab r" id="bAtk">🎲 Atacar</button><button class="ab r" id="bAte">Até conquistar</button><button class="ab" id="bCanc">Cancelar</button></div>`;
+    } else h = `<div class="msg2">${SEL.from ? `Atacar a partir de <b>${nome(SEL.from)}</b>: toque num vizinho inimigo (piscando).` : 'Ataque: toque num estado seu com 2+ tropas e depois num vizinho inimigo.'}</div>`;
+    h += `<div class="row2"><button class="ab y" id="bFim">Encerrar ataques ➜</button></div>`;
+  } else if(g.fase === 'mover'){
+    const p = g.pend, mid = Math.round((p.min + p.max) / 2);
+    const opts = [...new Set([p.min, mid, p.max])];
+    h = `<div class="msg2">Você conquistou <b>${nome(p.to)}</b>! Quantas tropas levar de ${nome(p.from)}?</div>
+      <div class="row2">${opts.map(n => `<button class="ab ${n === p.max ? 'y' : 'g'}" data-mov="${n}">Mover ${n}</button>`).join('')}</div>`;
+  } else if(g.fase === 'fortificar'){
+    if(SEL.from && SEL.to){
+      const mx = g.tr[SEL.from] - 1, opts = [...new Set([1, Math.ceil(mx / 2), mx])];
+      h = `<div class="msg2">Mover de <b>${nome(SEL.from)}</b> para <b>${nome(SEL.to)}</b>:</div>
+        <div class="row2">${opts.map(n => `<button class="ab g" data-fort="${n}">${n} tropa${n > 1 ? 's' : ''}</button>`).join('')}<button class="ab" id="bCanc">Cancelar</button></div>`;
+    } else h = `<div class="msg2">Fortificação (opcional, 1 vez): ${SEL.from ? `toque no destino para as tropas de <b>${nome(SEL.from)}</b>.` : 'toque num estado seu com 2+ tropas e depois num estado seu ligado a ele.'}</div>`;
+    h += `<div class="row2"><button class="ab y" id="bFimV">Encerrar a vez ➜</button></div>`;
+  }
+  box.innerHTML = h;
+  $$('[data-amt]', box).forEach(b => b.onclick = () => { AMT = b.dataset.amt === 'all' ? 'all' : +b.dataset.amt; ui.rerender(); });
+  const on = (id, fn) => { const e = $('#' + id); if(e) e.onclick = fn; };
+  on('bTroca', () => ui.act({t:'troca'}));
+  on('bAtk', () => ui.act({t:'atk', from:SEL.from, to:SEL.to}));
+  on('bAte', () => ui.act({t:'atk', from:SEL.from, to:SEL.to, ate:true, para:1}));
+  on('bCanc', () => { SEL.from = SEL.to = null; ui.rerender(); });
+  on('bFim', () => { SEL.from = SEL.to = null; ui.act({t:'fim'}); });
+  on('bFimV', () => ui.act({t:'fim'}));
+  $$('[data-mov]', box).forEach(b => b.onclick = () => ui.act({t:'mov', n:+b.dataset.mov}));
+  $$('[data-fort]', box).forEach(b => b.onclick = () => ui.act({t:'fort', from:SEL.from, to:SEL.to, n:+b.dataset.fort}));
+}
+
+const RULES = `
+<h3>Objetivo</h3>
+<p>Conquistar os estados do Brasil. No modo <b>Dominar o mapa</b>, vence quem ficar com os 27 estados (ou eliminar todos os adversários).
+No modo <b>Rápido</b>, vence quem chegar a 18 estados (2 jogadores) ou 15 estados (3 ou mais).
+Se o limite de rodadas chegar (60 no modo normal, 15 no rápido), vence quem tiver mais estados (desempate: mais tropas).</p>
+<h3>Início</h3>
+<p>Os estados são sorteados entre os jogadores e as tropas iniciais são espalhadas ao acaso. A ordem de jogo é sorteada; quem joga por último recebe os estados que sobram.</p>
+<h3>Como jogar — cada vez tem 3 etapas</h3>
+<ol>
+<li><b>Reforço</b>: você recebe o maior entre 3 e (seus estados ÷ 3), mais o bônus de cada região que for toda sua.
+Toque nos seus estados para colocar as tropas (+1, +3 ou todas de uma vez).</li>
+<li><b>Ataque</b> (quantas vezes quiser): escolha um estado seu com 2+ tropas e um vizinho inimigo.
+O atacante rola até 3 dados (uma tropa sempre fica para trás) e o defensor até 2. Comparam-se o maior dado de cada lado e depois o segundo maior:
+quem tiver o número maior vence aquele par; <b>empate é do defensor</b>. Cada par perdido custa 1 tropa.
+"Até conquistar" repete o ataque até tomar o estado ou ficar com 1 tropa. Ao conquistar, mova para o novo estado pelo menos tantas tropas quantos dados usou.</li>
+<li><b>Fortificação</b> (opcional, uma vez): mova tropas de um estado seu para outro ligado a ele por estados seus. Depois a vez passa.</li>
+</ol>
+<h3>Regiões e bônus</h3>
+<table><tr><th>Região</th><th>Estados</th><th>Bônus</th></tr>
+${REG.map(R => `<tr><td>${R.n}</td><td>${R.uf.map(u => u.toUpperCase()).join(', ')}</td><td>+${R.b}</td></tr>`).join('')}</table>
+<h3>Cartas</h3>
+<p>Quem conquista pelo menos um estado na vez ganha uma carta (▲, ■ ou ●). No reforço, troque <b>3 iguais</b> ou <b>3 diferentes</b> por tropas extras:
+4, 6, 8, 10, 12, 15 e depois +5 a cada troca (a contagem é da mesa toda). Com 5 cartas ou mais, a troca é automática. Quem elimina um jogador fica com as cartas dele.</p>
+<h3>Mapa</h3>
+<p>Arraste para mover, use dois dedos (ou a roda do mouse) para aproximar, e os botões + − ⤢. O botão 🗺 mostra as regiões. Estados pequenos têm o número de tropas fora do mapa, ligado por uma linha.</p>
+<h3>Bots</h3>
+<p>Fácil: ataca sem muito plano. Normal: calcula a chance exata dos dados, foca em completar regiões e defende fronteiras. Difícil: além disso protege regiões conquistadas, caça jogadores fracos para ficar com as cartas e reposiciona tropas com mais cuidado.</p>
+<p style="font-size:12px;opacity:.75">Mapa baseado em "@svg-maps/brazil" (Victor Cazanave), licença CC BY 4.0, simplificado.</p>`;
+
+Mesa.run({
+  id:'territorio', name:'Território', icon:'🗺️', tagline:'Conquiste o Brasil estado por estado',
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'4', choices:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'obj', label:'Objetivo', default:'total', choices:[['total','Dominar o mapa'],['rapido','Rápido']]},
+    {key:'diff', label:'Bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'ritmo', label:'Ritmo dos bots', default:'normal', choices:[['normal','Normal'],['rapido','Acelerado']]}
+  ],
+  seats: o => clamp(+o.jogadores || 4, 2, 6),
+  seatLabel: s => COL[s].n,
+  modeLabel: o => (o.obj === 'rapido' ? 'RÁPIDO' : 'DOMINAR O MAPA') + ' · BOT ' + (DIFS[o.diff] || 'NORMAL'),
+  setup,
+  startEvents(st){ const e = st.ev0 || []; delete st.ev0; return [{k:'log', text:`Sorteio: ${esc(st.names[st.start])} começa.`}, ...e]; },
+  waiting(st){ return st.res ? [] : [st.turn]; },
+  apply,
+  over(st){ return st.res; },
+  bot, botFallback,
+  botDelay(st, s, o){ return (o && o.ritmo === 'rapido' ? .45 : 1) * ({reforco:420, ataque:820, mover:380, fortificar:480}[st.fase] || 500); },
+  view(st, seat){
+    const v = Object.assign({}, st);
+    v.cards = st.cards.map((c, i) => i === seat ? c.slice() : c.length);
+    delete v.dl; delete v.ev0;
+    return v;
+  },
+  render,
+  topInfo(g, v){
+    const vez = v.phase !== 'game' ? 'Fim de jogo' : g.turn === v.me ? '<b>Sua vez</b>' : 'Vez de ' + esc(pname(v, g.turn));
+    return `<div class="status">Rodada ${g.rodada}/${g.limR} · ${vez}</div>`;
+  },
+  onEvent(e, v){
+    if(!v) return;
+    if(e.k === 'vez' && e.seat === v.me && v.phase === 'game'){ banner('Sua vez!'); Snd.alert(); }
+    if(e.k === 'card' && e.seat === v.me) toast('Você ganhou uma carta por ter conquistado um estado.');
+  },
+  rules:RULES
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game){ layoutKey = ''; Mesa.ui.rerender(); } });
+</script>
+</body>
+</html>

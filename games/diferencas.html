@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Ache as Diferenças</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:6px 8px 8px}
+.df{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;height:100%;min-height:0}
+/* barra superior: tempo, diferenças achadas, dica */
+.dbar{display:flex;align-items:center;gap:8px;width:100%;max-width:1000px;flex-wrap:nowrap}
+.tbox{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.4);border-radius:12px;padding:6px 10px}
+.tclock{font-weight:900;font-size:18px;color:#ffe6a6;font-variant-numeric:tabular-nums;min-width:52px}
+.tclock.low{color:#ff8a80;animation:pulse .8s infinite}
+@keyframes pulse{50%{opacity:.55}}
+.tbar{flex:1;height:10px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden;min-width:40px}
+.tbar i{display:block;height:100%;background:linear-gradient(90deg,#3ecf7a,#e7b43a);border-radius:6px;transition:width .25s linear}
+.tbar i.low{background:linear-gradient(90deg,#ff5a5a,#ff9a5a)}
+.dots{display:flex;gap:4px;background:rgba(0,0,0,.4);border-radius:12px;padding:8px 10px}
+.dots b{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.55);display:block}
+.dots b.on{background:var(--nos);border-color:#bff5d6;box-shadow:0 0 6px var(--nos)}
+.dbar .tbtn{font-size:15px;padding:9px 12px;border-radius:12px}
+.dbar .tbtn small{font-size:11px;opacity:.75}
+/* cenas */
+.scenes{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:var(--gap);width:100%}
+.scenes.col{flex-direction:column}
+.sc{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.5),0 0 0 3px rgba(231,180,58,.75);background:#fff;cursor:crosshair;flex:none;touch-action:manipulation}
+.sc svg{display:block;width:100%;height:100%}
+.sc .lb{position:absolute;top:6px;left:8px;font-size:11px;font-weight:900;letter-spacing:1px;color:#fff;background:rgba(0,0,0,.35);border-radius:6px;padding:1px 6px;pointer-events:none}
+.ring{fill:none;stroke:#2bd46f;stroke-width:4;filter:drop-shadow(0 0 3px #fff)}
+.ring.new{animation:ringIn .45s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes ringIn{from{opacity:0;stroke-width:14}to{opacity:1;stroke-width:4}}
+.ring2{fill:none;stroke:#fff;stroke-width:1.5;stroke-dasharray:4 4}
+.hintc{fill:rgba(255,235,59,.18);stroke:#ffeb3b;stroke-width:4;stroke-dasharray:10 6;animation:hintP .5s infinite alternate}
+@keyframes hintP{from{opacity:.25}to{opacity:1}}
+.missx{stroke:#ff2d2d;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 2px #fff);animation:missF 1s forwards}
+@keyframes missF{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+.pen{position:absolute;font-weight:900;color:#ff8a80;font-size:16px;pointer-events:none;animation:penU 1s forwards;text-shadow:0 1px 3px #000}
+@keyframes penU{to{transform:translateY(-26px);opacity:0}}
+.scenes.dead .sc{filter:grayscale(.6) brightness(.8)}
+/* fase concluída */
+.clear{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:5;animation:fade .25s}
+.clear .box2{background:var(--panel);border:2px solid var(--gold);border-radius:18px;padding:20px 22px;text-align:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.clear h2{color:var(--gold);font-size:24px;margin-bottom:6px}
+.clear p{color:#e3f3ea;font-size:15px;line-height:1.5;margin-bottom:4px}
+.clear .stars{font-size:30px;letter-spacing:4px;margin:4px 0 8px}
+.clear .big{margin:10px 0 0}
+@keyframes fade{from{opacity:0}}
+@media (max-width:720px){ .dbar{gap:5px} .dots{padding:7px 7px;gap:3px} .dots b{width:11px;height:11px} .dbar .tbtn{padding:8px 9px} .dbar .tbtn .tx{display:none} .tclock{font-size:16px;min-width:44px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* ============================ ACHE AS DIFERENÇAS ============================
+   Cenas geradas por semente em SVG (400×300): fundo do tema + objetos desenhados
+   aqui mesmo. A cena B é a A com 5–7 mudanças (sumiu, cor, espelhado, mudou de
+   lugar, tamanho). Toque na diferença em qualquer uma das duas imagens. */
+const VW = 400, VH = 300;
+const NIVEIS = {
+  facil:  {nome:'Fácil',  K:5, tempo:120, pen:3, hint:8,  minR:14, cor:[3,5], tam:[1.5,.62], mov:[30,42], tipos:{rem:4, col:4, tam:2, flip:0, mov:1}},
+  normal: {nome:'Normal', K:6, tempo:100, pen:5, hint:12, minR:11, cor:[2,4], tam:[1.38,.7], mov:[24,34], tipos:{rem:3, col:3, tam:2, flip:2, mov:2}},
+  dificil:{nome:'Difícil',K:7, tempo:90,  pen:8, hint:15, minR:9,  cor:[1,2], tam:[1.28,.76], mov:[18,26], tipos:{rem:2, col:3, tam:2, flip:3, mov:3}}
+};
+const nivelOf = k => NIVEIS[k] ? k : 'normal';
+const fmt = ms => { const s = Math.max(0, Math.ceil(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+
+/* ---------- sorteio com semente ---------- */
+function rngOf(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rr = (R, a, b) => a + R()*(b - a);
+const ri = (R, a, b) => Math.floor(rr(R, a, b + 1));
+const rp = (R, arr) => arr[Math.floor(R()*arr.length)];
+function rshuf(R, a){ for(let i=a.length-1;i>0;i--){ const j = Math.floor(R()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; }
+
+/* ---------- cores ---------- */
+const COR = {red:'#e53935', orange:'#fb8c00', yellow:'#fdd835', lime:'#9ccc65', green:'#43a047', teal:'#26a69a', cyan:'#29b6f6',
+  blue:'#1e66d0', indigo:'#5c6bc0', purple:'#8e24aa', pink:'#ec407a', white:'#fafafa', gray:'#90a4ae', brown:'#8d6e63'};
+const RODA = ['red','orange','yellow','lime','green','teal','cyan','blue','indigo','purple','pink'];
+function mix(hex, to, t){
+  const a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16);
+  const ch = s => Math.round(((a >> s) & 255)*(1 - t) + ((b >> s) & 255)*t);
+  return '#' + ((1 << 24) + (ch(16) << 16) + (ch(8) << 8) + ch(0)).toString(16).slice(1);
+}
+const dk = (c, t=.28) => mix(c, '#000000', t), lt = (c, t=.45) => mix(c, '#ffffff', t);
+
+/* ---------- objetos: draw(cor) → [corpo (ganha contorno), detalhes, por baixo] ----------
+   coordenadas locais com centro em (0,0); r = raio aproximado; b = distância do centro até a base */
+const O = {};
+function def(t, o){ O[t] = Object.assign({r:18, b:18, asym:false, pal:['red']}, o); }
+const star = (R1, R2, n=5, rot=-90) => { let p = []; for(let i=0;i<n*2;i++){ const a = (rot + i*180/n)*Math.PI/180, r = i%2 ? R2 : R1; p.push((r*Math.cos(a)).toFixed(1) + ',' + (r*Math.sin(a)).toFixed(1)); } return p.join(' '); };
+const eye = (x, y, r=1.8) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#222"/><circle cx="${x+r*.35}" cy="${y-r*.35}" r="${r*.35}" fill="#fff"/>`;
+
+def('tree', {r:20, b:20, pal:['green','lime','teal'], draw:c => [
+  `<rect x="-3.5" y="2" width="7" height="18" rx="1.5" fill="#8d5a3b"/><circle cx="-8.5" cy="-1" r="9" fill="${c}"/><circle cx="8.5" cy="-1" r="9" fill="${c}"/><circle cx="0" cy="-9" r="12" fill="${c}"/>`,
+  `<circle cx="-4" cy="-13" r="4.5" fill="${lt(c)}" opacity=".55"/><circle cx="-8" cy="1" r="2" fill="${lt(c)}" opacity=".5"/>`]});
+def('pine', {r:20, b:20, pal:['green','teal','lime'], draw:c => [
+  `<rect x="-3" y="10" width="6" height="10" fill="#7b4a2e"/><polygon points="0,-12 -16,12 16,12" fill="${c}"/><polygon points="0,-22 -12,-2 12,-2" fill="${c}"/>`,
+  `<polygon points="0,-19 -5,-9 0,-9" fill="${lt(c)}" opacity=".5"/>`]});
+def('flower', {r:13, b:20, asym:true, pal:['red','pink','purple','yellow','orange','blue'], draw:c => {
+  let p = ''; for(let i=0;i<5;i++){ const a = (i*72 - 90)*Math.PI/180; p += `<circle cx="${(7*Math.cos(a)).toFixed(1)}" cy="${(-6 + 7*Math.sin(a)).toFixed(1)}" r="5.6" fill="${c}"/>`; }
+  return [p, `<circle cx="0" cy="-6" r="4" fill="#ffd54f" stroke="#8d6e00" stroke-width=".8"/>`,
+    `<path d="M0,20 Q-2,8 0,-4" stroke="#2e7d32" stroke-width="3" fill="none"/><ellipse cx="6" cy="10" rx="6" ry="2.8" transform="rotate(-30 6 10)" fill="#66bb6a" stroke="#2e7d32" stroke-width="1"/>`]; }});
+def('sun', {r:20, b:20, once:true, pal:['yellow','orange'], draw:c => {
+  let rays = ''; for(let i=0;i<10;i++){ const a = i*36*Math.PI/180; rays += `<line x1="${(15*Math.cos(a)).toFixed(1)}" y1="${(15*Math.sin(a)).toFixed(1)}" x2="${(21*Math.cos(a)).toFixed(1)}" y2="${(21*Math.sin(a)).toFixed(1)}" stroke="${c}" stroke-width="3.2" stroke-linecap="round"/>`; }
+  return [`<circle r="12.5" fill="${c}"/>`, `${eye(-4,-2,1.6)}${eye(4,-2,1.6)}<path d="M-4,4 Q0,7 4,4" stroke="#6d4c00" stroke-width="1.4" fill="none"/>`, rays]; }});
+def('cloud', {r:20, b:10, asym:true, pal:['white'], draw:c => [
+  `<ellipse cx="-9" cy="3" rx="10" ry="7" fill="#fff"/><ellipse cx="3" cy="-3" rx="11" ry="9" fill="#fff"/><ellipse cx="13" cy="3" rx="8" ry="6" fill="#fff"/><rect x="-12" y="2" width="26" height="8" rx="4" fill="#fff"/>`,
+  `<ellipse cx="0" cy="-6" rx="5" ry="2.5" fill="#fff" opacity=".9"/>`]});
+def('bird', {r:16, b:9, asym:true, pal:['blue','red','yellow','orange','cyan','purple'], draw:c => [
+  `<polygon points="-9,-2 -19,-8 -17,4" fill="${c}"/><ellipse cx="0" cy="0" rx="11" ry="8" fill="${c}"/><polygon points="10,-2 17,1 10,4" fill="#ff9800"/>`,
+  `<ellipse cx="-2" cy="1" rx="6" ry="3.5" transform="rotate(-20 -2 1)" fill="${dk(c)}"/>${eye(5,-3,1.8)}`]});
+def('balloon', {r:16, b:26, pal:['red','blue','yellow','pink','purple','green','orange'], draw:c => [
+  `<ellipse cx="0" cy="-4" rx="11" ry="14" fill="${c}"/><polygon points="-2.5,10 2.5,10 0,13" fill="${c}"/>`,
+  `<ellipse cx="-4" cy="-10" rx="3" ry="5" transform="rotate(20 -4 -10)" fill="#fff" opacity=".5"/>`,
+  `<path d="M0,12 Q5,18 0,22 T0,28" stroke="#555" stroke-width="1" fill="none"/>`]});
+def('kite', {r:18, b:20, asym:true, pal:['red','orange','cyan','purple','yellow','pink'], draw:c => [
+  `<polygon points="0,-18 12,-2 0,16 -12,-2" fill="${c}"/>`,
+  `<polygon points="0,-18 12,-2 0,-2" fill="${lt(c,.35)}"/><polygon points="0,-2 -12,-2 0,16" fill="${dk(c,.15)}"/><line x1="0" y1="-18" x2="0" y2="16" stroke="#5d4037" stroke-width="1"/><line x1="-12" y1="-2" x2="12" y2="-2" stroke="#5d4037" stroke-width="1"/>`,
+  `<path d="M0,16 Q-9,22 -3,28 T-9,38" stroke="#555" stroke-width="1.2" fill="none"/><polygon points="-6,23 -1,21 -2,26" fill="#e53935"/><polygon points="-7,31 -2,30 -4,35" fill="#fdd835"/>`]});
+def('butterfly', {r:14, b:12, pal:['purple','orange','cyan','pink','yellow','blue'], draw:c => [
+  `<ellipse cx="-7" cy="-4" rx="7" ry="8" fill="${c}"/><ellipse cx="7" cy="-4" rx="7" ry="8" fill="${c}"/><ellipse cx="-6" cy="6" rx="5" ry="6" fill="${c}"/><ellipse cx="6" cy="6" rx="5" ry="6" fill="${c}"/>`,
+  `<circle cx="-7" cy="-5" r="2.5" fill="${lt(c,.6)}"/><circle cx="7" cy="-5" r="2.5" fill="${lt(c,.6)}"/><ellipse cx="0" cy="1" rx="2" ry="9" fill="#3e2723"/><path d="M-1,-8 Q-4,-14 -6,-14 M1,-8 Q4,-14 6,-14" stroke="#3e2723" stroke-width="1" fill="none"/>`]});
+def('house', {r:22, b:20, asym:true, pal:['red','yellow','cyan','pink','lime','orange'], draw:c => [
+  `<rect x="7" y="-20" width="5" height="11" fill="#8d6e63"/><rect x="-16" y="-5" width="32" height="25" fill="${c}"/><polygon points="-20,-3 0,-21 20,-3" fill="#b23b2e"/>`,
+  `<rect x="-12" y="6" width="8" height="14" fill="#6d4c41"/><circle cx="-6" cy="13" r=".9" fill="#ffd54f"/><rect x="3" y="1" width="9" height="8" fill="#bbdefb" stroke="#5d4037" stroke-width="1"/><line x1="7.5" y1="1" x2="7.5" y2="9" stroke="#5d4037" stroke-width="1"/>`]});
+def('mushroom', {r:16, b:16, pal:['red','orange','purple','brown'], draw:c => [
+  `<rect x="-5" y="-1" width="10" height="17" rx="3" fill="#fff3e0"/><path d="M-16,2 Q-16,-16 0,-16 Q16,-16 16,2 Z" fill="${c}"/>`,
+  `<circle cx="-8" cy="-6" r="2.6" fill="#fff"/><circle cx="3" cy="-11" r="3" fill="#fff"/><circle cx="9" cy="-3" r="2" fill="#fff"/>`]});
+def('bush', {r:19, b:12, asym:true, pal:['green','lime','teal'], draw:c => [
+  `<circle cx="-9" cy="3" r="9" fill="${c}"/><circle cx="1" cy="-3" r="11" fill="${c}"/><circle cx="11" cy="3" r="8" fill="${c}"/><rect x="-15" y="3" width="31" height="9" rx="3" fill="${c}"/>`,
+  `<circle cx="-6" cy="0" r="1.8" fill="#e53935"/><circle cx="4" cy="-6" r="1.8" fill="#e53935"/><circle cx="10" cy="4" r="1.8" fill="#e53935"/>`]});
+def('rock', {r:16, b:10, asym:true, pal:['gray','brown'], draw:c => [
+  `<polygon points="-16,10 -12,-4 -3,-10 8,-8 16,2 14,10" fill="${c}"/>`,
+  `<polyline points="-3,-10 0,-2 -4,4" stroke="${dk(c)}" stroke-width="1.2" fill="none"/><polygon points="-12,-4 -3,-10 -6,-2" fill="${lt(c)}" opacity=".6"/>`]});
+def('sheep', {r:20, b:14, asym:true, pal:['white'], draw:c => [
+  `<circle cx="-8" cy="0" r="7" fill="#fff"/><circle cx="0" cy="-3" r="8" fill="#fff"/><circle cx="8" cy="0" r="7" fill="#fff"/><circle cx="0" cy="4" r="7" fill="#fff"/><ellipse cx="15" cy="-4" rx="5" ry="6" fill="#424242"/>`,
+  `<circle cx="17" cy="-5" r="1.4" fill="#fff"/><ellipse cx="12" cy="-8" rx="2.5" ry="1.4" fill="#424242"/>`,
+  `<rect x="-9" y="6" width="3" height="8" fill="#424242"/><rect x="5" y="6" width="3" height="8" fill="#424242"/>`]});
+def('sailboat', {r:19, b:13, asym:true, pal:['red','blue','yellow','orange','teal','purple'], draw:c => [
+  `<polygon points="2,-22 2,1 17,1" fill="#fff"/><polygon points="-2,-17 -2,1 -12,1" fill="#fff"/><path d="M-18,3 L18,3 L12,13 L-12,13 Z" fill="${c}"/>`,
+  `<line x1="-18" y1="6" x2="17" y2="6" stroke="${lt(c,.5)}" stroke-width="1.4"/><polygon points="0,-25 6,-23 0,-21" fill="#e53935"/>`,
+  `<line x1="0" y1="-25" x2="0" y2="4" stroke="#5d4037" stroke-width="2"/>`]});
+def('umbrella', {r:22, b:24, asym:true, pal:['red','blue','yellow','orange','purple','teal','pink'], draw:c => [
+  `<g transform="rotate(-12)"><path d="M-21,-6 Q0,-30 21,-6 Q15,-9 10,-6 Q5,-9 0,-6 Q-5,-9 -10,-6 Q-15,-9 -21,-6 Z" fill="${c}"/></g>`,
+  `<g transform="rotate(-12)"><path d="M-3,-19 Q-5,-12 -4.5,-7 L4.5,-7 Q5,-12 3,-19 Z" fill="#fff" opacity=".9"/><path d="M-15,-14 Q-15,-10 -14,-7 L-11,-6 Q-11,-12 -9,-17 Z" fill="#fff" opacity=".9"/><path d="M15,-14 Q15,-10 14,-7 L11,-6 Q11,-12 9,-17 Z" fill="#fff" opacity=".9"/></g>`,
+  `<line x1="-3" y1="-12" x2="3" y2="24" stroke="#6d4c41" stroke-width="2.2"/>`]});
+def('ball', {r:11, b:11, pal:['red','blue','yellow','green','orange','purple'], draw:c => [
+  `<circle r="11" fill="#fff"/>`,
+  `<path d="M0,-11 A11,11 0 0 1 11,0 L0,0 Z" fill="${c}"/><path d="M0,11 A11,11 0 0 1 -11,0 L0,0 Z" fill="${c}"/><circle r="11" fill="none" stroke="#3a2c24" stroke-width="1.5"/><circle r="2.5" fill="#fff" stroke="#3a2c24" stroke-width="1"/><ellipse cx="-5" cy="-6" rx="2.5" ry="1.5" fill="#fff" opacity=".8"/>`]});
+def('bucket', {r:15, b:12, asym:true, pal:['red','blue','yellow','green','pink','cyan'], draw:c => [
+  `<path d="M-11,-8 L11,-8 L8,12 L-8,12 Z" fill="${c}"/><ellipse cx="17" cy="9" rx="3.5" ry="4.5" fill="${dk(c,.1)}"/>`,
+  `<rect x="-12" y="-9" width="24" height="3" rx="1.5" fill="${dk(c)}"/><path d="M-10,-8 Q0,-22 10,-8" stroke="#555" stroke-width="1.3" fill="none"/>`,
+  `<line x1="13" y1="-10" x2="17" y2="6" stroke="#8d6e63" stroke-width="2"/>`]});
+def('starfish', {r:13, b:11, pal:['orange','red','pink','yellow','purple'], draw:c => [
+  `<polygon points="${star(14, 6)}" fill="${c}"/>`,
+  `<circle cx="0" cy="-6" r="1.2" fill="${lt(c)}"/><circle cx="5" cy="0" r="1.2" fill="${lt(c)}"/><circle cx="-5" cy="0" r="1.2" fill="${lt(c)}"/><circle cx="3" cy="5" r="1.2" fill="${lt(c)}"/><circle cx="-3" cy="5" r="1.2" fill="${lt(c)}"/>`]});
+def('shell', {r:13, b:10, pal:['pink','orange','yellow','white','purple'], draw:c => [
+  `<path d="M0,10 L-13,-3 Q0,-18 13,-3 Z" fill="${c}"/><rect x="-4" y="7" width="8" height="4" rx="1" fill="${dk(c,.1)}"/>`,
+  `<path d="M0,9 L-8,-9 M0,9 L0,-12 M0,9 L8,-9 M0,9 L-12,-3 M0,9 L12,-3" stroke="${dk(c,.3)}" stroke-width="1" fill="none"/>`]});
+def('crab', {r:18, b:10, pal:['red','orange'], draw:c => [
+  `<ellipse cx="0" cy="2" rx="12" ry="8" fill="${c}"/><circle cx="-15" cy="-6" r="5" fill="${c}"/><circle cx="15" cy="-6" r="5" fill="${c}"/>`,
+  `<path d="M-17,-9 L-13,-6 M17,-9 L13,-6" stroke="#3a2c24" stroke-width="1.4"/>${eye(-4,-9,2.2)}${eye(4,-9,2.2)}<path d="M-3,4 Q0,6 3,4" stroke="#3a2c24" stroke-width="1.2" fill="none"/>`,
+  `<path d="M-10,2 L-15,-4 M10,2 L15,-4 M-8,7 L-14,10 M8,7 L14,10 M-5,8 L-9,12 M5,8 L9,12 M-4,-5 L-4,-9 M4,-5 L4,-9" stroke="#3a2c24" stroke-width="2"/>`]});
+def('palm', {r:23, b:24, asym:true, pal:['green','lime','teal'], draw:c => {
+  let lv = ''; [-150,-110,-60,-20,20].forEach(a => { lv += `<ellipse cx="13" cy="0" rx="13" ry="4" transform="translate(5 -16) rotate(${a})" fill="${c}"/>`; });
+  return [lv, `<circle cx="3" cy="-13" r="2.5" fill="#6d4c41"/><circle cx="8" cy="-12" r="2.5" fill="#6d4c41"/>`,
+    `<path d="M-2,24 Q-4,2 5,-15" stroke="#3a2c24" stroke-width="7" fill="none"/><path d="M-2,24 Q-4,2 5,-15" stroke="#a1785a" stroke-width="5" fill="none"/>`]; }});
+def('castle', {r:19, b:12, asym:true, pal:['red','blue','yellow','green','purple'], draw:c => [
+  `<rect x="-17" y="-2" width="34" height="14" fill="#f0d58c"/><rect x="-17" y="-13" width="9" height="12" fill="#f0d58c"/><rect x="8" y="-13" width="9" height="12" fill="#f0d58c"/><rect x="-5" y="-8" width="10" height="8" fill="#f0d58c"/>`,
+  `<path d="M-3,12 L-3,5 Q0,1 3,5 L3,12 Z" fill="#a1785a"/><line x1="12.5" y1="-13" x2="12.5" y2="-25" stroke="#5d4037" stroke-width="1.2"/><polygon points="12.5,-25 21,-22 12.5,-19" fill="${c}"/><circle cx="-12" cy="5" r="1" fill="#c9a85a"/><circle cx="9" cy="6" r="1" fill="#c9a85a"/>`]});
+def('car', {r:21, b:10, asym:true, pal:['red','blue','yellow','green','orange','purple','cyan'], draw:c => [
+  `<path d="M-20,5 L-20,-3 Q-19,-8 -12,-8 L-8,-16 L7,-16 L13,-8 L18,-7 Q21,-6 21,0 L21,5 Z" fill="${c}"/>`,
+  `<polygon points="-6,-14 -1,-14 -1,-8 -10,-8" fill="#bbdefb"/><polygon points="1,-14 6,-14 10,-8 1,-8" fill="#bbdefb"/><rect x="17" y="-5" width="4" height="3" rx="1" fill="#ffeb3b"/>
+   <circle cx="-11" cy="5" r="5" fill="#263238"/><circle cx="-11" cy="5" r="2" fill="#cfd8dc"/><circle cx="12" cy="5" r="5" fill="#263238"/><circle cx="12" cy="5" r="2" fill="#cfd8dc"/>`]});
+def('bus', {r:25, b:12, asym:true, pal:['yellow','orange','red','blue','green'], draw:c => [
+  `<rect x="-25" y="-15" width="50" height="22" rx="3" fill="${c}"/>`,
+  `<rect x="-22" y="-12" width="8" height="7" fill="#bbdefb"/><rect x="-12" y="-12" width="8" height="7" fill="#bbdefb"/><rect x="-2" y="-12" width="8" height="7" fill="#bbdefb"/><rect x="9" y="-12" width="6" height="16" fill="${dk(c)}"/><rect x="17" y="-12" width="6" height="8" fill="#bbdefb"/><rect x="-25" y="-1" width="34" height="2" fill="${dk(c,.15)}"/>
+   <circle cx="-14" cy="7" r="5" fill="#263238"/><circle cx="-14" cy="7" r="2" fill="#cfd8dc"/><circle cx="15" cy="7" r="5" fill="#263238"/><circle cx="15" cy="7" r="2" fill="#cfd8dc"/>`]});
+def('streetlamp', {r:22, b:22, asym:true, pal:['yellow'], draw:c => [
+  `<polygon points="7,-22 17,-22 19,-17 5,-17" fill="#37474f"/>`,
+  `<ellipse cx="12" cy="-15" rx="5" ry="2.5" fill="#fff59d"/>`,
+  `<rect x="-1.5" y="-22" width="3" height="44" fill="#455a64"/><path d="M0,-21 Q4,-26 12,-22" stroke="#455a64" stroke-width="2" fill="none"/><rect x="-4" y="18" width="8" height="4" fill="#37474f"/>`]});
+def('trafficlight', {r:18, b:24, pal:['gray'], draw:c => [
+  `<rect x="-6" y="-22" width="12" height="28" rx="3" fill="#37474f"/>`,
+  `<circle cx="0" cy="-16" r="3.3" fill="#ef5350"/><circle cx="0" cy="-8" r="3.3" fill="#ffca28"/><circle cx="0" cy="0" r="3.3" fill="#66bb6a"/>`,
+  `<rect x="-1.5" y="5" width="3" height="19" fill="#546e7a"/>`]});
+def('bench', {r:19, b:12, pal:['brown','green','red','blue'], draw:c => [
+  `<rect x="-18" y="-13" width="36" height="5" rx="1.5" fill="${c}"/><rect x="-19" y="-3" width="38" height="5" rx="1.5" fill="${c}"/>`, '',
+  `<rect x="-15" y="-9" width="2.5" height="21" fill="#37474f"/><rect x="12.5" y="-9" width="2.5" height="21" fill="#37474f"/>`]});
+def('hydrant', {r:12, b:13, pal:['red','yellow'], draw:c => [
+  `<rect x="-6" y="-7" width="12" height="18" fill="${c}"/><circle cx="0" cy="-7" r="6" fill="${c}"/><rect x="-10" y="-2" width="20" height="5" rx="2" fill="${c}"/><rect x="-8" y="10" width="16" height="3" fill="${dk(c)}"/>`,
+  `<circle cx="0" cy="-13" r="1.6" fill="${dk(c)}"/><circle cx="0" cy="3" r="2" fill="${dk(c,.15)}"/>`]});
+def('cat', {r:16, b:18, asym:true, pal:['orange','gray','brown','white'], draw:c => [
+  `<ellipse cx="0" cy="7" rx="10" ry="11" fill="${COR[c] || c}"/><polygon points="-7,-13 -4,-21 -1,-14" fill="${c}"/><polygon points="7,-13 4,-21 1,-14" fill="${c}"/><circle cx="0" cy="-9" r="8" fill="${c}"/>`,
+  `${eye(-3,-10,1.5)}${eye(3,-10,1.5)}<polygon points="-1,-6 1,-6 0,-5" fill="#e91e63"/><path d="M-6,-6 L-11,-7 M-6,-5 L-11,-4 M6,-6 L11,-7 M6,-5 L11,-4" stroke="#555" stroke-width=".6"/>`,
+  `<path d="M8,15 Q20,14 17,0" stroke="#3a2c24" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M8,15 Q20,14 17,0" stroke="${c}" stroke-width="3.6" fill="none" stroke-linecap="round"/>`]});
+def('plane', {r:21, b:8, asym:true, pal:['white','red','blue','yellow'], draw:c => [
+  `<polygon points="-19,-1 -13,-1 -18,-12 -21,-12" fill="${c}"/><ellipse cx="0" cy="0" rx="21" ry="5" fill="${c}"/><polygon points="-4,0 6,0 -3,12 -7,12" fill="${c}"/>`,
+  `<circle cx="-6" cy="-1" r="1.2" fill="#1e88e5"/><circle cx="-1" cy="-1" r="1.2" fill="#1e88e5"/><circle cx="4" cy="-1" r="1.2" fill="#1e88e5"/><path d="M14,-3 Q18,-3 20,-1 L14,-1 Z" fill="#1e88e5"/>`]});
+def('fish', {r:20, b:9, asym:true, pal:['orange','yellow','blue','red','purple','cyan','pink','lime'], draw:c => [
+  `<polygon points="-9,0 -20,-9 -18,0 -20,9" fill="${c}"/><ellipse cx="2" cy="0" rx="13" ry="9" fill="${c}"/>`,
+  `<path d="M-2,-8 Q1,0 -2,8" stroke="${lt(c,.55)}" stroke-width="2.4" fill="none"/><path d="M-1,-9 Q4,-14 8,-8" fill="${dk(c,.15)}"/>${eye(8,-2,2)}<path d="M12,3 Q14,4 15,2" stroke="#3a2c24" stroke-width=".8" fill="none"/>`]});
+def('jellyfish', {r:15, b:20, pal:['pink','purple','cyan'], draw:c => [
+  `<path d="M-12,2 Q-12,-14 0,-14 Q12,-14 12,2 Q6,0 0,3 Q-6,0 -12,2 Z" fill="${c}"/>`,
+  `<ellipse cx="-4" cy="-8" rx="3" ry="2" fill="#fff" opacity=".6"/>${eye(-3,-3,1.4)}${eye(3,-3,1.4)}`,
+  `<path d="M-8,1 Q-10,8 -7,13 T-8,20 M-3,2 Q-5,9 -2,14 T-3,20 M3,2 Q1,9 4,14 T3,20 M8,1 Q6,8 9,13 T8,20" stroke="${c}" stroke-width="1.8" fill="none" opacity=".85"/>`]});
+def('bubbles', {r:14, b:14, asym:true, pal:['white'], draw:c => [
+  `<circle cx="5" cy="1" r="6" fill="rgba(225,245,254,.45)"/><circle cx="-6" cy="-8" r="4" fill="rgba(225,245,254,.45)"/><circle cx="-3" cy="9" r="3" fill="rgba(225,245,254,.45)"/><circle cx="8" cy="-11" r="3" fill="rgba(225,245,254,.45)"/>`,
+  `<circle cx="3" cy="-1" r="1.5" fill="#fff"/><circle cx="-7" cy="-9" r="1" fill="#fff"/>`]});
+def('turtle', {r:20, b:9, asym:true, pal:['green','teal','lime','brown'], draw:c => [
+  `<ellipse cx="-6" cy="7" rx="4" ry="2.5" fill="#8bc34a"/><ellipse cx="7" cy="7" rx="4" ry="2.5" fill="#8bc34a"/><polygon points="-14,0 -19,-2 -15,3" fill="#8bc34a"/><circle cx="16" cy="-2" r="5" fill="#9ccc65"/><path d="M-14,2 Q-13,-12 0,-12 Q13,-12 14,2 Z" fill="${c}"/>`,
+  `<polygon points="-4,-8 4,-8 7,-3 4,1 -4,1 -7,-3" fill="${lt(c,.3)}" stroke="${dk(c)}" stroke-width=".8"/>${eye(18,-3,1.4)}`]});
+def('octopus', {r:16, b:18, pal:['purple','pink','red','orange'], draw:c => [
+  `<ellipse cx="0" cy="-6" rx="11" ry="12" fill="${c}"/>`,
+  `${eye(-4,-6,2.2)}${eye(4,-6,2.2)}<path d="M-3,1 Q0,3 3,1" stroke="#3a2c24" stroke-width="1" fill="none"/><circle cx="-5" cy="-13" r="1.6" fill="${lt(c)}"/>`,
+  `<path d="M-9,2 Q-14,10 -10,16 M-4,4 Q-6,12 -3,18 M4,4 Q6,12 3,18 M9,2 Q14,10 10,16" stroke="${c}" stroke-width="4" fill="none" stroke-linecap="round"/>`]});
+def('seaweed', {r:16, b:22, asym:true, pal:['green','teal','lime'], draw:c => [
+  `<path d="M-4,22 C-12,10 4,4 -4,-8 C-10,-16 0,-20 -2,-24 C4,-18 0,-10 4,-4 C10,6 -2,12 2,22 Z" fill="${c}"/><path d="M6,22 C2,14 12,8 7,0 C4,-6 10,-9 9,-12 C14,-6 10,0 13,4 C16,10 9,15 11,22 Z" fill="${dk(c,.12)}"/>`, '']});
+def('coral', {r:17, b:22, asym:true, pal:['pink','orange','red','purple'], draw:c => [
+  `<rect x="-3" y="-6" width="6" height="28" rx="3" fill="${c}"/><rect x="-3" y="-4" width="6" height="18" rx="3" transform="rotate(-38 0 14)" fill="${c}"/><rect x="-3" y="-10" width="6" height="22" rx="3" transform="rotate(32 0 16)" fill="${c}"/><rect x="-3" y="2" width="6" height="12" rx="3" transform="rotate(-70 0 14)" fill="${c}"/>`,
+  `<circle cx="0" cy="-3" r="1.2" fill="${lt(c)}"/><circle cx="-9" cy="3" r="1.2" fill="${lt(c)}"/><circle cx="9" cy="-1" r="1.2" fill="${lt(c)}"/>`]});
+def('chest', {r:16, b:12, pal:['brown','red'], draw:c => [
+  `<rect x="-15" y="-4" width="30" height="16" fill="${c}"/><path d="M-15,-4 Q-15,-14 0,-14 Q15,-14 15,-4 Z" fill="${dk(c,.12)}"/>`,
+  `<rect x="-11" y="-13" width="3" height="25" fill="#ffca28"/><rect x="8" y="-13" width="3" height="25" fill="#ffca28"/><rect x="-3" y="-6" width="6" height="7" rx="1" fill="#ffca28" stroke="#8d6e00" stroke-width=".8"/>`]});
+def('clock', {r:14, b:14, asym:true, pal:['red','blue','green','yellow','purple','orange'], draw:c => [
+  `<circle r="14" fill="${c}"/>`,
+  `<circle r="10.5" fill="#fffde7"/><line x1="0" y1="0" x2="0" y2="-7.5" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="0" y1="0" x2="5.5" y2="2.5" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><circle r="1.3" fill="#222"/>
+   <circle cx="0" cy="-9" r=".9" fill="#555"/><circle cx="9" cy="0" r=".9" fill="#555"/><circle cx="0" cy="9" r=".9" fill="#555"/><circle cx="-9" cy="0" r=".9" fill="#555"/>`]});
+def('picture', {r:18, b:14, asym:true, pal:['brown','yellow','red','blue','purple'], draw:c => [
+  `<rect x="-18" y="-14" width="36" height="28" rx="1" fill="${c}"/>`,
+  `<rect x="-14" y="-10" width="28" height="20" fill="#b3e5fc"/><polygon points="-14,10 -5,-3 1,4 6,-1 14,10" fill="#66bb6a"/><circle cx="8" cy="-5" r="2.6" fill="#ffd54f"/>`]});
+def('cup', {r:13, b:9, asym:true, pal:['red','blue','white','yellow','green','pink'], draw:c => [
+  `<path d="M7,-4 Q15,-4 14,2 Q13,6 6,5" stroke="${c}" stroke-width="3" fill="none"/><path d="M-9,-8 L9,-8 L7,7 Q0,10 -7,7 Z" fill="${c}"/>`,
+  `<ellipse cx="0" cy="-8" rx="9" ry="1.8" fill="#6d4c41"/><circle cx="-2" cy="0" r="2.5" fill="${lt(c,.5)}"/>`,
+  `<path d="M-3,-11 Q-6,-15 -3,-18 M3,-11 Q0,-15 3,-19" stroke="rgba(120,120,120,.5)" stroke-width="1.3" fill="none"/>`]});
+def('teapot', {r:19, b:12, asym:true, pal:['red','blue','green','yellow','purple','white'], draw:c => [
+  `<path d="M-10,-4 Q-20,-4 -18,4 Q-16,9 -10,6" stroke="${c}" stroke-width="3" fill="none"/><path d="M9,2 L19,-8 L21,-6 L12,7 Z" fill="${c}"/><ellipse cx="0" cy="2" rx="12" ry="10" fill="${c}"/><ellipse cx="0" cy="-8" rx="6" ry="2.5" fill="${dk(c,.12)}"/><circle cx="0" cy="-11" r="2" fill="${dk(c,.12)}"/>`,
+  `<ellipse cx="-5" cy="-1" rx="2.5" ry="4" fill="#fff" opacity=".45"/>`]});
+def('pot', {r:19, b:10, pal:['red','gray','blue','orange','green'], draw:c => [
+  `<rect x="-19" y="-5" width="6" height="3" rx="1" fill="${dk(c)}"/><rect x="13" y="-5" width="6" height="3" rx="1" fill="${dk(c)}"/><rect x="-14" y="-7" width="28" height="17" rx="3" fill="${c}"/><path d="M-15,-7 Q0,-14 15,-7 Z" fill="${dk(c,.15)}"/>`,
+  `<circle cx="0" cy="-12" r="1.8" fill="#37474f"/><rect x="-10" y="-1" width="20" height="2" fill="${lt(c,.4)}"/>`]});
+def('apple', {r:13, b:12, asym:true, pal:['red','green','yellow'], draw:c => [
+  `<path d="M0,-6 C-6,-12 -14,-8 -13,2 C-12,10 -6,14 0,11 C6,14 12,10 13,2 C14,-8 6,-12 0,-6 Z" fill="${c}"/>`,
+  `<path d="M0,-6 Q1,-11 3,-14" stroke="#5d4037" stroke-width="1.6" fill="none"/><ellipse cx="7" cy="-12" rx="4.5" ry="2.2" transform="rotate(-25 7 -12)" fill="#66bb6a"/><ellipse cx="-6" cy="-2" rx="2" ry="3.5" fill="#fff" opacity=".45"/>`]});
+def('banana', {r:16, b:10, asym:true, pal:['yellow','lime'], draw:c => [
+  `<path d="M-15,-7 Q-13,10 6,10 Q14,9 17,3 Q6,5 -2,1 Q-10,-3 -11,-9 Z" fill="${c}"/>`,
+  `<path d="M-15,-7 L-11,-9 L-12,-6 Z" fill="#5d4037"/><path d="M-11,-2 Q-6,6 8,7" stroke="${dk(c,.15)}" stroke-width="1" fill="none"/>`]});
+def('bottle', {r:18, b:18, pal:['green','blue','red','teal','purple'], draw:c => [
+  `<path d="M-3,-17 L3,-17 L3,-11 Q9,-7 9,-1 L9,18 L-9,18 L-9,-1 Q-9,-7 -3,-11 Z" fill="${c}"/>`,
+  `<rect x="-4" y="-21" width="8" height="5" rx="1" fill="#ffca28"/><rect x="-9" y="2" width="18" height="9" fill="#fff8e1"/><line x1="-5" y1="6.5" x2="5" y2="6.5" stroke="${c}" stroke-width="1.5"/><rect x="-6" y="-4" width="2.5" height="19" fill="#fff" opacity=".35"/>`]});
+def('plant', {r:18, b:18, asym:true, pal:['orange','red','blue','yellow','pink'], draw:c => [
+  `<ellipse cx="-7" cy="-6" rx="9" ry="3.5" transform="rotate(-50 -7 -6)" fill="#43a047"/><ellipse cx="7" cy="-9" rx="11" ry="3.5" transform="rotate(-115 7 -9)" fill="#43a047"/><ellipse cx="11" cy="-1" rx="8" ry="3" transform="rotate(-20 11 -1)" fill="#66bb6a"/><path d="M-10,4 L10,4 L7,18 L-7,18 Z" fill="${c}"/><rect x="-11" y="2" width="22" height="4" rx="1" fill="${dk(c,.12)}"/>`, '']});
+def('cake', {r:16, b:10, pal:['pink','white','yellow','cyan','brown'], draw:c => [
+  `<rect x="-15" y="-4" width="30" height="14" rx="2" fill="#ffe0b2"/><path d="M-15,-4 L15,-4 L15,1 Q12,4 9,1 Q6,4 3,1 Q0,4 -3,1 Q-6,4 -9,1 Q-12,4 -15,1 Z" fill="${c}"/>`,
+  `<rect x="-1.2" y="-14" width="2.4" height="9" fill="#42a5f5"/><path d="M0,-19 Q2.5,-16 0,-14 Q-2.5,-16 0,-19" fill="#ff9800"/><circle cx="-8" cy="-6" r="2.4" fill="#e53935"/><circle cx="8" cy="-6" r="2.4" fill="#e53935"/>`]});
+def('lamp', {r:18, b:18, pal:['yellow','pink','cyan','orange','purple','lime'], draw:c => [
+  `<ellipse cx="0" cy="16" rx="9" ry="3" fill="#5d4037"/><rect x="-2" y="-3" width="4" height="18" fill="#795548"/><polygon points="-10,-19 10,-19 15,-2 -15,-2" fill="${c}"/>`,
+  `<line x1="-12" y1="-6" x2="12" y2="-6" stroke="${dk(c,.15)}" stroke-width="1.4"/>`]});
+def('books', {r:16, b:11, asym:true, pal:['red','blue','green','purple','orange'], draw:c => [
+  `<rect x="-14" y="4" width="28" height="7" rx="1" fill="${c}"/><rect x="-11" y="-3" width="26" height="7" rx="1" fill="#1e88e5"/><rect x="-15" y="-10" width="24" height="7" rx="1" fill="#fdd835"/>`,
+  `<rect x="10" y="5.5" width="3" height="4" fill="#fff"/><rect x="11" y="-1.5" width="3" height="4" fill="#fff"/><rect x="5" y="-8.5" width="3" height="4" fill="#fff"/>`]});
+def('duck', {r:16, b:12, asym:true, pal:['yellow','orange','white','pink'], draw:c => [
+  `<path d="M-16,-2 Q-12,12 2,12 Q14,12 13,2 Q13,-3 6,-2 Z" fill="${c}"/><circle cx="7" cy="-8" r="7" fill="${c}"/><polygon points="13,-9 19,-7 13,-5" fill="#ff7043"/>`,
+  `${eye(9,-10,1.5)}<path d="M-6,1 Q0,7 5,2" stroke="${dk(c,.2)}" stroke-width="1.4" fill="none"/>`]});
+def('star', {r:14, b:13, pal:['yellow','orange','white','pink'], draw:c => [
+  `<polygon points="${star(15, 6.5)}" fill="${c}"/>`,
+  `${eye(-3,-1,1.3)}${eye(3,-1,1.3)}<path d="M-2,3 Q0,4.5 2,3" stroke="#6d4c00" stroke-width="1" fill="none"/>`]});
+def('moon', {r:14, b:14, asym:true, pal:['yellow','white','orange'], draw:c => [
+  `<path d="M3,-14 A14,14 0 1 0 3,14 A18,18 0 0 1 3,-14 Z" fill="${c}"/>`,
+  `<circle cx="-7" cy="-4" r="1.8" fill="${dk(c,.12)}"/><circle cx="-5" cy="6" r="1.3" fill="${dk(c,.12)}"/>`]});
+def('planet', {r:20, b:12, asym:true, pal:['orange','cyan','purple','red','teal','pink','lime'], draw:c => [
+  `<circle r="12" fill="${c}"/>`,
+  `<path d="M-11,-4 Q0,-1 11,-6" stroke="${dk(c,.15)}" stroke-width="2" fill="none"/><path d="M-11,4 Q0,7 11,2" stroke="${lt(c,.3)}" stroke-width="2" fill="none"/><ellipse rx="21" ry="5" transform="rotate(-20)" fill="none" stroke="#ffe082" stroke-width="2.6"/>`]});
+def('rocket', {r:22, b:20, asym:true, pal:['red','blue','purple','orange','teal'], draw:c => [
+  `<g transform="rotate(22)"><polygon points="-7,6 -13,16 -7,14" fill="${c}"/><polygon points="7,6 13,16 7,14" fill="${c}"/><path d="M0,-22 Q9,-10 7,12 L-7,12 Q-9,-10 0,-22 Z" fill="#eceff1"/><path d="M0,-22 Q5,-16 6,-11 L-6,-11 Q-5,-16 0,-22 Z" fill="${c}"/></g>`,
+  `<g transform="rotate(22)"><circle cx="0" cy="-1" r="4" fill="#4fc3f7" stroke="${c}" stroke-width="2"/></g>`,
+  `<g transform="rotate(22)"><polygon points="-5,12 0,24 5,12" fill="#ff9800"/><polygon points="-2.5,12 0,19 2.5,12" fill="#ffeb3b"/></g>`]});
+def('ufo', {r:20, b:8, pal:['green','purple','cyan','pink','orange'], draw:c => [
+  `<ellipse cx="0" cy="-5" rx="8" ry="8" fill="#b3e5fc"/><ellipse cx="0" cy="2" rx="20" ry="6" fill="${c}"/>`,
+  `<circle cx="-11" cy="3" r="1.6" fill="#ffeb3b"/><circle cx="-4" cy="4.5" r="1.6" fill="#ffeb3b"/><circle cx="4" cy="4.5" r="1.6" fill="#ffeb3b"/><circle cx="11" cy="3" r="1.6" fill="#ffeb3b"/><ellipse cx="-3" cy="-8" rx="2" ry="3" fill="#fff" opacity=".7"/>`]});
+def('comet', {r:20, b:10, asym:true, pal:['cyan','yellow','white','orange'], draw:c => [
+  `<circle cx="9" cy="-5" r="7" fill="${c}"/>`,
+  `<circle cx="7" cy="-7" r="2" fill="#fff" opacity=".8"/>`,
+  `<polygon points="4,-11 -20,8 -16,10 3,1" fill="${c}" opacity=".35"/><polygon points="6,-9 -14,4 4,-2" fill="${c}" opacity=".55"/>`]});
+def('satellite', {r:20, b:9, pal:['gray','yellow','white'], draw:c => [
+  `<rect x="-20" y="-5" width="13" height="10" fill="#3949ab"/><rect x="7" y="-5" width="13" height="10" fill="#3949ab"/><rect x="-6" y="-7" width="12" height="14" rx="2" fill="${c}"/>`,
+  `<line x1="-13.5" y1="-5" x2="-13.5" y2="5" stroke="#9fa8da" stroke-width=".8"/><line x1="13.5" y1="-5" x2="13.5" y2="5" stroke="#9fa8da" stroke-width=".8"/><line x1="0" y1="-7" x2="3" y2="-13" stroke="#555" stroke-width="1.2"/><circle cx="3" cy="-13" r="1.6" fill="#e53935"/>`]});
+
+/* ---------- temas: fundo + regiões onde os objetos aparecem ---------- */
+const TEMAS = {
+  campo:{nome:'Campo', reg:[
+    {t:['cloud','cloud','bird','bird','balloon','kite','butterfly','sun'], x:[12,388], y:[12,100], n:[4,5], s:[.85,1.3]},
+    {t:['tree','pine','house','bush','rock','sheep','flower','mushroom','flower','tree','sheep'], x:[8,392], y:[188,288], n:[10,12], s:[.85,1.35], g:1}]},
+  praia:{nome:'Praia', reg:[
+    {t:['cloud','cloud','bird','sun','plane','kite'], x:[12,388], y:[10,96], n:[3,4], s:[.8,1.2]},
+    {t:['sailboat'], x:[20,380], y:[150,166], n:[1,2], s:[.7,.95], g:1},
+    {t:['umbrella','ball','bucket','starfish','shell','crab','palm','castle','ball','starfish'], x:[8,392], y:[205,290], n:[9,11], s:[.85,1.3], g:1}]},
+  cidade:{nome:'Cidade', reg:[
+    {t:['cloud','cloud','bird','plane','balloon','sun'], x:[12,388], y:[10,78], n:[3,4], s:[.8,1.15]},
+    {t:['tree','streetlamp','trafficlight','bench','hydrant','cat','tree'], x:[6,394], y:[214,222], n:[5,6], s:[.85,1.15], g:1},
+    {t:['car','car','bus'], x:[6,394], y:[268,292], n:[3,3], s:[.95,1.25], g:1}]},
+  mar:{nome:'Fundo do mar', reg:[
+    {t:['fish','fish','fish','jellyfish','bubbles','turtle','octopus'], x:[12,388], y:[14,212], n:[8,9], s:[.85,1.35]},
+    {t:['seaweed','coral','shell','starfish','crab','chest','rock','seaweed'], x:[8,392], y:[262,292], n:[6,7], s:[.85,1.25], g:1}]},
+  cozinha:{nome:'Cozinha', reg:[
+    {t:['clock','picture'], x:[20,380], y:[12,78], n:[2,3], s:[.9,1.25]},
+    {t:['cup','bottle','plant','books','teapot','apple','cake'], x:[50,350], y:[109,109], n:[4,5], s:[.75,1.05], g:1},
+    {t:['cup','teapot','pot','apple','banana','bottle','plant','cake','apple'], x:[8,392], y:[191,191], n:[6,7], s:[.85,1.2], g:1}]},
+  quarto:{nome:'Quarto', reg:[
+    {t:['picture','clock','star','moon','planet','kite'], x:[16,384], y:[12,104], n:[3,4], s:[.85,1.2]},
+    {t:['books','plant','lamp','duck','clock','ball'], x:[34,206], y:[139,139], n:[3,3], s:[.75,.95], g:1},
+    {t:['ball','books','duck','car','lamp','plant','cat','bucket'], x:[8,392], y:[238,292], n:[7,8], s:[.85,1.25], g:1}]},
+  espaco:{nome:'Espaço', reg:[
+    {t:['rocket','planet','planet','star','star','moon','ufo','comet','satellite','star'], x:[10,390], y:[10,290], n:[11,13], s:[.85,1.4]}]}
+};
+const TEMA_IDS = Object.keys(TEMAS);
+
+// fundo do tema (determinístico pela semente bs — é igual nas duas imagens)
+function bgSVG(th, bs){
+  const R = rngOf(bs); let s = '';
+  const grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+  const hills = (y, amp, col) => { let d = `M0,${VH} L0,${y}`; const n = 5; for(let i=1;i<=n;i++){ const x = i*VW/n; d += ` Q${(x - VW/n/2).toFixed(0)},${(y - rr(R, amp*.4, amp)).toFixed(0)} ${x.toFixed(0)},${(y + rr(R,-6,6)).toFixed(0)}`; } return `<path d="${d} L${VW},${VH} Z" fill="${col}"/>`; };
+  if(th === 'campo'){
+    s += `<defs>${grad('gS', '#7ccfff', '#e2f6ff')}</defs><rect width="${VW}" height="${VH}" fill="url(#gS)"/>`;
+    s += hills(140, 40, '#a5d6a7') + hills(165, 30, '#81c784');
+    s += `<rect y="172" width="${VW}" height="${VH-172}" fill="#7cb342"/>`;
+    for(let i=0;i<46;i++){ const x = rr(R,0,VW), y = rr(R,180,298); s += `<path d="M${x.toFixed(0)},${y.toFixed(0)} l2,-5 l2,5" stroke="#558b2f" stroke-width="1.2" fill="none"/>`; }
+  } else if(th === 'praia'){
+    s += `<defs>${grad('gS', '#6ec6ff', '#e3f6ff')}${grad('gM', '#1e88e5', '#4dd0e1')}</defs><rect width="${VW}" height="${VH}" fill="url(#gS)"/>`;
+    s += `<rect y="118" width="${VW}" height="64" fill="url(#gM)"/>`;
+    for(let i=0;i<9;i++){ const x = rr(R,0,VW-30), y = rr(R,126,170); s += `<path d="M${x.toFixed(0)},${y.toFixed(0)} q6,-4 12,0 t12,0" stroke="#fff" stroke-width="1.4" fill="none" opacity=".7"/>`; }
+    s += `<path d="M0,180 Q50,172 100,180 T200,180 T300,180 T400,180 L400,300 L0,300 Z" fill="#f6d7a7"/><path d="M0,180 Q50,172 100,180 T200,180 T300,180 T400,180" stroke="#fff" stroke-width="3" fill="none" opacity=".8"/>`;
+    for(let i=0;i<40;i++) s += `<circle cx="${rr(R,0,VW).toFixed(0)}" cy="${rr(R,190,298).toFixed(0)}" r="1" fill="#d7b07a"/>`;
+  } else if(th === 'cidade'){
+    s += `<defs>${grad('gS', '#ffd59e', '#bfe6ff')}</defs><rect width="${VW}" height="${VH}" fill="url(#gS)"/>`;
+    let x = -10; const cols = ['#90a4ae','#78909c','#b0bec5','#a1887f','#8d9db6'];
+    while(x < VW){ const w = rr(R,38,64), h = rr(R,60,125), c = rp(R, cols), top = 205 - h;
+      s += `<rect x="${x.toFixed(0)}" y="${top.toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="${c}"/>`;
+      for(let wy = top + 8; wy < 196; wy += 14) for(let wx = x + 6; wx < x + w - 8; wx += 12) s += `<rect x="${wx.toFixed(0)}" y="${wy.toFixed(0)}" width="6" height="7" fill="${R() < .3 ? '#fff59d' : '#e3f2fd'}" opacity=".85"/>`;
+      x += w + rr(R,2,10); }
+    s += `<rect y="205" width="${VW}" height="30" fill="#cfd8dc"/><rect y="233" width="${VW}" height="4" fill="#90a4ae"/><rect y="237" width="${VW}" height="63" fill="#546e7a"/>`;
+    for(let i=0;i<VW;i+=40) s += `<rect x="${i+8}" y="${VH-34}" width="22" height="3" fill="#fff" opacity=".8"/>`;
+  } else if(th === 'mar'){
+    s += `<defs>${grad('gS', '#4fc3f7', '#0d47a1')}</defs><rect width="${VW}" height="${VH}" fill="url(#gS)"/>`;
+    for(let i=0;i<4;i++){ const x = rr(R,0,VW); s += `<polygon points="${x.toFixed(0)},0 ${(x+30).toFixed(0)},0 ${(x-40).toFixed(0)},260 ${(x-80).toFixed(0)},260" fill="#fff" opacity=".07"/>`; }
+    s += `<path d="M0,255 Q60,240 120,252 T240,250 T400,248 L400,300 L0,300 Z" fill="#e6c98f"/>`;
+    for(let i=0;i<14;i++) s += `<ellipse cx="${rr(R,0,VW).toFixed(0)}" cy="${rr(R,262,298).toFixed(0)}" rx="3" ry="1.6" fill="#c8a96e"/>`;
+  } else if(th === 'cozinha'){
+    const wall = rp(R, ['#fff3e0','#e8f5e9','#e3f2fd','#fce4ec']);
+    s += `<rect width="${VW}" height="${VH}" fill="${wall}"/>`;
+    for(let y=0;y<188;y+=24) s += `<line x1="0" y1="${y}" x2="${VW}" y2="${y}" stroke="${dk(wall,.08)}" stroke-width="1.2"/>`;
+    for(let x=0;x<VW;x+=24) s += `<line x1="${x}" y1="0" x2="${x}" y2="188" stroke="${dk(wall,.08)}" stroke-width="1.2"/>`;
+    s += `<rect x="40" y="109" width="320" height="6" rx="2" fill="#a1785a"/><rect x="60" y="115" width="5" height="10" fill="#8d6e63"/><rect x="335" y="115" width="5" height="10" fill="#8d6e63"/>`;
+    s += `<rect y="191" width="${VW}" height="9" fill="#8d6e63"/><rect y="200" width="${VW}" height="100" fill="#ffcc80"/>`;
+    for(let x=6;x<VW;x+=80) s += `<rect x="${x}" y="208" width="72" height="84" rx="4" fill="none" stroke="#e0a458" stroke-width="2"/><circle cx="${x+62}" cy="250" r="3" fill="#8d6e63"/>`;
+  } else if(th === 'quarto'){
+    const wall = rp(R, ['#e1bee7','#c5e1a5','#b3e5fc','#ffe0b2','#f8bbd0']);
+    s += `<rect width="${VW}" height="${VH}" fill="${wall}"/>`;
+    for(let y=14;y<224;y+=28) for(let x=(y/28%2)*14+8;x<VW;x+=28) s += `<circle cx="${x}" cy="${y}" r="2.2" fill="${lt(wall,.5)}"/>`;
+    s += `<rect x="28" y="139" width="184" height="6" rx="2" fill="#a1785a"/>`;
+    s += `<rect y="224" width="${VW}" height="76" fill="#d7a86e"/><rect y="220" width="${VW}" height="6" fill="#fff"/>`;
+    for(let y=238;y<VH;y+=16) s += `<line x1="0" y1="${y}" x2="${VW}" y2="${y}" stroke="#b98a52" stroke-width="1"/>`;
+    s += `<ellipse cx="${rr(R,140,260).toFixed(0)}" cy="272" rx="120" ry="22" fill="${rp(R, ['#ef9a9a','#90caf9','#a5d6a7','#fff59d'])}" opacity=".75"/>`;
+  } else {
+    s += `<defs>${grad('gS', '#1a237e', '#05051a')}<radialGradient id="gN"><stop offset="0" stop-color="#ab47bc" stop-opacity=".45"/><stop offset="1" stop-color="#ab47bc" stop-opacity="0"/></radialGradient></defs><rect width="${VW}" height="${VH}" fill="url(#gS)"/>`;
+    s += `<ellipse cx="${rr(R,80,320).toFixed(0)}" cy="${rr(R,80,220).toFixed(0)}" rx="140" ry="70" fill="url(#gN)"/>`;
+    for(let i=0;i<70;i++) s += `<circle cx="${rr(R,0,VW).toFixed(1)}" cy="${rr(R,0,VH).toFixed(1)}" r="${rr(R,.4,1.3).toFixed(1)}" fill="#fff" opacity="${rr(R,.4,1).toFixed(2)}"/>`;
+  }
+  return s;
+}
+
+/* ---------- geração da cena e das diferenças ---------- */
+const radOf = o => O[o.t].r*o.s;
+const footOf = o => o.y + O[o.t].b*o.s;
+function collide(a, b, k=.92){
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y), rs = radOf(a) + radOf(b);
+  // objetos no chão: não podem ficar "em cima" um do outro (mesma coluna)
+  if(a.g === b.g && TEMAS_G(a) && dx < rs*.7) return true;
+  return Math.hypot(dx, dy) < rs*k;
+}
+let curTema = null;
+const TEMAS_G = o => curTema && curTema.reg[o.g] && curTema.reg[o.g].g;
+function inside(o, g){ const r = radOf(o); return o.x - r >= g.x[0] - 2 && o.x + r <= g.x[1] + 2 && (g.g || (o.y - r >= g.y[0] - 2 && o.y + r <= g.y[1] + 2)); }
+function placeY(t, s, yb){ return yb - O[t].b*s; }
+
+function genScene(seed, nivel, th){
+  const R = rngOf(seed), T = TEMAS[th], NV = NIVEIS[nivel], objs = []; curTema = T;
+  T.reg.forEach((g, gi) => {
+    const n = ri(R, g.n[0], g.n[1]); let placed = 0, tries = 0;
+    while(placed < n && tries++ < 300){
+      const t = rp(R, g.t), d = O[t];
+      if(d.once && objs.some(o => o.t === t)) continue;
+      const s = rr(R, g.s[0], g.s[1]), r = d.r*s;
+      if(g.x[1] - g.x[0] < 2*r) continue;
+      const x = rr(R, g.x[0] + r, g.x[1] - r);
+      const y = g.g ? placeY(t, s, rr(R, g.y[0], g.y[1])) : rr(R, g.y[0] + r, g.y[1] - r);
+      const o = {t, x, y, s, c:rp(R, d.pal), f:d.asym && R() < .5 ? 1 : 0, g:gi};
+      if(objs.some(p => collide(p, o))) continue;
+      objs.push(o); placed++;
+    }
+  });
+  objs.sort((a, b) => footOf(a) - footOf(b));
+  // escolhe os objetos que mudam: bem visíveis e afastados entre si
+  const A = objs.map(o => Object.assign({}, o)), B = objs.map(o => Object.assign({}, o));
+  const cand = rshuf(R, objs.map((o, i) => i).filter(i => radOf(objs[i]) >= NV.minR));
+  const diffs = [], used = [];
+  const pesos = Object.entries(NV.tipos);
+  for(const i of cand){
+    if(diffs.length >= NV.K) break;
+    const o = objs[i], d = O[o.t], g = T.reg[o.g];
+    if(used.some(j => Math.hypot(objs[j].x - o.x, objs[j].y - o.y) < radOf(objs[j]) + radOf(o) + 10)) continue;
+    // tipos possíveis para este objeto, sorteados pelo peso do nível
+    const ok = pesos.filter(([k, w]) => w > 0 && (k !== 'flip' || d.asym) && (k !== 'col' || d.pal.length > 1 || RODA.includes(o.c)));
+    let tot = ok.reduce((a, [, w]) => a + w, 0), x = R()*tot, tipo = ok[0][0];
+    for(const [k, w] of ok){ x -= w; if(x <= 0){ tipo = k; break; } }
+    const nb = Object.assign({}, o);
+    let rad = radOf(o) + 6, x2 = null, y2 = null;
+    if(tipo === 'col') nb.c = novaCor(R, o.c, d.pal, NV.cor);
+    else if(tipo === 'flip') nb.f = o.f ? 0 : 1;
+    else if(tipo === 'tam'){
+      nb.s = o.s*(R() < .6 ? NV.tam[0] : NV.tam[1]);
+      if(g.g) nb.y = placeY(o.t, nb.s, footOf(o));
+      if(objs.some((p, j) => j !== i && collide(p, nb, .8))) nb.s = o.s*NV.tam[1], nb.y = g.g ? placeY(o.t, nb.s, footOf(o)) : o.y;
+      rad = Math.max(radOf(o), radOf(nb)) + 6;
+    } else if(tipo === 'mov'){
+      let okm = false;
+      for(let k=0;k<12 && !okm;k++){
+        const dist = rr(R, NV.mov[0], NV.mov[1]), ang = g.g ? (R() < .5 ? 0 : Math.PI) : R()*Math.PI*2;
+        nb.x = o.x + Math.cos(ang)*dist; nb.y = o.y + Math.sin(ang)*dist;
+        okm = inside(nb, g) && !objs.some((p, j) => j !== i && collide(p, nb, .8));
+      }
+      if(!okm){ tipo = 'rem'; nb.x = o.x; nb.y = o.y; } else { x2 = nb.x; y2 = nb.y; }
+    }
+    if(tipo === 'rem') nb.gone = 1;
+    // a mudança vai para um dos lados ao acaso
+    const side = R() < .5;
+    if(side){ A[i] = nb; } else { B[i] = nb; }
+    diffs.push({k:tipo, x:o.x, y:o.y, r:Math.max(rad, 16), x2, y2});
+    used.push(i);
+  }
+  const clean = L => L.filter(o => !o.gone).map(o => ({t:o.t, x:+o.x.toFixed(1), y:+o.y.toFixed(1), s:+o.s.toFixed(3), c:o.c, f:o.f}));
+  return {A:clean(A), B:clean(B), diffs, bs:Math.floor(R()*1e9), th};
+}
+function novaCor(R, c, pal, [d0, d1]){
+  const i = RODA.indexOf(c);
+  if(i < 0){ const o = pal.filter(x => x !== c); return o.length ? rp(R, o) : 'red'; }
+  const dist = j => { const d = Math.abs(j - i); return Math.min(d, RODA.length - d); };
+  const opts = RODA.map((x, j) => j).filter(j => dist(j) >= d0 && dist(j) <= d1);
+  const pref = opts.filter(j => pal.includes(RODA[j]));
+  return RODA[rp(R, pref.length ? pref : opts)];
+}
+
+function objSVG(o){
+  const d = O[o.t], col = COR[o.c] || o.c, [body, det = '', pre = ''] = d.draw(col);
+  return `<g transform="translate(${o.x},${o.y}) scale(${o.f ? -o.s : o.s},${o.s})">${pre}<g stroke="#3a2c24" stroke-width="3.2" stroke-linejoin="round">${body}</g><g stroke="none">${body}</g>${det}</g>`;
+}
+function sceneSVG(sc, side){ return bgSVG(sc.th, sc.bs).replace(/id="g(\w)"/g, `id="g$1${side}"`).replace(/url\(#g(\w)\)/g, `url(#g$1${side})`) + sc[side].map(objSVG).join(''); }
+
+/* ---------- regras ---------- */
+function newPhase(st){
+  st.fase++;
+  if(!st.temas.length) st.temas = shuffle(TEMA_IDS.slice()).filter(t => t !== st.th);
+  st.th = st.temas.shift();
+  let sc = null;
+  for(let k=0;k<8 && (!sc || sc.diffs.length < NIVEIS[st.nivel].K);k++) sc = genScene(Math.floor(Math.random()*2**31), st.nivel, st.th);
+  st.scene = {A:sc.A, B:sc.B, bs:sc.bs, th:sc.th};
+  st.diffs = sc.diffs; st.found = sc.diffs.map(() => 0);
+  st.status = 'play'; st.fim = Date.now() + NIVEIS[st.nivel].tempo*1000; st.dur = NIVEIS[st.nivel].tempo*1000;
+  st.miss = 0; st.hints = 0; st.hint = null; st.gid++;
+}
+function hitDiff(st, x, y){
+  let best = -1, bd = 1e9;
+  st.diffs.forEach((d, i) => {
+    const dd = Math.min(Math.hypot(x - d.x, y - d.y), d.x2 != null ? Math.hypot(x - d.x2, y - d.y2) : 1e9);
+    if(dd <= d.r && dd < bd){ bd = dd; best = i; }
+  });
+  return best;
+}
+function clearPhase(st, now){
+  const left = Math.max(0, st.fim - now), NV = NIVEIS[st.nivel];
+  const bonus = Math.ceil(left/1000)*3, perf = !st.miss && !st.hints;
+  const stars = perf ? 3 : (st.miss + st.hints*2 <= 3 ? 2 : 1);
+  st.pts += bonus + (perf ? 100 : 0);
+  st.last = {bonus, perf, stars, left, miss:st.miss, hints:st.hints};
+  st.stars += stars; st.status = 'clear'; st.hint = null;
+  return [{k:'banner', text:'Fase concluída!'}, {k:'snd', s:'win'}];
+}
+function result(st){
+  if(st.status === 'done'){
+    return {winners:[0], text:`Você completou as <b>${st.fases}</b> fases (${NIVEIS[st.nivel].nome}) com <b>${st.pts}</b> pontos e ${st.stars} ⭐.${recTxt(st)}`};
+  }
+  if(st.status === 'timeout'){
+    const n = st.found.filter(Boolean).length;
+    return {winners:[], text:`O tempo acabou na fase <b>${st.fase}</b> de ${st.fases} (${n} de ${st.diffs.length} diferenças). Total: <b>${st.pts}</b> pontos.${recTxt(st)}`};
+  }
+  return null;
+}
+// recorde por nível e número de fases (guardado neste aparelho)
+function recTxt(st){
+  if(st.recMsg == null){
+    const k = 'central.diferencas.rec.' + st.nivel + '.' + st.fases, old = +(lsGet(k) || 0);
+    if(st.pts > old){ lsSet(k, st.pts); st.recMsg = old ? ` <br>🏅 Novo recorde! (antes: ${old})` : ''; }
+    else st.recMsg = old ? ` <br>Recorde: ${old} pontos.` : '';
+  }
+  return st.recMsg;
+}
+
+Mesa.run({
+  id:'diferencas', name:'Ache as Diferenças', icon:'🔍', tagline:'Compare as duas cenas e toque no que mudou',
+  options:[
+    {key:'nivel', label:'Nível', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'fases', label:'Fases', default:'5', choices:[['3','3 fases'],['5','5 fases'],['10','10 fases']]}
+  ],
+  solo:true, players:1,
+  modeLabel:o => (NIVEIS[o.nivel] || NIVEIS.normal).nome,
+  setup(players, o){
+    const st = {nivel:nivelOf(o.nivel), fases:[3,5,10].includes(+o.fases) ? +o.fases : 5, fase:0, pts:0, stars:0, temas:[], th:null, gid:0, last:null};
+    newPhase(st);
+    return st;
+  },
+  waiting(st){ return st.status === 'play' || st.status === 'clear' ? [0] : []; },
+  over(st){ return result(st); },
+  apply(st, s, a){
+    if(s !== 0 || !a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    const now = Date.now(), NV = NIVEIS[st.nivel];
+    if(a.t === 'next'){
+      if(st.status !== 'clear') return {ok:false, err:'Termine a fase primeiro.'};
+      if(st.fase >= st.fases){ st.status = 'done'; return {events:[]}; }
+      newPhase(st); return {events:[{k:'snd', s:'deal', n:5}]};
+    }
+    if(st.status !== 'play') return {ok:false, err:'Aguarde a próxima fase.'};
+    if(now >= st.fim){ st.status = 'timeout'; return {events:[{k:'banner', text:'Tempo esgotado!', bad:true}]}; }
+    if(a.t === 'tap'){
+      const x = +a.x, y = +a.y;
+      if(!isFinite(x) || !isFinite(y) || x < 0 || x > VW || y < 0 || y > VH) return {ok:false, err:'Toque fora da imagem.'};
+      const i = hitDiff(st, x, y);
+      if(i >= 0 && st.found[i]) return {events:[]};          // já achada: não conta erro
+      if(i >= 0){
+        st.found[i] = 1; st.pts += 100; if(st.hint && st.hint.i === i) st.hint = null;
+        const ev = [{k:'found', i}, {k:'snd', s:'capture'}];
+        if(st.found.every(Boolean)) ev.push(...clearPhase(st, now));
+        return {events:ev};
+      }
+      st.miss++; st.fim -= NV.pen*1000;
+      const ev = [{k:'miss', x, y, pen:NV.pen}, {k:'snd', s:'error'}];
+      if(now >= st.fim){ st.status = 'timeout'; ev.push({k:'banner', text:'Tempo esgotado!', bad:true}); }
+      return {events:ev};
+    }
+    if(a.t === 'hint'){
+      const left = st.diffs.map((d, i) => i).filter(i => !st.found[i]);
+      if(!left.length) return {ok:false, err:'Não falta nada.'};
+      if(st.hint && st.hint.until > now) return {ok:false, err:'A dica ainda está piscando.'};
+      const i = pick(left), d = st.diffs[i], R = clamp(d.r*2, 42, 70), ang = Math.random()*Math.PI*2, off = R*.45;
+      st.hint = {i, x:+(d.x + Math.cos(ang)*off).toFixed(1), y:+(d.y + Math.sin(ang)*off).toFixed(1), r:+R.toFixed(1), until:now + 3200};
+      st.hints++; st.fim -= NV.hint*1000;
+      const ev = [{k:'snd', s:'alert'}, {k:'pen', pen:NV.hint}];
+      if(now >= st.fim){ st.status = 'timeout'; ev.push({k:'banner', text:'Tempo esgotado!', bad:true}); }
+      return {events:ev};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, now){
+    if(st.status === 'play' && now >= st.fim){ st.status = 'timeout'; st.hint = null; return {changed:true, events:[{k:'banner', text:'Tempo esgotado!', bad:true}, {k:'snd', s:'lose'}]}; }
+    if(st.hint && st.hint.until <= now){ st.hint = null; return {changed:true}; }
+    return null;
+  },
+  tickMs:400,
+  // bot só para testes automáticos: acha a maioria, erra às vezes
+  bot(st){
+    if(st.status === 'clear') return {t:'next'};
+    const left = st.diffs.map((d, i) => i).filter(i => !st.found[i]);
+    if(Math.random() < .12) return {t:'tap', x:Math.random()*VW, y:Math.random()*VH};
+    const d = st.diffs[pick(left)];
+    return {t:'tap', x:d.x, y:d.y};
+  },
+  botDelay(st){ return st.status === 'clear' ? 900 : 1100; },
+  view(st){
+    const now = Date.now();
+    return {nivel:st.nivel, fase:st.fase, fases:st.fases, status:st.status, gid:st.gid, scene:st.scene,
+      K:st.diffs.length, found:st.diffs.map((d, i) => st.found[i] ? {i, x:d.x, y:d.y, r:d.r, x2:d.x2, y2:d.y2} : null).filter(Boolean),
+      fim:st.fim, dur:st.dur, left:Math.max(0, st.fim - now), pts:st.pts, stars:st.stars, last:st.last,
+      hint:st.hint && st.hint.until > now ? {x:st.hint.x, y:st.hint.y, r:st.hint.r} : null,
+      pen:NIVEIS[st.nivel].pen, hpen:NIVEIS[st.nivel].hint, tema:TEMAS[st.th].nome};
+  },
+  render, topInfo,
+  onEvent,
+  rules: `<h3>Objetivo</h3><p>As duas cenas parecem iguais, mas não são! Encontre todas as <b>diferenças</b> antes de o tempo acabar e passe por todas as fases.</p>
+  <h3>Como jogar</h3><ul>
+  <li>Toque (ou clique) no lugar da diferença em <b>qualquer uma</b> das duas imagens. Ela ganha um círculo verde nas duas.</li>
+  <li>As diferenças podem ser: um objeto que <b>sumiu</b> (ou apareceu), que mudou de <b>cor</b>, que ficou <b>espelhado</b> (virado para o outro lado), que <b>mudou de lugar</b> ou de <b>tamanho</b>.</li>
+  <li>Toque errado (onde não há diferença) <b>desconta tempo</b>.</li>
+  <li><b>💡 Dica:</b> pisca a área onde há uma diferença, mas custa tempo.</li>
+  <li>Cada fase tem um cenário diferente (campo, praia, cidade, fundo do mar, cozinha, quarto, espaço), sorteado na hora — nunca se repete.</li></ul>
+  <h3>Níveis</h3><table><tr><th>Nível</th><th>Diferenças</th><th>Tempo</th><th>Erro</th><th>Dica</th></tr>
+  <tr><td>Fácil</td><td>5</td><td>2:00</td><td>−3 s</td><td>−8 s</td></tr>
+  <tr><td>Normal</td><td>6</td><td>1:40</td><td>−5 s</td><td>−12 s</td></tr>
+  <tr><td>Difícil</td><td>7</td><td>1:30</td><td>−8 s</td><td>−15 s</td></tr></table>
+  <p>No Difícil as mudanças são mais sutis (cores parecidas, deslocamentos menores, objetos menores).</p>
+  <h3>Pontos</h3><ul><li>100 por diferença; ao terminar a fase, 3 pontos por segundo que sobrou e +100 se não errou nem pediu dica (⭐⭐⭐).</li>
+  <li>Se o tempo acabar, o jogo termina com os pontos que você fez. O recorde fica guardado neste aparelho.</li></ul>`
+});
+
+/* ------------------------------ interface ------------------------------ */
+let builtKey = '', lastView = null, foundShown = new Set();
+function topInfo(g){ return `<div class="status">Fase ${g.fase}/${g.fases} · ${esc(g.tema)} · <b>${g.pts}</b> pts</div>`; }
+
+function layout(ui){
+  const st = ui.stage, W = st.clientWidth - 16, H = st.clientHeight - 14 - 52;
+  const gap = 10, ar = VH/VW;
+  // lado a lado ou um em cima do outro: escolhe o que deixa a imagem maior
+  const wSide = Math.min((W - gap)/2, H/ar), wCol = Math.min(W, (H - gap)/2/ar);
+  const col = wCol > wSide;
+  const w = Math.floor(Math.max(120, col ? wCol : wSide));
+  return {col, w, h:Math.floor(w*ar), gap};
+}
+function build(g, ui){
+  const L = layout(ui), sc = g.scene;
+  ui.stage.innerHTML = `<div class="df">
+    <div class="dbar" style="max-width:${L.col ? L.w : L.w*2 + L.gap}px">
+      <div class="tbox"><span class="tclock" id="tClock">0:00</span><div class="tbar"><i id="tBar"></i></div></div>
+      <div class="dots" id="dots">${'<b></b>'.repeat(g.K)}</div>
+      <button class="tbtn" id="bHint" title="Dica (custa tempo)">💡<span class="tx"> Dica</span> <small>−${g.hpen}s</small></button>
+    </div>
+    <div class="scenes ${L.col ? 'col' : ''}" id="scenes" style="--gap:${L.gap}px">
+      ${['A','B'].map(k => `<div class="sc" data-k="${k}" style="width:${L.w}px;height:${L.h}px"><svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg">${sceneSVG(sc, k)}<g class="mk"></g></svg><span class="lb">${k === 'A' ? '1' : '2'}</span></div>`).join('')}
+    </div></div>`;
+  $$('.sc', ui.stage).forEach(el => el.addEventListener('pointerdown', e => {
+    const v = ui.view, gg = v && v.game; if(!gg || gg.status !== 'play' || v.phase !== 'game') return;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width*VW, y = (e.clientY - r.top)/r.height*VH;
+    ui.act({t:'tap', x:+x.toFixed(1), y:+y.toFixed(1)});
+  }));
+  $('#bHint').onclick = () => { const v = ui.view; if(v && v.game && v.game.status === 'play') ui.act({t:'hint'}); };
+  foundShown = new Set(g.found.map(f => f.i));
+}
+function marks(g){
+  let s = '';
+  g.found.forEach(f => {
+    const nw = !foundShown.has(f.i) ? ' new' : '';
+    s += `<circle class="ring${nw}" cx="${f.x}" cy="${f.y}" r="${f.r}"/>`;
+    if(f.x2 != null) s += `<circle class="ring${nw}" cx="${f.x2}" cy="${f.y2}" r="${f.r}"/><line class="ring2" x1="${f.x}" y1="${f.y}" x2="${f.x2}" y2="${f.y2}"/>`;
+  });
+  if(g.hint) s += `<circle class="hintc" cx="${g.hint.x}" cy="${g.hint.y}" r="${g.hint.r}"/>`;
+  return s;
+}
+function render(g, v, ui){
+  lastView = g;
+  const st = ui.stage, key = [g.gid, st.clientWidth, st.clientHeight].join(',');
+  if(key !== builtKey || !$('#scenes')){ builtKey = key; build(g, ui); }
+  const mk = marks(g);
+  $$('.sc .mk', st).forEach(m => {
+    // mantém os X de erro que ainda estão animando
+    const xs = [...m.querySelectorAll('.missx')];
+    m.innerHTML = mk; xs.forEach(x => m.appendChild(x));
+  });
+  g.found.forEach(f => foundShown.add(f.i));
+  $$('#dots b').forEach((b, i) => b.classList.toggle('on', i < g.found.length));
+  $('#bHint').disabled = g.status !== 'play' || !!g.hint;
+  $('#scenes').classList.toggle('dead', g.status === 'timeout');
+  // fase concluída
+  const ov = $('.clear', st);
+  if(g.status === 'clear' && v.phase === 'game'){
+    if(!ov){
+      const l = g.last || {}, lastF = g.fase >= g.fases;
+      st.insertAdjacentHTML('beforeend', `<div class="clear"><div class="box2"><h2>Fase ${g.fase} concluída!</h2>
+        <div class="stars">${'⭐'.repeat(l.stars || 1)}${'☆'.repeat(3 - (l.stars || 1))}</div>
+        <p>Sobraram <b>${fmt(l.left || 0)}</b> → +${l.bonus || 0} pontos${l.perf ? '<br>Sem erros e sem dicas: <b>+100</b>!' : ''}</p>
+        <p>${l.miss ? l.miss + ' erro(s)' : 'Nenhum erro'} · ${l.hints ? l.hints + ' dica(s)' : 'nenhuma dica'}</p>
+        <p>Total: <b>${g.pts}</b> pontos</p>
+        <button class="big g" id="bNext">${lastF ? '🏁 Ver resultado' : '▶ Próxima fase'}</button></div></div>`);
+      $('#bNext').onclick = () => ui.act({t:'next'});
+    }
+  } else if(ov) ov.remove();
+  paintClock();
+}
+function paintClock(){
+  const g = lastView, c = $('#tClock'), b = $('#tBar'); if(!g || !c || !b) return;
+  const left = g.status === 'play' ? Math.max(0, g.fim - Date.now()) : (g.status === 'clear' && g.last ? g.last.left : (g.status === 'timeout' ? 0 : g.left));
+  c.textContent = fmt(left);
+  const low = left < 15000 && g.status === 'play';
+  c.classList.toggle('low', low); b.classList.toggle('low', low);
+  b.style.width = Math.max(0, Math.min(100, 100*left/g.dur)) + '%';
+}
+setInterval(paintClock, 250);
+function onEvent(e, v, ui){
+  if(e.k === 'start'){ builtKey = ''; foundShown = new Set(); }
+  if(e.k === 'miss'){
+    $$('.sc .mk').forEach(m => {
+      const s = 9;
+      m.insertAdjacentHTML('beforeend', `<path class="missx" d="M${e.x - s},${e.y - s} L${e.x + s},${e.y + s} M${e.x + s},${e.y - s} L${e.x - s},${e.y + s}"/>`);
+      const el = m.lastElementChild; setTimeout(() => el.remove(), 1000);
+    });
+    penFx(e.pen);
+    try{ navigator.vibrate && navigator.vibrate(40); }catch(_){}
+  }
+  if(e.k === 'pen') penFx(e.pen);
+}
+function penFx(p){
+  const c = $('#tClock'); if(!c) return;
+  const r = c.getBoundingClientRect(), sr = Mesa.ui.stage.getBoundingClientRect();
+  const d = document.createElement('div'); d.className = 'pen'; d.textContent = '−' + p + 's';
+  d.style.left = (r.right - sr.left + 6) + 'px'; d.style.top = (r.top - sr.top) + 'px';
+  Mesa.ui.stage.appendChild(d); setTimeout(() => d.remove(), 1000);
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>
