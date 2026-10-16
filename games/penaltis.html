@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Pênaltis</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center}
+/* escolha de time */
+.pick{width:100%;height:100%;overflow:auto;padding:10px 10px 16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.pick h3{color:var(--gold);font-size:18px;text-align:center}
+.pick .sub{font-size:13px;color:#cfe;text-align:center;min-height:18px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;width:100%;max-width:900px}
+.tcard{background:rgba(0,0,0,.32);border:2px solid rgba(255,255,255,.14);border-radius:14px;padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;color:#fff;font:inherit;font-size:12.5px;font-weight:800;line-height:1.15;text-align:center;transition:transform .1s,border-color .15s;position:relative}
+.tcard:active{transform:scale(.96)}
+.tcard svg{width:46px;height:60px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.tcard.mine{border-color:var(--gold);box-shadow:0 0 14px rgba(231,180,58,.6);background:rgba(231,180,58,.16)}
+.tcard.taken{opacity:.42;cursor:not-allowed}
+.tcard .who{position:absolute;top:3px;right:5px;font-size:10px;color:#ffe6a6}
+@media (hover:hover){ .tcard:not(.taken):hover{border-color:var(--gold)} }
+/* partida */
+.pz{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 6px 8px}
+.sb{width:100%;max-width:560px;display:flex;flex-direction:column;gap:4px}
+.sr{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.35);border-radius:12px;padding:3px 9px;border:2px solid transparent}
+.sr.vez{border-color:var(--gold)}
+.sr svg{width:22px;height:29px;flex:none}
+.sr .nm{flex:1;min-width:0;font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr .nm small{font-weight:600;color:#9cb;font-size:11px}
+.dots{display:flex;gap:3px;flex:none}
+.dt{width:17px;height:17px;border-radius:50%;border:2px solid rgba(255,255,255,.35);display:grid;place-items:center;font-size:11px;font-weight:900;line-height:1}
+.dt.g{background:#2fbf6a;border-color:#2fbf6a;color:#fff}
+.dt.x{background:#d23a3a;border-color:#d23a3a;color:#fff}
+.dt.nx{border-color:var(--gold);animation:pulse 1.2s infinite}
+.sr .gl{font-size:20px;font-weight:900;color:var(--gold);min-width:22px;text-align:right;font-variant-numeric:tabular-nums}
+.scene{position:relative;flex:none;border-radius:14px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+.scene>svg{display:block;width:100%;height:100%;touch-action:manipulation}
+.zn{fill:rgba(255,255,255,0);stroke:rgba(255,255,255,0);cursor:default;transition:fill .15s}
+.zon .zn{fill:rgba(255,255,255,.07);stroke:rgba(255,255,255,.55);stroke-width:1;stroke-dasharray:3 3;cursor:pointer}
+.zon .zn:hover{fill:rgba(231,180,58,.22)}
+.zn.sel{fill:rgba(231,180,58,.38)!important;stroke:#e7b43a!important;stroke-dasharray:none!important;stroke-width:2!important}
+.zl{font-size:8px;fill:rgba(255,255,255,.75);font-weight:800;pointer-events:none;text-anchor:middle;opacity:0}
+.zon .zl{opacity:1}
+.ctl{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.st{font-size:15px;font-weight:800;color:var(--gold);text-align:center;min-height:20px;text-shadow:0 1px 3px #000}
+.st small{display:block;font-size:12px;color:#cfe;font-weight:600}
+.tm{width:100%;height:6px;border-radius:4px;background:rgba(0,0,0,.4);overflow:hidden}
+.tm i{display:block;height:100%;background:var(--gold);border-radius:4px;transition:width .2s linear}
+.tm.low i{background:#e2504a}
+.meter{position:relative;width:100%;height:26px;border-radius:13px;overflow:hidden;border:2px solid rgba(255,255,255,.35);
+  background:linear-gradient(90deg,#b8442f 0%,#d9a43a 30%,#e8d14a 45%,#3ecf7a 60%,#3ecf7a 81%,#e2504a 84%,#a01818 100%)}
+.meter .lb{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:0 9px;font-size:10.5px;font-weight:900;color:rgba(0,0,0,.6);pointer-events:none}
+.meter .mk{position:absolute;top:-2px;bottom:-2px;width:6px;margin-left:-3px;background:#fff;border-radius:3px;box-shadow:0 0 6px #000}
+.meter.off{opacity:.35}
+.kb{width:100%;padding:13px;border:none;border-radius:12px;font-size:17px;font-weight:900;cursor:pointer;background:var(--gold);color:#3a2600;letter-spacing:1px}
+.kb:disabled{opacity:.4;cursor:not-allowed}
+.kb:active:not(:disabled){transform:scale(.97)}
+.hint{font-size:12px;color:#cfe;text-align:center;opacity:.85}
+@media (max-width:720px){ .sr .nm{font-size:12.5px} .dt{width:15px;height:15px;font-size:10px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   Pênaltis — disputa de pênaltis para 2 (online ou contra bot).
+   Jogada simultânea: o batedor escolhe canto + força; o goleiro escolhe
+   para onde pular. O anfitrião resolve (gol, defesa, trave, fora).
+   Times: nomes GENÉRICOS (cidade/estado + cores), sem escudos nem marcas.
+   ===================================================================== */
+
+/* ---------- times (pat: v=listras verticais, h=horizontais, s=lisa, f=faixa diagonal, b=faixa no peito) ---------- */
+const TEAMS = [
+  {n:'Alvinegro de BH',          c:['#151515','#ffffff'], pat:'v', sh:'#151515', gk:'#f2c230'},
+  {n:'Celeste de BH',            c:['#1d4fb8','#ffffff'], pat:'s', sh:'#ffffff', gk:'#f28c28'},
+  {n:'Rubro-Negro Carioca',      c:['#c8102e','#151515'], pat:'h', sh:'#ffffff', gk:'#3bb273'},
+  {n:'Tricolor Carioca',         c:['#7a1730','#0f6b3c','#ffffff'], pat:'v', sh:'#ffffff', gk:'#f2c230'},
+  {n:'Alvinegro Carioca',        c:['#ffffff','#151515'], pat:'v', sh:'#ffffff', gk:'#2e86de'},
+  {n:'Cruzmaltino Carioca',      c:['#ffffff','#151515'], pat:'f', sh:'#151515', gk:'#8e44ad'},
+  {n:'Alviverde Paulista',       c:['#0b7a3b','#ffffff'], pat:'s', sh:'#ffffff', gk:'#f2c230'},
+  {n:'Tricolor Paulista',        c:['#ffffff','#c8102e','#151515'], pat:'b', sh:'#ffffff', gk:'#3bb273'},
+  {n:'Alvinegro Paulista',       c:['#ffffff','#151515'], pat:'s', sh:'#151515', gk:'#f28c28'},
+  {n:'Alvinegro Praiano',        c:['#ffffff','#151515'], pat:'s', sh:'#ffffff', gk:'#2e86de'},
+  {n:'Tricolor Gaúcho',          c:['#1e7fd0','#151515','#ffffff'], pat:'v', sh:'#151515', gk:'#f2c230'},
+  {n:'Colorado Gaúcho',          c:['#d0101e','#ffffff'], pat:'s', sh:'#ffffff', gk:'#3bb273'},
+  {n:'Rubro-Negro Baiano',       c:['#c8102e','#151515'], pat:'v', sh:'#151515', gk:'#f2c230'},
+  {n:'Tricolor Baiano',          c:['#ffffff','#1d4fb8','#c8102e'], pat:'b', sh:'#1d4fb8', gk:'#f28c28'},
+  {n:'Tricolor de Fortaleza',    c:['#1d4fb8','#c8102e','#ffffff'], pat:'h', sh:'#1d4fb8', gk:'#3bb273'},
+  {n:'Alvinegro do Ceará',       c:['#151515','#ffffff'], pat:'v', sh:'#ffffff', gk:'#c8102e'},
+  {n:'Rubro-Negro Paranaense',   c:['#c8102e','#151515'], pat:'f', sh:'#151515', gk:'#ffffff'},
+  {n:'Alviverde Paranaense',     c:['#ffffff','#0b7a3b'], pat:'h', sh:'#151515', gk:'#f2c230'},
+  {n:'Alviverde Goiano',         c:['#0b7a3b','#ffffff'], pat:'b', sh:'#0b7a3b', gk:'#f28c28'},
+  {n:'Rubro-Negro Pernambucano', c:['#151515','#c8102e'], pat:'h', sh:'#151515', gk:'#3bb273'}
+];
+const NT = TEAMS.length;
+const ZNAME = ['alto à esquerda','alto no meio','alto à direita','baixo à esquerda','baixo no meio','baixo à direita'];
+const row = z => z < 3 ? 0 : 1, col = z => z % 3;
+const SHOW = 2700;                                  // tempo da animação de cada cobrança (ms)
+
+/* ---------- modelo do chute (o mesmo usado pelos bots para "pensar") ---------- */
+// força p em [0,1]: fraco < 0,35 · ideal 0,60–0,82 · forte demais > 0,82 (pode ir por cima/para fora)
+const strength = p => clamp((p - 0.15) / 0.67, 0, 1);
+function missProb(z, p){
+  const over = Math.max(0, (p - 0.82) / 0.18);
+  if(row(z) === 0) return col(z) === 1 ? 0.04 + 0.45*over : 0.08 + 0.55*over;
+  return col(z) === 1 ? 0.01 + 0.12*over : 0.03 + 0.30*over;
+}
+// chance de defesa com a bola no canto z e o goleiro pulando em d
+function saveProb(z, d, p){
+  const s = strength(p), zc = col(z), dc = col(d), zr = row(z);
+  let v;
+  if(z === d) v = zc === 1 ? 0.95 - 0.25*s : 0.95 - 0.40*s - (zr === 0 ? 0.15 : 0);
+  else if(zc === dc) v = zc === 1 ? 0.5 - 0.2*s : 0.5 - 0.3*s;
+  else if(Math.abs(zc - dc) === 1) v = (zc === 1 ? 0.22 : 0.12) * (1 - s) + (zc === 1 && zr === 1 ? 0.05 : 0);
+  else v = 0;
+  return clamp(v, 0, 0.97);
+}
+const goalProb = (z, d, p) => (1 - missProb(z, p)) * (1 - saveProb(z, d, p));
+
+/* ---------- placar ---------- */
+function tally(kicks){
+  const g = [0,0], k = [0,0];
+  kicks.forEach(x => { k[x.by]++; if(x.res === 'gol') g[x.by]++; });
+  return {g, k};
+}
+// vencedor já definido? (5 cobranças cada; depois, alternadas até desempatar)
+function decided(st){
+  const {g, k} = tally(st.kicks);
+  if(k[0] <= 5 && k[1] <= 5 && (k[0] < 5 || k[1] < 5)){
+    if(g[0] + (5 - k[0]) < g[1]) return 1;
+    if(g[1] + (5 - k[1]) < g[0]) return 0;
+    return null;
+  }
+  if(k[0] === k[1] && g[0] !== g[1]) return g[0] > g[1] ? 0 : 1;
+  if(k[0] === k[1] && k[0] >= 40) return -1;           // trava de segurança (praticamente impossível)
+  return null;
+}
+const kickerOf = st => (st.first + st.kicks.length) % 2;
+
+/* ---------- motor ---------- */
+function startKick(st, now){ st.phase = 'kick'; st.ch = [null, null]; st.dl = now + st.prazo; }
+function resolve(st, now){
+  const by = kickerOf(st), kp = 1 - by, k = st.ch[by], d = st.ch[kp].z;
+  const z = k.z, p = k.p, R = Math.random;
+  let res;
+  if(R() < missProb(z, p)) res = R() < 0.4 ? 'trave' : 'fora';
+  else res = R() < saveProb(z, d, p) ? 'defesa' : 'gol';
+  // ponto de chegada da bola (coordenadas da cena: trave esq. x=70, dir. x=290, travessão y=60, chão y=150)
+  const zx = [106, 180, 254][col(z)], zy = [82, 128][row(z)];
+  let tx = clamp(zx + (R() - 0.5)*44, 80, 280), ty = clamp(zy + (R() - 0.5)*26, 68, 143);
+  if(res === 'trave'){
+    if(row(z) === 0 && (col(z) === 1 || R() < 0.5)) ty = 60;
+    else tx = col(z) === 2 ? 290 : col(z) === 0 ? 70 : (R() < 0.5 ? 70 : 290);
+  } else if(res === 'fora'){
+    if(row(z) === 0 || col(z) === 1) ty = 38 + R()*14;
+    else { tx = col(z) === 0 ? 46 + R()*16 : 298 + R()*16; ty = 120 + R()*24; }
+  }
+  st.kicks.push({by, z, p:Math.round(p*100)/100, d, res});
+  st.last = {n:st.kicks.length, by, z, d, p:k.p, res, tx:Math.round(tx), ty:Math.round(ty)};
+  st.phase = 'show'; st.ch = [null, null];
+  st.until = now + SHOW * (typeof CFG !== 'undefined' ? CFG.speed : 1);
+  const tn = TEAMS[st.teams[by]].n;
+  const txt = {gol:'GOL', defesa:'defesa do goleiro', trave:'na trave', fora:'para fora'}[res];
+  return [{k:'log', text:`${esc(st.names[by])} (${esc(tn)}): ${txt}`}];
+}
+function randomKick(){ return {z:Math.floor(Math.random()*6), p:0.35 + Math.random()*0.55}; }
+
+/* ---------- bots ---------- */
+const DIFF = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const PRIOR_KICK = [0.12, 0.07, 0.12, 0.24, 0.21, 0.24];   // onde batedores costumam chutar
+const PRIOR_DIVE = [0.12, 0.08, 0.12, 0.26, 0.16, 0.26];   // para onde goleiros costumam pular
+const fav = (st, s, salt) => (st.gid + s*7 + salt) % 6;
+function softPick(scores, temp){
+  const mx = Math.max(...scores), w = scores.map(x => Math.exp((x - mx) / temp)), tot = w.reduce((a,b) => a + b, 0);
+  let r = Math.random() * tot;
+  for(let i=0;i<w.length;i++){ r -= w[i]; if(r <= 0) return i; }
+  return w.length - 1;
+}
+const gauss = () => { let u = 0; for(let i=0;i<6;i++) u += Math.random(); return (u - 3) / Math.sqrt(0.5); };
+// estima a distribuição dos cantos a partir do histórico (só jogadas já reveladas — sem trapaça)
+function estimate(list, prior, weight){
+  const c = prior.map(x => x * weight);
+  list.forEach((z, i) => { c[z] += 0.6 + 0.4 * (i + 1) / list.length; });   // as mais recentes pesam mais
+  // quem bate costuma não repetir o mesmo lado duas vezes seguidas
+  if(list.length){ const last = list[list.length - 1]; c[last] *= 0.75; }
+  const t = c.reduce((a,b) => a + b, 0);
+  return c.map(x => x / t);
+}
+function botKick(st, s, lvl){
+  if(lvl === 'facil'){
+    const z = Math.random() < 0.6 ? fav(st, s, 3) : softPick(PRIOR_KICK.map(Math.log), 1);
+    return {z, p:clamp(0.62 + gauss()*0.17, 0.05, 1)};
+  }
+  if(lvl === 'normal'){
+    const z = softPick(PRIOR_KICK.map(Math.log), 1);
+    return {z, p:clamp((row(z) === 0 ? 0.66 : 0.7) + gauss()*0.11, 0.05, 1)};
+  }
+  // difícil: lê para onde o goleiro adversário costuma pular e escolhe canto + força de maior chance
+  const dives = st.kicks.filter(k => k.by === s).map(k => k.d);
+  const P = estimate(dives, PRIOR_DIVE, 3);
+  const best = [];
+  for(let z=0;z<6;z++){
+    let bp = 0, bv = -1;
+    for(let p=0.55;p<=0.86;p+=0.03){ let v = 0; for(let d=0;d<6;d++) v += P[d] * goalProb(z, d, p); if(v > bv){ bv = v; bp = p; } }
+    best.push({v:bv, p:bp});
+  }
+  // não fica previsível: evita repetir os cantos que acabou de usar
+  const mine = st.kicks.filter(k => k.by === s).slice(-3).map(k => k.z);
+  const z = softPick(best.map((b, i) => b.v - 0.035*mine.filter(x => x === i).length), 0.02);
+  return {z, p:clamp(best[z].p + gauss()*0.03, 0.05, 1)};
+}
+function botDive(st, s, lvl){
+  const opp = 1 - s;
+  if(lvl === 'facil') return Math.random() < 0.55 ? fav(st, s, 1) : softPick(PRIOR_DIVE.map(Math.log), 1);
+  const shots = st.kicks.filter(k => k.by === opp).map(k => k.z);
+  const P = lvl === 'normal' ? PRIOR_KICK : estimate(shots, PRIOR_KICK, 2.5);
+  const pe = lvl === 'normal' ? 0.7 : (() => { const ps = st.kicks.filter(k => k.by === opp).map(k => k.p); return ps.length ? ps.reduce((a,b) => a + b, 0) / ps.length : 0.7; })();
+  const sc = [];
+  for(let d=0;d<6;d++){ let v = 0; for(let z=0;z<6;z++) v += P[z] * saveProb(z, d, pe); sc.push(v); }
+  return softPick(sc, lvl === 'normal' ? 0.06 : 0.025);
+}
+function botTeam(st, s){
+  const other = st.teams[1 - s];
+  let opts = [...Array(NT).keys()].filter(i => i !== other);
+  // evita uniforme parecido com o do adversário
+  if(other != null){ const oc = TEAMS[other].c[0]; const diff = opts.filter(i => TEAMS[i].c[0] !== oc); if(diff.length) opts = diff; }
+  return pick(opts);
+}
+
+/* ---------- definição para a Mesa ---------- */
+Mesa.run({
+  id:'penaltis', name:'Pênaltis', icon:'🥅', players:2, tagline:'Disputa de pênaltis — bata e defenda',
+  seatLabel: s => s ? 'Time 2' : 'Time 1',
+  options:[
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'prazo', label:'Tempo por cobrança', default:'8', choices:[['5','5 s'],['8','8 s'],['12','12 s']]}
+  ],
+  modeLabel: o => 'BOTS ' + (DIFF[o.diff] || 'Normal').toUpperCase(),
+  tickMs:250,
+  setup(players, o){
+    const now = Date.now();
+    return {gid:Math.floor(Math.random()*1e6), names:players.map(p => p.name), teams:[null, null], phase:'pick',
+      first:Math.random() < 0.5 ? 0 : 1, kicks:[], ch:[null, null], prazo:(+o.prazo || 8) * 1000,
+      dl:now + 30000, until:0, last:null};
+  },
+  waiting(st){
+    if(st.phase === 'pick') return [0,1].filter(s => st.teams[s] == null);
+    if(st.phase === 'kick') return [0,1].filter(s => !st.ch[s]);
+    return [];
+  },
+  apply(st, s, a, o){
+    if(!a || typeof a !== 'object' || (s !== 0 && s !== 1)) return {ok:false, err:'Jogada inválida.'};
+    const now = Date.now();
+    if(st.phase === 'pick'){
+      if(a.t !== 'team') return {ok:false, err:'Escolha o seu time.'};
+      const i = a.i;
+      if(!Number.isInteger(i) || i < 0 || i >= NT) return {ok:false, err:'Time inválido.'};
+      if(st.teams[s] != null) return {ok:false, err:'Você já escolheu.'};
+      if(st.teams[1 - s] === i) return {ok:false, err:'Esse time já foi escolhido pelo adversário.'};
+      st.teams[s] = i;
+      const ev = [{k:'snd', s:'card'}, {k:'log', text:`${esc(st.names[s])} joga com o ${esc(TEAMS[i].n)}`}];
+      if(st.teams[0] != null && st.teams[1] != null){
+        startKick(st, now);
+        ev.push({k:'banner', text:`${TEAMS[st.teams[st.first]].n} começa batendo`}, {k:'snd', s:'deal'});
+      }
+      return {events:ev};
+    }
+    if(st.phase !== 'kick') return {ok:false, err:'Aguarde a próxima cobrança.'};
+    if(st.ch[s]) return {ok:false, err:'Você já escolheu.'};
+    const by = kickerOf(st);
+    if(!Number.isInteger(a.z) || a.z < 0 || a.z > 5) return {ok:false, err:'Escolha um dos cantos do gol.'};
+    if(s === by){
+      if(a.t !== 'kick' || typeof a.p !== 'number' || !isFinite(a.p)) return {ok:false, err:'Você é o batedor: escolha canto e força.'};
+      st.ch[s] = {z:a.z, p:clamp(a.p, 0, 1)};
+    } else {
+      if(a.t !== 'dive') return {ok:false, err:'Você é o goleiro: escolha para onde pular.'};
+      st.ch[s] = {z:a.z};
+    }
+    if(st.ch[0] && st.ch[1]) return {events:resolve(st, now)};
+    return {events:[{k:'snd', s:'move'}]};
+  },
+  tick(st, o, now){
+    if(st.phase === 'pick' && now > st.dl){
+      for(const s of [0,1]) if(st.teams[s] == null) st.teams[s] = botTeam(st, s);
+      startKick(st, now);
+      return {changed:true, events:[{k:'banner', text:`${TEAMS[st.teams[st.first]].n} começa batendo`}]};
+    }
+    if(st.phase === 'kick' && now > st.dl){
+      const by = kickerOf(st);
+      if(!st.ch[by]) st.ch[by] = randomKick();
+      if(!st.ch[1 - by]) st.ch[1 - by] = {z:Math.floor(Math.random()*6)};
+      return {changed:true, events:[{k:'toast', text:'Tempo esgotado — escolha aleatória!'}, ...resolve(st, now)]};
+    }
+    if(st.phase === 'show' && now > st.until){
+      if(decided(st) != null) st.phase = 'end';
+      else startKick(st, now);
+      return {changed:true};
+    }
+    return null;
+  },
+  over(st){
+    if(st.phase !== 'end') return null;
+    const w = decided(st), {g} = tally(st.kicks);
+    if(w === -1) return {draw:true, winners:[], text:'Empate após muitas cobranças!'};
+    const tn = TEAMS[st.teams[w]].n;
+    return {winners:[w], text:`<b>${esc(st.names[w])}</b> (${esc(tn)}) vence nos pênaltis por <b>${g[w]} × ${g[1 - w]}</b>.`};
+  },
+  bot(st, s, o){
+    const lvl = DIFF[o.diff] ? o.diff : 'normal';
+    if(st.phase === 'pick') return {t:'team', i:botTeam(st, s)};
+    if(s === kickerOf(st)){ const k = botKick(st, s, lvl); return {t:'kick', z:k.z, p:k.p}; }
+    return {t:'dive', z:botDive(st, s, lvl)};
+  },
+  botFallback(st, s){
+    if(st.phase === 'pick') return {t:'team', i:[...Array(NT).keys()].find(i => i !== st.teams[1 - s])};
+    return s === kickerOf(st) ? {t:'kick', z:3, p:0.7} : {t:'dive', z:4};
+  },
+  botDelay(st){ return st.phase === 'pick' ? 700 + Math.random()*700 : 1100 + Math.random()*1300; },
+  view(st, s){
+    return {gid:st.gid, names:st.names, teams:st.teams, phase:st.phase, first:st.first, kicks:st.kicks,
+      kicker:st.phase === 'kick' || st.phase === 'pick' ? kickerOf(st) : (st.last ? st.last.by : kickerOf(st)),
+      chosen:[!!st.ch[0], !!st.ch[1]], mine:s >= 0 && s < 2 ? st.ch[s] : null,     // a escolha do outro fica escondida
+      dl:st.dl, until:st.until, prazo:st.prazo, last:st.last, win:st.phase === 'end' ? decided(st) : null};
+  },
+  topInfo(g){
+    if(g.teams[0] == null || g.teams[1] == null) return '<div class="status">Escolha dos times</div>';
+    const {g:gl} = tally(g.kicks);
+    return `<div class="status">${gl[0]} × ${gl[1]}${g.kicks.length >= 10 ? ' · alternadas' : ''}</div>`;
+  },
+  render(g, v, ui){ renderAll(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ B = null; M = null; } },
+  rules:`<h3>Objetivo</h3><p>Fazer mais gols que o adversário numa disputa de pênaltis.</p>
+  <h3>Como jogar</h3><ol>
+  <li><b>Escolha seu time</b> na lista (todos com nomes genéricos por cidade e cores). Os dois não podem pegar o mesmo.</li>
+  <li>Cada time bate <b>5 pênaltis</b>, alternando. Se empatar, segue com <b>cobranças alternadas</b> até um errar e o outro acertar (morte súbita).
+  Se um time não puder mais alcançar o outro, a disputa acaba antes.</li>
+  <li>Em cada cobrança os dois escolhem <b>ao mesmo tempo</b>, sem ver a escolha do outro:
+    <ul><li><b>Batedor:</b> toque num dos <b>6 cantos</b> do gol (3 colunas × alto/baixo) e pare a <b>barra de força</b> que oscila.
+    Fraco demais o goleiro pega fácil; na faixa <b>verde</b> o chute sai firme; forte demais (vermelho) pode ir <b>por cima ou na trave</b> — principalmente no alto.</li>
+    <li><b>Goleiro:</b> toque no canto para onde vai pular. Os cantos do meio significam ficar no meio (em pé ou subindo).</li></ul></li>
+  <li>Há um <b>prazo</b> (5, 8 ou 12 s). Quem não escolher a tempo faz uma escolha aleatória.</li></ol>
+  <h3>Defesas</h3><ul><li>Goleiro no mesmo canto da bola: boa chance de defesa (menor no ângulo e com chute forte).</li>
+  <li>Mesmo lado mas altura errada: às vezes alcança. Lado oposto: é gol — se a bola for no alvo.</li>
+  <li>Chute no meio com o goleiro parado no meio quase sempre é defendido.</li></ul>
+  <h3>Bots</h3><p><b>Fácil</b>: tem canto preferido e erra a força com frequência. <b>Normal</b>: varia os cantos e chuta firme.
+  <b>Difícil</b>: observa os seus chutes e pulos anteriores (canto preferido, se repete ou alterna) e escolhe o canto e a força com mais chance — mas nunca vê a sua escolha antes da hora.</p>`
+});
+
+/* ============================== INTERFACE ============================== */
+let B = null, M = null, CUR = null, jid = 0;
+
+/* camisa + calção em SVG (viewBox 0 0 40 52) */
+function jersey(t){
+  const id = 'j' + (++jid), c = t.c, shirt = 'M8 6 L15 3 Q20 7 25 3 L32 6 L38 13 L33 17 L31 14 L31 36 L9 36 L9 14 L7 17 L2 13 Z';
+  let fill = '';
+  if(t.pat === 'v'){ for(let i=0, x=2; x<38; i++, x+=4.5) fill += `<rect x="${x}" y="0" width="4.5" height="40" fill="${c[i % c.length]}"/>`; }
+  else if(t.pat === 'h'){ for(let i=0, y=2; y<38; i++, y+=5) fill += `<rect x="0" y="${y}" width="40" height="5" fill="${c[i % c.length]}"/>`; }
+  else if(t.pat === 'f') fill = `<rect width="40" height="40" fill="${c[0]}"/><polygon points="9,6 16,4 34,32 31,37 25,37" fill="${c[1]}"/>`;
+  else if(t.pat === 'b') fill = `<rect width="40" height="40" fill="${c[0]}"/><rect x="0" y="15" width="40" height="4" fill="${c[1]}"/>` +
+      (c[2] ? `<rect x="0" y="19" width="40" height="4" fill="${c[2]}"/>` : '');
+  else fill = `<rect width="40" height="40" fill="${c[0]}"/><rect x="0" y="0" width="40" height="7" fill="${c[1]}" opacity=".9"/>`;
+  return `<defs><clipPath id="${id}"><path d="${shirt}"/></clipPath></defs>
+    <g clip-path="url(#${id})">${fill}</g><path d="${shirt}" fill="none" stroke="rgba(0,0,0,.55)" stroke-width="1.2"/>
+    <path d="M15 3 Q20 9 25 3" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.2"/>
+    <path d="M9 37 L31 37 L32 49 L22 49 L20 44 L18 49 L8 49 Z" fill="${t.sh}" stroke="rgba(0,0,0,.55)" stroke-width="1.2"/>`;
+}
+const jsvg = (t, cls='') => `<svg viewBox="0 0 40 52" class="${cls}">${jersey(t)}</svg>`;
+
+function renderAll(g, v, ui){
+  CUR = {g, v, ui};
+  if(g.phase === 'pick'){ B = null; renderPick(g, v, ui); return; }
+  const key = g.gid + ':' + ui.stage.clientWidth + 'x' + ui.stage.clientHeight;
+  if(!B || B.key !== key || !$('#pzScene')) buildPitch(g, v, ui, key);
+  updatePitch(g, v, ui);
+}
+
+/* ---------- escolha do time ---------- */
+function renderPick(g, v, ui){
+  const me = v.me, mine = g.teams[me], other = g.teams[1 - me];
+  const sub = mine == null ? 'Toque no time com que você vai bater e defender.' :
+    (other == null ? 'Aguardando o adversário escolher…' : '');
+  ui.stage.innerHTML = `<div class="pick"><h3>Escolha seu time</h3><div class="sub" id="pkSub">${sub} <span id="pkT"></span></div>
+    <div class="tgrid">${TEAMS.map((t, i) => {
+      const cls = i === mine ? 'mine' : (i === other ? 'taken' : '');
+      const who = i === mine ? 'você' : (i === other ? esc(g.names[1 - me]) : '');
+      return `<button class="tcard ${cls}" data-i="${i}">${who ? `<span class="who">${who}</span>` : ''}${jsvg(t)}<span>${esc(t.n)}</span></button>`;
+    }).join('')}</div></div>`;
+  $$('.tcard', ui.stage).forEach(b => b.onclick = () => {
+    const i = +b.dataset.i;
+    if(g.teams[me] != null || i === other || !ui.isMyTurn()) return;
+    ui.act({t:'team', i});
+  });
+}
+
+/* ---------- campo / gol ---------- */
+const GX0 = 70, GX1 = 290, GY0 = 60, GY1 = 150, SPOT = [180, 262];
+function figure(t, gk){
+  // goleiro: de frente, braços abertos; batedor: de costas
+  if(gk) return `<g class="body">
+      <rect x="-9" y="-27" width="7" height="27" rx="3" fill="#222"/><rect x="2" y="-27" width="7" height="27" rx="3" fill="#222"/>
+      <rect x="-11" y="-34" width="22" height="10" rx="3" fill="#1a1a1a"/>
+      <line x1="-11" y1="-54" x2="-25" y2="-66" stroke="${t.gk}" stroke-width="6" stroke-linecap="round"/>
+      <line x1="11" y1="-54" x2="25" y2="-66" stroke="${t.gk}" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="-26" cy="-68" r="4.6" fill="#f4f4f4" stroke="#333"/><circle cx="26" cy="-68" r="4.6" fill="#f4f4f4" stroke="#333"/>
+      <rect x="-12" y="-58" width="24" height="26" rx="6" fill="${t.gk}" stroke="rgba(0,0,0,.4)"/>
+      <circle cx="0" cy="-65" r="7" fill="#c98d5c"/><path d="M-7 -67 Q0 -76 7 -67" fill="#3a2414"/></g>`;
+  return `<g class="body"><rect x="-8" y="-24" width="6" height="24" rx="3" fill="#f2f2f2"/><rect x="2" y="-24" width="6" height="24" rx="3" fill="#f2f2f2"/>
+      <svg x="-16" y="-62" width="32" height="42" viewBox="0 0 40 52">${jersey(t)}</svg>
+      <circle cx="0" cy="-66" r="7.5" fill="#2b1a0e"/></g>`;
+}
+function sceneSVG(ar){
+  const top = Math.max(0, Math.round(360/ar - 300));              // em tela alta (celular) mostra mais arquibancada
+
+  const stripes = [...Array(7)].map((_, i) => {
+    const y0 = 150 + i*22, y1 = y0 + 22;
+    return i % 2 ? '' : `<polygon points="0,${y0} 360,${y0} 360,${y1} 0,${y1}" fill="rgba(255,255,255,.05)"/>`;
+  }).join('');
+  const zones = [...Array(6)].map((_, z) => {
+    const x = GX0 + col(z)*(GX1 - GX0)/3, y = row(z) ? 105 : GY0, w = (GX1 - GX0)/3, h = 45;
+    return `<rect class="zn" data-z="${z}" x="${x+1}" y="${y+1}" width="${w-2}" height="${h-2}" rx="5"/>`;
+  }).join('');
+  return `<svg viewBox="0 ${-top} 360 ${300 + top}" id="pzSvg" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1f33"/><stop offset="1" stop-color="#173b54"/></linearGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f8f47"/><stop offset="1" stop-color="#1f6e34"/></linearGradient>
+    <pattern id="net" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 0 L7 7 M7 0 L0 7" stroke="rgba(255,255,255,.38)" stroke-width=".7"/></pattern>
+    <radialGradient id="ballg" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cfcfcf"/></radialGradient>
+  </defs>
+  <rect y="${-top}" width="360" height="${300 + top}" fill="url(#sky)"/>
+  <g opacity=".55">${[...Array(4 + Math.ceil(top/12))].map((_, r) => `<rect x="0" y="${44 - r*12}" width="360" height="9" fill="${['#24435e','#2b4d69','#1f3b54','#29506b'][r % 4]}"/>`).join('')}
+    ${[...Array(15*(4 + Math.ceil(top/12)))].map((_, i) => `<circle cx="${(i*37 + (i/15|0)*11) % 360 + 3}" cy="${48 - (i % (4 + Math.ceil(top/12)))*12}" r="2.2" fill="${['#e7b43a','#ddd','#c8102e','#5ab0ff','#3ecf7a'][i % 5]}"/>`).join('')}</g>
+  <rect x="0" y="56" width="360" height="94" fill="#1d5a32"/>
+  <rect x="0" y="146" width="360" height="154" fill="url(#grass)"/>${stripes}
+  <g fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.6">
+    <line x1="0" y1="150" x2="360" y2="150"/>
+    <polyline points="40,150 22,186 338,186 320,150"/>
+    <polyline points="-30,150 -60,236 420,236 390,150"/>
+    <path d="M128 236 Q180 252 232 236"/>
+  </g>
+  <ellipse cx="${SPOT[0]}" cy="${SPOT[1]+2}" rx="4" ry="1.6" fill="#fff"/>
+  <g id="pzNet">
+    <polygon points="${GX0},${GY0} ${GX1},${GY0} 276,70 84,70" fill="url(#net)"/>
+    <polygon points="84,70 276,70 276,140 84,140" fill="url(#net)"/>
+    <polygon points="${GX0},${GY0} 84,70 84,140 ${GX0},${GY1}" fill="url(#net)"/>
+    <polygon points="${GX1},${GY0} 276,70 276,140 ${GX1},${GY1}" fill="url(#net)"/>
+    <polyline points="84,140 84,70 276,70 276,140" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1"/>
+  </g>
+  <g id="pzKeeper"></g>
+  <path d="M${GX0} ${GY1} L${GX0} ${GY0} L${GX1} ${GY0} L${GX1} ${GY1}" fill="none" stroke="#f7f7f7" stroke-width="4.5" stroke-linejoin="round"/>
+  <g id="pzZones">${zones}${[...Array(6)].map((_, z) => `<text class="zl" x="${GX0 + (col(z)+.5)*(GX1-GX0)/3}" y="${(row(z) ? 130 : 85)}">${['↖','↑','↗','↙','•','↘'][z]}</text>`).join('')}</g>
+  <ellipse id="pzShadow" cx="${SPOT[0]}" cy="${SPOT[1]+4}" rx="8" ry="2.6" fill="rgba(0,0,0,.35)"/>
+  <g id="pzKicker"></g>
+  <g id="pzBall" transform="translate(${SPOT[0]},${SPOT[1]})"><circle r="8" fill="url(#ballg)" stroke="#333" stroke-width=".8"/>
+    <polygon points="0,-3 2.9,-1 1.8,2.4 -1.8,2.4 -2.9,-1" fill="#222"/><path d="M0 -3 L0 -8 M2.9 -1 L7.6 -2.6 M1.8 2.4 L4.7 6.4 M-1.8 2.4 L-4.7 6.4 M-2.9 -1 L-7.6 -2.6" stroke="#333" stroke-width=".8"/></g>
+</svg>`;
+}
+function buildPitch(g, v, ui, key){
+  const W = ui.stage.clientWidth, H = ui.stage.clientHeight;
+  const sbH = 74, ctlH = 156;
+  const room = H - sbH - ctlH - 24, ar = room > (W - 12)*1.02 ? 1 : 1.2;   // proporção da cena
+  const sw = Math.max(240, Math.min(W - 12, room * ar, 760));
+  ui.stage.innerHTML = `<div class="pz">
+    <div class="sb" id="pzSb"></div>
+    <div class="scene" id="pzScene" style="width:${sw}px;height:${sw/ar}px">${sceneSVG(ar)}</div>
+    <div class="ctl" id="pzCtl" style="max-width:${Math.max(300, Math.min(520, sw))}px">
+      <div class="st" id="pzSt"></div><div class="tm" id="pzTm"><i></i></div>
+      <div class="meter off" id="pzMeter"><div class="lb"><span>FRACO</span><span>IDEAL</span><span>FORTE</span></div><div class="mk" id="pzMk" style="left:0"></div></div>
+      <button class="kb" id="pzKick" disabled>⚽ CHUTAR!</button>
+      <div class="hint" id="pzHint"></div></div></div>`;
+  B = {key, animN:g.last && g.phase !== 'show' ? g.last.n : -1, anim:null, kickerT:null, keeperT:null, sent:-1};
+  $$('.zn', ui.stage).forEach(r => r.addEventListener('click', () => onZone(+r.dataset.z)));
+  $('#pzKick').onclick = shoot;
+  resetScene();
+}
+function sceneSide(g){ return g.phase === 'kick' ? g.kicker : (g.last ? g.last.by : g.kicker); }
+function placeFigures(g){
+  const by = sceneSide(g), kt = TEAMS[g.teams[by]], gt = TEAMS[g.teams[1 - by]];
+  const kk = by + ':' + g.teams[by] + ':' + g.teams[1 - by];
+  if(B.figKey !== kk){
+    B.figKey = kk;
+    $('#pzKicker').innerHTML = figure(kt, false);
+    $('#pzKeeper').innerHTML = figure(gt, true);
+  }
+}
+function setKeeper(dx, dy, rot){ $('#pzKeeper').setAttribute('transform', `translate(${180 + dx},${GY1 - 2 + dy}) rotate(${rot},0,-34)`); }
+function setKicker(x, y){ $('#pzKicker').setAttribute('transform', `translate(${x},${y}) scale(1.35)`); }
+function setBall(x, y, r, gy){
+  $('#pzBall').setAttribute('transform', `translate(${x},${y}) scale(${r/8})`);
+  const sh = $('#pzShadow'); sh.setAttribute('cx', x); sh.setAttribute('cy', gy + r*0.4); sh.setAttribute('rx', r); sh.setAttribute('ry', r*0.32);
+}
+function resetScene(){ setKeeper(0, 0, 0); setKicker(SPOT[0] - 26, SPOT[1] + 24); setBall(SPOT[0], SPOT[1], 8, SPOT[1]); $('#pzNet').removeAttribute('transform'); }
+
+function updatePitch(g, v, ui){
+  const me = v.me, {g:gl, k} = tally(g.kicks);
+  // placar com bolinhas
+  const rowHTML = s => {
+    const res = g.kicks.filter(x => x.by === s).map(x => x.res === 'gol');
+    const n = Math.max(5, res.length + (g.phase === 'kick' && g.kicker === s && res.length >= 5 ? 1 : 0));
+    const dots = [...Array(n)].map((_, i) => i < res.length ? `<span class="dt ${res[i] ? 'g' : 'x'}">${res[i] ? '✓' : '✗'}</span>` :
+      `<span class="dt ${g.phase === 'kick' && g.kicker === s && i === res.length ? 'nx' : ''}"></span>`).slice(-Math.max(5, Math.min(n, 8))).join('');
+    return `<div class="sr ${g.phase === 'kick' && g.kicker === s ? 'vez' : ''}">${jsvg(TEAMS[g.teams[s]])}
+      <div class="nm">${esc(TEAMS[g.teams[s]].n)} <small>${esc(g.names[s])}${s === me ? ' (você)' : ''}</small></div>
+      <div class="dots">${dots}</div><div class="gl">${gl[s]}</div></div>`;
+  };
+  $('#pzSb').innerHTML = rowHTML(0) + rowHTML(1);
+  placeFigures(g);
+  // nova cobrança resolvida → anima
+  if(g.last && g.last.n !== B.animN && (g.phase === 'show' || g.phase === 'end' || g.phase === 'kick')){
+    B.animN = g.last.n; animate(g.last, me);
+  } else if(!B.anim && g.phase === 'kick') resetScene();
+  // controles
+  const myTurn = v.waiting.includes(me) && g.phase === 'kick', amKicker = g.kicker === me;
+  if(!M || M.n !== g.kicks.length || M.gid !== g.gid) M = {n:g.kicks.length, gid:g.gid, z:null, t0:0, run:false, sent:false};
+  const zon = myTurn && !M.sent && !B.anim;
+  $('#pzZones').classList.toggle('zon', zon);
+  $$('.zn').forEach(r => r.classList.toggle('sel', g.phase === 'kick' && (M.z === +r.dataset.z || (g.mine && g.mine.z === +r.dataset.z))));
+  let st = '', hint = '';
+  const oppName = esc(g.names[1 - me]);
+  if(g.phase === 'kick'){
+    if(me < 0 || me > 1) st = 'Cobrança em andamento';
+    else if(myTurn && !M.sent){
+      st = amKicker ? (M.z == null ? '⚽ Você bate! Escolha o canto' : 'Pare a barra de força!') : '🧤 Você defende! Para onde pular?';
+      hint = amKicker ? (M.z == null ? 'Toque num dos 6 cantos do gol.' : 'Toque em CHUTAR (ou no mesmo canto) na faixa verde. Pode trocar o canto antes.') :
+        'Toque no canto para onde o goleiro vai pular (meio = ficar no meio).';
+    } else st = `Aguardando ${oppName}…<small>${g.chosen[1 - me] ? 'já escolheu' : 'escolhendo'}</small>`;
+  } else if(g.phase === 'show' || g.phase === 'end') st = g.last ? `${esc(TEAMS[g.teams[g.last.by]].n)} bateu` : '';
+  $('#pzSt').innerHTML = st; $('#pzHint').textContent = hint;
+  const kickUI = myTurn && amKicker && !M.sent;
+  $('#pzMeter').classList.toggle('off', !(kickUI && M.z != null));
+  $('#pzKick').disabled = !(kickUI && M.z != null);
+  $('#pzKick').style.visibility = amKicker || g.phase !== 'kick' ? 'visible' : 'hidden';
+  $('#pzMeter').style.visibility = amKicker || g.phase !== 'kick' ? 'visible' : 'hidden';
+  if(kickUI && M.z != null && !M.run) startMeter();
+  updTimer();
+}
+
+/* ---------- barra de força ---------- */
+const PERIOD = 1250;
+const meterVal = () => { const t = ((performance.now() - M.t0) % PERIOD) / PERIOD; return t < 0.5 ? t*2 : 2 - t*2; };
+function startMeter(){
+  M.run = true; M.t0 = performance.now();
+  const loop = () => {
+    if(!M || !M.run || M.sent){ return; }
+    const mk = $('#pzMk'); if(mk) mk.style.left = (meterVal()*100) + '%';
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+function onZone(z){
+  if(!CUR || !M) return;
+  const {g, v, ui} = CUR;
+  if(g.phase !== 'kick' || !v.waiting.includes(v.me) || M.sent || (B && B.anim)) return;
+  if(g.kicker === v.me){
+    if(M.z === z && M.run){ shoot(); return; }
+    M.z = z; Snd.card(); renderAll(g, v, ui);
+  } else { M.sent = true; M.z = z; Snd.card(); ui.act({t:'dive', z}); renderAll(CUR.g, CUR.v, CUR.ui); }
+}
+function shoot(){
+  if(!CUR || !M || M.z == null || M.sent) return;
+  const {g, v, ui} = CUR;
+  if(g.phase !== 'kick' || g.kicker !== v.me) return;
+  const p = Math.round(meterVal()*100) / 100;
+  M.sent = true; M.run = false;
+  const mk = $('#pzMk'); if(mk) mk.style.left = (p*100) + '%';
+  ui.act({t:'kick', z:M.z, p}); renderAll(CUR.g, CUR.v, CUR.ui);   // CUR já traz a vista nova
+}
+function updTimer(){
+  if(!CUR || !$('#pzTm')) return;
+  const {g, v} = CUR, bar = $('#pzTm');
+  if(g.phase !== 'kick'){ bar.style.visibility = 'hidden'; return; }
+  bar.style.visibility = 'visible';
+  const left = Math.max(0, g.dl - Date.now()), fr = clamp(left / g.prazo, 0, 1);
+  bar.firstElementChild.style.width = (fr*100) + '%';
+  bar.classList.toggle('low', left < 2500);
+  // se o tempo está acabando com o canto já escolhido, chuta com a força atual
+  if(left < 350 && M && M.z != null && !M.sent && g.kicker === v.me && v.waiting.includes(v.me)) shoot();
+}
+setInterval(updTimer, 200);
+document.addEventListener('keydown', e => {
+  if(!CUR || $('#modal.show')) return;
+  if(e.key === ' ' || e.key === 'Enter'){ if(M && M.z != null && !M.sent){ e.preventDefault(); shoot(); } return; }
+  const z = {q:0, w:1, e:2, a:3, s:4, d:5, Q:0, W:1, E:2, A:3, S:4, D:5}[e.key];
+  if(z != null) onZone(z);
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+
+/* ---------- animação da cobrança (requestAnimationFrame) ---------- */
+const ease = t => 1 - Math.pow(1 - t, 3);
+const lerp = (a, b, t) => a + (b - a)*t;
+function diveTarget(L){
+  // goleiro vai ao canto escolhido; na defesa, encontra a bola
+  const zx = [106, 180, 254][col(L.d)], zy = [82, 128][row(L.d)];
+  const tx = L.res === 'defesa' ? L.tx : zx, ty = L.res === 'defesa' ? L.ty : zy;
+  const dx = (tx - 180) * 0.92, side = Math.sign(dx);
+  let dy = (ty - 116) * 0.9, rot = 0;
+  if(Math.abs(dx) > 30){ rot = side * (ty < 100 ? 62 : 84); dy += ty < 100 ? 8 : 20; }
+  else if(ty < 100) dy -= 6;
+  return {dx, dy, rot};
+}
+function animate(L, me){
+  if(B.anim) cancelAnimationFrame(B.anim.raf);
+  const t0 = performance.now(), K = diveTarget(L);
+  const RUN = 380, FLY = 520, AFTER = 900;
+  const arc = row(L.z) === 0 ? 26 : 10;
+  // rebote (defesa/trave)
+  const rb = L.res === 'defesa' ? {x:L.tx + (L.tx - 180)*0.5 + (L.tx < 180 ? -20 : 20), y:205} :
+             L.res === 'trave' ? (L.ty === 60 ? {x:L.tx + (L.tx - 180)*0.3, y:22} : {x:L.tx < 180 ? L.tx - 60 : L.tx + 60, y:190}) :
+             L.res === 'fora' ? {x:L.tx + (L.tx - 180)*0.25, y:L.ty - 18} : {x:L.tx + (180 - L.tx)*0.12, y:L.ty - 6};
+  let flagged = false;
+  B.anim = {raf:0};
+  const fr = now => {
+    const t = now - t0;
+    // batedor corre
+    const rt = clamp(t / RUN, 0, 1);
+    setKicker(lerp(SPOT[0] - 26, SPOT[0] - 10, ease(rt)), lerp(SPOT[1] + 24, SPOT[1] + 8, ease(rt)));
+    // goleiro: reage um pouco depois do chute
+    const kt = clamp((t - RUN - 60) / 380, 0, 1), ke = ease(kt);
+    setKeeper(K.dx*ke, K.dy*ke, K.rot*ke);
+    // bola
+    if(t < RUN) setBall(SPOT[0], SPOT[1], 8, SPOT[1]);
+    else if(t < RUN + FLY){
+      const u = (t - RUN) / FLY, e = 1 - Math.pow(1 - u, 1.6);
+      const gy = lerp(SPOT[1], GY1 - 4, e);
+      setBall(lerp(SPOT[0], L.tx, e), lerp(SPOT[1], L.ty, e) - arc*Math.sin(Math.PI*u)*0.6, lerp(8, 4.6, e), gy);
+    } else {
+      if(!flagged){ flagged = true; impact(L, me); }
+      const u = clamp((t - RUN - FLY) / 520, 0, 1), e = ease(u);
+      const sz = L.res === 'gol' ? lerp(4.6, 4.1, e) : L.res === 'fora' ? lerp(4.6, 3.4, e) : lerp(4.6, 6.2, e);
+      setBall(lerp(L.tx, rb.x, e), lerp(L.ty, rb.y, e) - (L.res === 'defesa' ? 14*Math.sin(Math.PI*e) : 0), sz, L.res === 'gol' ? 140 : lerp(GY1 - 4, Math.max(rb.y, 150), e));
+      if(L.res === 'gol'){ const sh = Math.sin(u*Math.PI*5) * (1 - u) * 2.2; $('#pzNet').setAttribute('transform', `translate(0,${-sh})`); }
+    }
+    if(t < RUN + FLY + AFTER) B.anim.raf = requestAnimationFrame(fr);
+    else { B.anim = null; const c = CUR; if(c && c.g.phase === 'kick') resetScene(); if(c) updatePitch(c.g, c.v, c.ui); }
+  };
+  B.anim.raf = requestAnimationFrame(fr);
+}
+function impact(L, me){
+  const mineKick = L.by === me, mineKeep = me === 1 - L.by, goal = L.res === 'gol';
+  const txt = {gol:'GOOOL!', defesa:'DEFENDEU!', trave:'NA TRAVE!', fora:'PRA FORA!'}[L.res];
+  const bad = mineKick ? !goal : mineKeep ? goal : !goal;
+  banner(txt, bad);
+  if(goal){ Snd.capture(); if(mineKick) Snd.win(); else if(mineKeep) Snd.lose(); }
+  else if(L.res === 'trave'){ beep(1200, 0.12, 'square', 0.06); beep(900, 0.18, 'square', 0.04, 0.05); }
+  else { Snd.move(); if(mineKeep) Snd.win(); else if(mineKick) Snd.lose(); }
+}
+</script>
+</body>
+</html>

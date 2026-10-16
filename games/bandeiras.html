@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<link rel="icon" href="../docs/img/icon-192.png">
+<title>Bandeiras e Capitais</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:8px 10px 10px}
+.bq{display:flex;flex-direction:column;gap:9px;height:100%;width:100%;max-width:900px;margin:0 auto;min-height:0}
+.qh{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap;justify-content:space-between}
+.qn{font-weight:900;color:#ffe6a6;font-size:14px;letter-spacing:.5px}
+.cat{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 12px;font-weight:900;font-size:13px;color:#fff;background:var(--cc);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.lv{font-size:12px;font-weight:800;color:#cfe;opacity:.9}
+.tmr{display:flex;align-items:center;gap:8px;flex:1 1 160px;max-width:340px}
+.tbar{flex:1;height:10px;border-radius:6px;background:rgba(0,0,0,.4);overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ecf7a,#e7b43a);border-radius:6px}
+.tbar i.low{background:linear-gradient(90deg,#ff6b5b,#e7b43a)}
+.tsec{font-weight:900;font-size:20px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.tsec.low{color:#ff8f7f}
+.qcard{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;background:linear-gradient(180deg,#fffdf4,#efe6cc);color:#1f2a22;border-radius:16px;padding:14px 16px;
+  font-weight:800;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.45);font-size:var(--qf);line-height:1.3;animation:pop .35s}
+.qcard .pq{font-size:var(--qf)}
+.qcard .pq b{color:#0d5c34}
+.flag{display:flex;align-items:center;justify-content:center;height:var(--fh);max-width:100%}
+.flag svg{height:100%;width:auto;max-width:100%;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.15);background:#fff}
+.flag.fmini{--fh:46px}
+.flag .emo{font-size:calc(var(--fh) * .8);line-height:1}
+.flag .ph{width:calc(var(--fh) * 1.4);height:100%;border-radius:6px;background:repeating-linear-gradient(45deg,#ddd 0 10px,#eee 10px 20px);display:grid;place-items:center;color:#777;font-size:13px}
+.alts{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:none}
+.alt{position:relative;display:flex;align-items:center;gap:10px;min-height:58px;padding:10px 12px;border:none;border-radius:14px;color:#fff;font-size:17px;font-weight:800;
+  text-align:left;cursor:pointer;background:var(--ac);box-shadow:0 5px 0 rgba(0,0,0,.35);transition:transform .1s,opacity .25s,filter .25s;font-family:inherit;line-height:1.2}
+.alt:active:not(:disabled){transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.alt .lt{flex:none;width:32px;height:32px;border-radius:9px;background:rgba(0,0,0,.25);display:grid;place-items:center;font-weight:900}
+.alt .tx{flex:1;min-width:0}
+.alt:disabled{cursor:default}
+.alt.sel{outline:4px solid #fff;outline-offset:-2px}
+.alt.dim{opacity:.45;filter:grayscale(.6)}
+.alt.ok{background:#25a55f;opacity:1;filter:none;animation:okp .6s}
+.alt.bad{background:#7a2a2a;opacity:1;filter:none}
+.alt .who{position:absolute;right:8px;bottom:-9px;display:flex;gap:2px}
+.alt .who span{background:#fff;color:#222;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+@keyframes okp{30%{transform:scale(1.04)}}
+.A0{--ac:#d8453c}.A1{--ac:#2f74d0}.A2{--ac:#c8930f}.A3{--ac:#22985a}
+.pls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:none}
+.pl{background:rgba(0,0,0,.38);border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap;border:2px solid transparent}
+.pl.me{color:#bff5d4}.pl.ok{border-color:var(--nos)}
+.pl b{color:var(--gold)}
+.expl{flex:none;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.32);border-left:4px solid var(--gold);border-radius:10px;padding:9px 12px;font-size:14.5px;color:#e9f6ee;line-height:1.4;animation:fade .4s}
+.expl b{color:var(--gold)}
+.expl .flag{flex:none}
+.res{flex:none;font-weight:900;font-size:18px;text-align:center;min-height:24px}
+.res.good{color:#7ef0ad}.res.bad{color:#ffa79c}
+.board{position:relative;flex:1;min-height:0;overflow:auto}
+.brow{position:absolute;left:0;right:0;height:34px;display:flex;align-items:center;gap:8px;transition:top .8s cubic-bezier(.3,.8,.3,1)}
+.brow .pos{width:24px;text-align:right;font-weight:900;color:#ffe6a6;font-size:14px}
+.brow .bn{width:96px;font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .bt{flex:1;height:22px;background:rgba(0,0,0,.3);border-radius:7px;overflow:hidden;position:relative}
+.brow .bt i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#e7b43a,#ffd86b);border-radius:7px;transition:width 1s cubic-bezier(.3,.8,.3,1)}
+.brow.me .bt i{background:linear-gradient(90deg,#3ecf7a,#9af2bf)}
+.brow .bp{width:62px;text-align:right;font-weight:900;font-variant-numeric:tabular-nums}
+.brow .gn{position:absolute;right:70px;font-weight:900;color:#7ef0ad;font-size:13px;animation:up 1.4s forwards}
+@keyframes up{0%{transform:translateY(8px);opacity:0}20%{opacity:1}100%{transform:translateY(-10px);opacity:0}}
+.foot{display:flex;justify-content:center;gap:8px;flex:none}
+.go{background:var(--nos);color:#06301a;border:none;border-radius:12px;font-size:16px;font-weight:900;padding:11px 26px;cursor:pointer}
+.msgl{font-size:13px;font-weight:700;color:#ffe9c4;text-align:center}
+.splash{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.splash .big{font-size:56px;line-height:1;animation:pop .45s}
+.splash h2{color:var(--gold);font-size:30px}
+.splash .cnt{font-size:64px;font-weight:900;color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.4)}
+.podio{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-top:6px}
+.podio div{display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:800;font-size:13px}
+.podio i{display:block;width:84px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#ffd86b,#b98300);display:grid;place-items:center;font-style:normal;font-size:26px;font-weight:900;color:#3a2600}
+.erros{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:640px}
+.erros div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:700;background:rgba(0,0,0,.3);border-radius:10px;padding:6px 8px}
+.erros .flag{--fh:34px}
+@media (max-width:600px){
+  .alts{grid-template-columns:1fr;gap:8px}
+  .alt{min-height:48px;font-size:16px;padding:7px 10px}
+  .alt .lt{width:28px;height:28px}
+  .qcard{padding:10px 12px;gap:8px}
+  .brow .bn{width:78px}
+  .splash .big{font-size:46px} .splash h2{font-size:24px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="bandeiras-dados.js"></script>
+<script>
+"use strict";
+/* ======================= BANDEIRAS E CAPITAIS =======================
+   Mesmo esquema do Quiz: rodadas com tempo (tick do anfitrião), todos respondem
+   à mesma pergunta; acerto = 500 + até 500 pela rapidez + bônus de sequência.
+   Perguntas geradas na hora a partir de bandeiras-dados.js. */
+const clock = () => window.BD_CLOCK ? window.BD_CLOCK() : Date.now();
+const TS = () => CFG.speed < 0.3 ? Math.max(CFG.speed, 0.002) : 1;       // testes automáticos aceleram o relógio
+function seatInfo(s){ try{ const h = Mesa._H; if(h && h.seats && h.seats[s]) return h.seats[s]; }catch(_){} return null; }
+const isBot = (st, s) => { const x = seatInfo(s); return x ? !x.human : !st.hum[s]; };
+function rng(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = (st, s, j, k) => rng((st.seed ^ Math.imul(s + 1, 7919) ^ Math.imul(j + 1, 104729) ^ Math.imul(k + 1, 1299709)) >>> 0)();
+const CONT = {am:'Américas', eu:'Europa', af:'África', as:'Ásia e Oceania'};
+const REG = {n:'Norte', ne:'Nordeste', co:'Centro-Oeste', se:'Sudeste', s:'Sul'};
+const TIPO = {band:{ico:'🏳️', nome:'Bandeira', cor:'#2b7bbf'}, cap:{ico:'🏛️', nome:'Capital', cor:'#9b5d2e'},
+  ufb:{ico:'🚩', nome:'Bandeira do estado', cor:'#1f9d55'}, ufc:{ico:'📍', nome:'Capital do estado', cor:'#b5741a'}};
+const LV_NOME = {f:'Fácil', m:'Média', d:'Difícil'};
+const LETRA = 'ABCD';
+const PRE_MS = 2500, REV_MS = 6000;
+const PAISES = BD_PAISES.map(p => ({k:p[0], nome:p[1], cap:p[2], c:p[3], l:p[4], nota:p[5]}));
+const ESTADOS = BD_ESTADOS.map(e => ({k:'uf' + e[0], uf:e[0], nome:e[1], cap:e[2], c:e[3], l:e[4]}));
+const USADAS = new Set();                       // evita repetir na mesma sessão do anfitrião
+
+/* ---------- alternativas parecidas ---------- */
+// semelhança de cores das bandeiras (grupos de cor do arquivo de dados)
+function simCor(a, b){
+  const A = new Set(BD_COR[a] || ''), B = new Set(BD_COR[b] || '');
+  let i = 0; A.forEach(x => { if(B.has(x)) i++; });
+  return i / Math.max(1, new Set([...A, ...B]).size);
+}
+// escolhe 3 erradas: do mesmo grupo (continente/região) e, nas bandeiras, de cores parecidas
+function erradas(item, lista, campo, porCor){
+  const val = x => x[campo];
+  let mesmos = lista.filter(x => x !== item && x.c === item.c && val(x) !== '-' && val(x) !== val(item));
+  if(mesmos.length < 6) mesmos = mesmos.concat(lista.filter(x => x !== item && x.c !== item.c && val(x) !== '-' && val(x) !== val(item)));
+  const lv = {f:0, m:1, d:2};
+  const nota = x => (porCor ? simCor(item.k, x.k) * 2 : 0) + (x.c === item.c ? 1 : 0) - Math.abs(lv[x.l] - lv[item.l]) * 0.15 + Math.random() * 0.9;
+  const ord = mesmos.map(x => [nota(x), x]).sort((a, b) => b[0] - a[0]).map(z => z[1]);
+  const out = [];
+  for(const x of ord){ if(out.length >= 3) break; if(!out.some(y => val(y) === val(x))) out.push(x); }
+  return out;
+}
+function montaPergunta(tipo, item){
+  let p, certo, err, flag = null, x;
+  if(tipo === 'band' || tipo === 'ufb'){
+    const lista = tipo === 'band' ? PAISES : ESTADOS;
+    p = tipo === 'band' ? 'De que país é esta bandeira?' : 'De que estado é esta bandeira?';
+    flag = item.k; certo = item.nome; err = erradas(item, lista, 'nome', true).map(z => z.nome);
+  } else {
+    const lista = tipo === 'cap' ? PAISES : ESTADOS;
+    p = tipo === 'cap' ? `Qual é a capital ${prepPais(item.nome)}?` : `Qual é a capital ${artigoUF(item)}?`;
+    flag = item.k; certo = item.cap; err = erradas(item, lista, 'cap', false).map(z => z.cap);
+  }
+  if(tipo === 'band' || tipo === 'cap') x = `${item.nome} — capital: ${item.cap === '-' ? '—' : item.cap} · ${CONT[item.c]}.${item.nota ? ' ' + item.nota : ''}`;
+  else x = `${item.nome} (${item.uf}) — capital: ${item.cap} · Região ${REG[item.c]}.`;
+  const alts = [certo, ...err], ord = shuffle([0, 1, 2, 3]);
+  return {t:tipo, key:item.k, l:item.l, p, nome:item.nome, flag, alts:ord.map(i => alts[i]), ok:ord.indexOf(0), x};
+}
+// "do Brasil", "da Argentina", "de Portugal", "dos Estados Unidos"...
+const PREP_DE = new Set(['Portugal','Cuba','Angola','Moçambique','Cabo Verde','Timor-Leste','Israel','Andorra','Mônaco','San Marino','Malta','Chipre','Madagascar',
+  'Singapura','Honduras','El Salvador','Trinidad e Tobago','Barbados','Granada','Santa Lúcia','São Vicente e Granadinas','Antígua e Barbuda','São Cristóvão e Névis',
+  'São Tomé e Príncipe','Belize','Liechtenstein','Gana','Burkina Faso','Botsuana','Uganda','Ruanda','Maurício','Seicheles','Comores','Camarões','Essuatíni','Omã',
+  'Brunei','Fiji','Samoa','Tonga','Tuvalu','Nauru','Kiribati','Vanuatu','Palau','Belarus','Mianmar']);
+const PREP_DOS = {'Estados Unidos':'dos', 'Países Baixos':'dos', 'Emirados Árabes Unidos':'dos', 'Bahamas':'das', 'Maldivas':'das', 'Filipinas':'das', 'Ilhas Salomão':'das', 'Ilhas Marshall':'das'};
+const PREP_DA = /^(Costa do Marfim|Guiné|Papua|República|Coreia|Macedônia|África)/;
+function prepPais(n){
+  if(PREP_DE.has(n)) return 'de ' + n;
+  if(PREP_DOS[n]) return PREP_DOS[n] + ' ' + n;
+  if(['Sri Lanka', 'Quênia', 'Camboja'].includes(n)) return 'do ' + n;
+  return (PREP_DA.test(n) || /a$/.test(n) ? 'da ' : 'do ') + n;
+}
+// "do Acre", "da Bahia", "de Minas Gerais", "do Distrito Federal"
+function artigoUF(e){
+  const da = ['Bahia', 'Paraíba'], de = ['Alagoas', 'Goiás', 'Minas Gerais', 'Pernambuco', 'Rondônia', 'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Mato Grosso', 'Mato Grosso do Sul'];
+  return (da.includes(e.nome) ? 'da ' : de.includes(e.nome) ? 'de ' : 'do ') + e.nome;
+}
+function sorteiaPerguntas(nQ, modo, cont){
+  let tipos, pool;
+  if(modo === 'br'){ pool = ESTADOS.slice(); tipos = ['ufb', 'ufc']; }
+  else {
+    pool = PAISES.filter(p => (cont === 'todos' || p.c === cont) && (modo !== 'cap' || p.cap !== '-'));
+    tipos = modo === 'band' ? ['band'] : modo === 'cap' ? ['cap'] : ['band', 'cap'];
+  }
+  // escolhe itens: mais fáceis no começo, mais difíceis no fim (de leve)
+  const quota = {f:Math.round(nQ * .4), m:Math.round(nQ * .35)}; quota.d = nQ - quota.f - quota.m;
+  const novos = it => !USADAS.has(modo + ':' + it.k);
+  const out = [];
+  for(const l of ['f', 'm', 'd']){
+    let cand = shuffle(pool.filter(it => it.l === l && novos(it) && !out.includes(it)));
+    if(cand.length < quota[l]) cand = cand.concat(shuffle(pool.filter(it => it.l === l && !novos(it) && !out.includes(it))));
+    out.push(...cand.slice(0, quota[l]));
+  }
+  if(out.length < nQ) out.push(...shuffle(pool.filter(it => !out.includes(it))).slice(0, nQ - out.length));
+  while(out.length < nQ) out.push(pool[Math.floor(Math.random() * pool.length)]);     // pool menor que nQ (ex.: 27 estados)
+  const lv = {f:0, m:1, d:2}; const k = Math.ceil(nQ / 3);
+  const ord = shuffle(out.slice()); const ini = ord.slice(0, k).sort((a, b) => lv[a.l] - lv[b.l]), fim = ord.slice(2 * k).sort((a, b) => lv[a.l] - lv[b.l]);
+  const seq = ini.concat(ord.slice(k, 2 * k), fim);
+  // tipo de cada pergunta: alterna no misto; pergunta de capital só para quem tem capital
+  const usados = new Set();
+  return seq.map((it, i) => {
+    let t = tipos.length === 1 ? tipos[0] : tipos[(i + (Math.random() < .5 ? 0 : 1)) % 2];
+    if((t === 'cap') && it.cap === '-') t = 'band';
+    if(usados.has(t + it.k)) t = tipos.find(z => !usados.has(z + it.k) && !(z === 'cap' && it.cap === '-')) || t;
+    usados.add(t + it.k); USADAS.add(modo + ':' + it.k);
+    return montaPergunta(t, it);
+  });
+}
+
+/* ---------- motor ---------- */
+function iniciaPre(st, now){ st.fase = 'pre'; st.ini = now; st.fim = now + PRE_MS * TS(); }
+function iniciaPerg(st, now){
+  st.fase = 'perg'; st.ini = now; st.fim = now + st.T * TS();
+  st.resp = Array(st.n).fill(null); st.ganho = Array(st.n).fill(0); st.pronto = Array(st.n).fill(false);
+}
+function revela(st, now){
+  st.fase = 'rev'; st.ini = now; st.fim = now + REV_MS * TS();
+  const q = st.qs[st.i]; let acertaram = 0;
+  st.prev = st.pts.slice();
+  for(let s=0;s<st.n;s++){
+    const r = st.resp[s];
+    if(r && r.i === q.ok){
+      st.seq[s]++; st.acertos[s]++; acertaram++;
+      const rest = clamp(1 - r.t / (st.T * TS()), 0, 1);
+      st.ganho[s] = 500 + Math.round(rest * 50) * 10 + Math.min(st.seq[s] - 1, 3) * 50;
+    } else { st.seq[s] = 0; st.ganho[s] = 0; st.errou[s].push(st.i); }
+    st.pts[s] += st.ganho[s];
+  }
+  const ev = [{k:'rev'}];
+  if(st.n > 1) ev.push({k:'log', text:`P${st.i + 1}: <b>${esc(q.alts[q.ok])}</b> — ${acertaram} de ${st.n} acertaram.`});
+  return ev;
+}
+function proxima(st, now){
+  st.i++;
+  if(st.i >= st.qs.length){ st.fase = 'fim'; return []; }
+  iniciaPre(st, now);
+  return [{k:'snd', s:'deal', n:3}];
+}
+const todosResponderam = st => st.resp.every(r => r);
+
+/* bots: "conhecem" o país conforme o nível deles e a fama do país; respondem em tempo de gente */
+const SABE = {facil:{f:.72, m:.42, d:.18}, normal:{f:.9, m:.68, d:.42}, dificil:{f:.98, m:.9, d:.72}};
+const RAPIDEZ = {facil:[.30, .40], normal:[.20, .34], dificil:[.12, .26]};
+const nivelBot = (st, s) => (st.dseat && st.dseat[s]) || st.diff;
+function planoBot(st, s){
+  const q = st.qs[st.i], dif = nivelBot(st, s);
+  const sabe = rnd(st, s, st.i, 1) < (SABE[dif] || SABE.normal)[q.l];
+  const [a, b] = (RAPIDEZ[dif] || RAPIDEZ.normal);
+  const frac = sabe ? a + b * rnd(st, s, st.i, 2) : .45 + .45 * rnd(st, s, st.i, 3);
+  // sem saber, às vezes ainda descarta uma alternativa e chuta entre as outras
+  let i = q.ok;
+  if(!sabe){
+    let opc = [0, 1, 2, 3];
+    if(dif !== 'facil' && rnd(st, s, st.i, 5) < .5){ const fora = [0, 1, 2, 3].filter(j => j !== q.ok)[Math.floor(rnd(st, s, st.i, 6) * 3)]; opc = opc.filter(j => j !== fora); }
+    i = opc[Math.floor(rnd(st, s, st.i, 4) * opc.length)];
+  }
+  return {t:Math.max(1200, frac * st.T) * TS(), i};
+}
+
+Mesa.run({
+  id:'bandeiras', name:'Bandeiras e Capitais', icon:'🌎', tagline:'Bandeiras, países e capitais do mundo e do Brasil',
+  seats: o => clamp(+o.jogadores || 3, 1, 6),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'3', choices:[['1','Só eu'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'modo', label:'Modo', default:'band', choices:[['band','Bandeiras'],['cap','Capitais'],['mix','Misto'],['br','Brasil']]},
+    {key:'cont', label:'Continente', default:'todos', choices:[['todos','Todos'],['am','Américas'],['eu','Europa'],['af','África'],['as','Ásia-Oceania']]},
+    {key:'perguntas', label:'Rodadas', default:'10', choices:[['10','10'],['15','15'],['20','20']]},
+    {key:'tempo', label:'Tempo', default:'15', choices:[['10','10 s'],['15','15 s'],['20','20 s']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => [({band:'BANDEIRAS', cap:'CAPITAIS', mix:'MISTO', br:'BRASIL'}[o.modo] || 'BANDEIRAS'),
+    o.modo !== 'br' && o.cont && o.cont !== 'todos' ? (CONT[o.cont] || '').toUpperCase() : '',
+    +o.jogadores === 1 ? 'TREINO' : 'BOT ' + ({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'}[o.diff] || 'NORMAL')].filter(Boolean).join(' · '),
+  seatLabel: s => 'Jogador ' + (s + 1),
+  tickMs: 200,
+  setup(players, o){
+    const n = players.length, nQ = [10,15,20].includes(+o.perguntas) ? +o.perguntas : 10;
+    const modo = ['band','cap','mix','br'].includes(o.modo) ? o.modo : 'band', cont = CONT[o.cont] ? o.cont : 'todos';
+    const st = {n, names:players.map(p => p.name), hum:players.map(p => !!p.human), T:clamp(+o.tempo || 15, 5, 30) * 1000, modo, cont,
+      diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal', qs:sorteiaPerguntas(nQ, modo, cont), i:0,
+      pts:Array(n).fill(0), prev:Array(n).fill(0), seq:Array(n).fill(0), acertos:Array(n).fill(0), errou:players.map(() => []), seed:(Math.random() * 1e9) | 0};
+    iniciaPre(st, clock());
+    st.resp = Array(n).fill(null); st.ganho = Array(n).fill(0); st.pronto = Array(n).fill(false);
+    return st;
+  },
+  startEvents(){ return [{k:'snd', s:'deal', n:4}]; },
+  waiting(st){
+    const w = [];
+    for(let s=0;s<st.n;s++){
+      if(isBot(st, s)) continue;
+      if(st.fase === 'perg' && !st.resp[s]) w.push(s);
+      if(st.fase === 'rev' && !st.pronto[s]) w.push(s);
+    }
+    return w;
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || !Number.isInteger(seat) || seat < 0 || seat >= st.n) return {ok:false, err:'Jogada inválida.'};
+    const now = clock();
+    if(a.t === 'r'){
+      if(st.fase !== 'perg') return {ok:false, err:'Agora não dá para responder.'};
+      if(st.resp[seat]) return {ok:false, err:'Você já respondeu.'};
+      if(!Number.isInteger(a.i) || a.i < 0 || a.i > 3) return {ok:false, err:'Resposta inválida.'};
+      st.resp[seat] = {i:a.i, t:Math.max(0, now - st.ini)};
+      if(todosResponderam(st)) return {events:revela(st, now)};
+      return {events:[{k:'resp', seat}]};
+    }
+    if(a.t === 'ok'){
+      if(st.fase !== 'rev') return {ok:false, err:'Aguarde.'};
+      st.pronto[seat] = true;
+      let falta = false; for(let s=0;s<st.n;s++) if(!isBot(st, s) && !st.pronto[s]) falta = true;
+      if(!falta) return {events:proxima(st, now)};
+      return {events:[]};
+    }
+    if(a.t === 'nada') return {events:[]};
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, agora){
+    const now = window.BD_CLOCK ? clock() : agora;
+    if(st.fase === 'fim') return null;
+    if(st.fase === 'pre'){ if(now >= st.fim){ iniciaPerg(st, now); return {changed:true, events:[{k:'perg'}]}; } return null; }
+    if(st.fase === 'perg'){
+      let ch = false; const ev = [];
+      for(let s=0;s<st.n;s++){
+        if(st.resp[s] || !isBot(st, s)) continue;
+        const p = planoBot(st, s);
+        if(now - st.ini >= p.t){ st.resp[s] = {i:p.i, t:now - st.ini}; ch = true; ev.push({k:'resp', seat:s}); }
+      }
+      if(todosResponderam(st) || now >= st.fim){ if(!todosResponderam(st)) ev.push({k:'snd', s:'alert'}); ev.push(...revela(st, now)); ch = true; }
+      return ch ? {changed:true, events:ev} : null;
+    }
+    if(st.fase === 'rev' && now >= st.fim) return {changed:true, events:proxima(st, now)};
+    return null;
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    const N = st.qs.length;
+    if(st.n === 1){
+      const a = st.acertos[0];
+      return {winners:a * 2 >= N ? [0] : [], draw:false, text:`Você acertou <b>${a} de ${N}</b> e fez <b>${st.pts[0]}</b> pontos.${a === N ? ' Gabaritou! 🌎' : ''}`};
+    }
+    const mx = Math.max(...st.pts), w = st.pts.map((p, i) => p === mx ? i : -1).filter(i => i >= 0);
+    const ord = st.pts.map((p, i) => i).sort((a, b) => st.pts[b] - st.pts[a]);
+    return {winners:w, draw:w.length === st.n, scores:st.pts.slice(),
+      text:ord.map((s, k) => `${k + 1}º <b>${esc(st.names[s])}</b> — ${st.pts[s]} pts (${st.acertos[s]}/${N} acertos)`).join('<br>')};
+  },
+  bot(st, s){
+    if(st.fase === 'perg' && !st.resp[s]) return {t:'r', i:planoBot(st, s).i};
+    if(st.fase === 'rev') return {t:'ok'};
+    return {t:'nada'};
+  },
+  botFallback(){ return {t:'nada'}; },
+  view(st, seat){
+    const now = clock(), q = st.qs[Math.min(st.i, st.qs.length - 1)], aberto = st.fase === 'rev' || st.fase === 'fim';
+    const v = {n:st.n, names:st.names, fase:st.fase, i:st.i, N:st.qs.length, left:Math.max(0, st.fim - now), modo:st.modo,
+      dur:st.fase === 'pre' ? PRE_MS * TS() : st.fase === 'perg' ? st.T * TS() : REV_MS * TS(),
+      t:q.t, l:q.l, pts:st.pts.slice(), prev:st.prev.slice(), acertos:st.acertos.slice(), seq:st.seq.slice(),
+      resp:st.resp.map(r => !!r), mine:st.resp[seat] ? st.resp[seat].i : -1, pronto:st.pronto.slice()};
+    if(st.fase !== 'pre'){ v.p = q.p; v.alts = q.alts; v.flag = q.flag; }
+    if(aberto){ v.ok = q.ok; v.x = q.x; v.esc = st.resp.map(r => r ? r.i : -1); v.ganho = st.ganho.slice(); }
+    if(st.fase === 'fim' && seat >= 0 && seat < st.n) v.erros = st.errou[seat].slice(0, 12).map(i => ({flag:st.qs[i].flag, r:st.qs[i].alts[st.qs[i].ok], nome:st.qs[i].nome, t:st.qs[i].t}));
+    return v;
+  },
+  topInfo(g, v){ return `<div class="status">Pergunta ${Math.min(g.i + 1, g.N)}/${g.N}${v.me >= 0 && g.n > 1 ? ` · Você: ${g.pts[v.me]} pts` : ''}</div>`; },
+  render(g, v, ui){ desenha(g, v, ui); },
+  onEvent(e, v){
+    const me = v ? v.me : -1;
+    if(e.k === 'perg') Snd.card();
+    else if(e.k === 'resp' && e.seat !== me) beep(520, 0.04, 'sine', 0.03);
+  },
+  rules:`<h3>Objetivo</h3><p>Reconhecer bandeiras e lembrar capitais — acertando mais e mais rápido que os outros.</p>
+<h3>Modos</h3><ul>
+<li><b>Bandeiras</b>: aparece uma bandeira; diga de que país ela é.</li>
+<li><b>Capitais</b>: aparece um país; escolha a capital dele.</li>
+<li><b>Misto</b>: bandeiras e capitais alternadas.</li>
+<li><b>Brasil</b>: bandeiras dos 26 estados e do Distrito Federal, e as capitais de cada um.</li>
+<li>Nos modos do mundo dá para escolher um <b>continente</b> (Américas, Europa, África ou Ásia e Oceania) ou todos os 195 países.</li></ul>
+<h3>Como jogar</h3><ul>
+<li>Todos recebem a mesma pergunta ao mesmo tempo, com <b>4 alternativas</b> — sempre do mesmo continente (ou região) e, nas bandeiras, com cores parecidas. Só vale a primeira escolha.</li>
+<li>Há um tempo para responder (10, 15 ou 20 s). Depois a resposta certa aparece, com a capital, o continente e uma curiosidade quando houver.</li>
+<li>As primeiras perguntas costumam ser de países mais conhecidos; as últimas, mais difíceis.</li>
+<li>Com <b>1 jogador</b> é treino: vence quem acertar pelo menos metade. No fim aparecem as bandeiras que você errou, para revisar.</li></ul>
+<h3>Pontos</h3><ul>
+<li>Acerto: <b>500</b> + até <b>500</b> pela rapidez.</li>
+<li>Sequência: a partir do 2º acerto seguido, +50, +100 e até +150 por pergunta.</li>
+<li>Erro ou sem resposta: 0 e a sequência zera.</li></ul>
+<p>Vence quem tiver mais pontos no fim.</p>
+<h3>Bots</h3><p>Cada bot “conhece” o país com uma chance que depende do nível dele e da fama do país. Quando conhece, responde rápido; quando não, demora e chuta (o Normal e o Difícil às vezes descartam uma alternativa). O <b>Difícil</b> quase não erra os países conhecidos.</p>
+<h3>Créditos</h3><p style="font-size:13px">Bandeiras dos países: projeto <i>flag-icons</i> (licença MIT). Bandeiras dos estados: projeto <i>br-state-flags</i> (licença MIT), com ajustes.</p>`
+});
+
+const LOC = {key:'', end:0, dur:1};
+/* ================================ BANDEIRAS (SVG) ================================ */
+// As bandeiras vêm comprimidas em bandeiras-dados.js; descomprime uma vez, em segundo plano.
+let SVG = null, SVG_ERR = false;
+(async function carregaSVG(){
+  try{
+    if(typeof DecompressionStream === 'undefined') throw new Error('sem DecompressionStream');
+    const bin = Uint8Array.from(atob(BD_SVGZ), c => c.charCodeAt(0));
+    const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    SVG = JSON.parse(txt);
+  }catch(e){ SVG_ERR = true; }
+  LOC.key = ''; try{ if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); }catch(_){}
+})();
+// bandeira como emoji (plano B se o aparelho não descomprimir)
+const emoji = k => k.length === 2 ? String.fromCodePoint(...[...k.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0))) : '🏳️';
+function flagHtml(k, fh, cls){
+  const st = `style="--fh:${fh}px"`;
+  if(!k) return '';
+  if(SVG && SVG[k]) return `<div class="flag ${cls || ''}" ${st}>${SVG[k]}</div>`;
+  if(SVG_ERR) return `<div class="flag ${cls || ''}" ${st}><span class="emo">${k.startsWith('uf') ? '🚩' : emoji(k)}</span></div>`;
+  return `<div class="flag ${cls || ''}" ${st}><div class="ph">carregando…</div></div>`;
+}
+
+/* ================================ TELA ================================ */
+const nome = (v, g, s) => esc(v.seats[s] ? v.seats[s].name : g.names[s]);
+function catChip(g){ const t = TIPO[g.t] || TIPO.band; return `<span class="cat" style="--cc:${t.cor}">${t.ico} ${t.nome}</span><span class="lv">${LV_NOME[g.l]}</span>`; }
+function cabecalho(g){
+  return `<div class="qh"><span class="qn">PERGUNTA ${g.i + 1} DE ${g.N}</span><span>${catChip(g)}</span>
+    <div class="tmr"><div class="tbar"><i id="tb"></i></div><span class="tsec" id="ts"></span></div></div>`;
+}
+function plsHtml(g, v){
+  return `<div class="pls">${g.names.map((x, s) => `<div class="pl ${s === v.me ? 'me' : ''} ${g.fase === 'perg' && g.resp[s] ? 'ok' : ''}" data-seat="${s}">${nome(v, g, s)}${s === v.me ? ' (você)' : ''} · <b>${g.pts[s]}</b>${g.fase === 'perg' && g.resp[s] ? ' ✓' : ''}</div>`).join('')}</div>`;
+}
+// tamanho da bandeira a partir do espaço livre do palco
+function alturaBandeira(S, g, rev){
+  const mob = S.clientWidth < 600, H = S.clientHeight, W = S.clientWidth;
+  const altsH = mob ? 4 * 48 + 3 * 8 : 2 * 58 + 10;
+  const fixo = 30 + 26 + 36 + altsH + 6 * 9 + 26;                       // cabeçalho, cartão, alternativas, espaços, resultado
+  const extra = rev ? 60 + 52 + (g.n > 1 ? g.n * 36 : 0) : (g.n > 1 ? 34 : 0);   // explicação, botão e placar
+  return Math.round(clamp(Math.min(H - fixo - extra, (W - 40) * 0.6), 60, mob ? 210 : 260));
+}
+function cartao(g, S, rev){
+  const mob = S.clientWidth < 600, ehBand = g.t === 'band' || g.t === 'ufb';
+  const fh = ehBand ? alturaBandeira(S, g, rev) : (mob ? 72 : 80);
+  const p = esc(g.p);
+  return `<div class="qcard" style="--qf:${mob ? 18 : 21}px${rev ? ';animation:none' : ''}">${ehBand ? flagHtml(g.flag, fh) : ''}<div class="pq">${p}</div>${ehBand ? '' : flagHtml(g.flag, fh)}</div>`;
+}
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me, mob = S.clientWidth < 600;
+  LOC.end = Date.now() + g.left; LOC.dur = g.dur;
+  const key = [v.gameNo, g.i, g.fase, mob, !!SVG, SVG_ERR].join(':');
+  if(g.fase === 'pre'){
+    if(LOC.key !== key){ LOC.key = key; const t = TIPO[g.t] || TIPO.band;
+      S.innerHTML = `<div class="bq"><div class="splash"><div class="big">${t.ico}</div><h2>Pergunta ${g.i + 1} de ${g.N}</h2><div>${catChip(g)}</div><div class="cnt" id="cnt"></div></div>${g.n > 1 ? plsHtml(g, v) : ''}</div>`; }
+    relogio(); return;
+  }
+  if(g.fase === 'perg'){
+    if(LOC.key !== key){ LOC.key = key;
+      S.innerHTML = `<div class="bq">${cabecalho(g)}${cartao(g, S, false)}
+        <div class="alts">${g.alts.map((a, i) => `<button class="alt A${i}" data-i="${i}"><span class="lt">${LETRA[i]}</span><span class="tx">${esc(a)}</span></button>`).join('')}</div>
+        <div class="res" id="rs"></div><div id="plBox"></div></div>`;
+      $$('.alt', S).forEach(b => b.onclick = () => {
+        const gg = Mesa.ui.view.game; if(!gg || gg.fase !== 'perg' || gg.mine >= 0 || LOC.sent === key) return;
+        LOC.sent = key; marcaEscolha(+b.dataset.i); Snd.move(); ui.act({t:'r', i:+b.dataset.i});
+      });
+    }
+    if(g.mine >= 0) marcaEscolha(g.mine);
+    $('#rs', S).textContent = g.mine >= 0 ? (g.resp.every(Boolean) ? '' : 'Resposta enviada! Aguardando os outros...') : '';
+    $('#plBox', S).innerHTML = g.n > 1 ? plsHtml(g, v) : '';
+    relogio(); return;
+  }
+  if(g.fase === 'rev'){
+    if(LOC.key !== key){ LOC.key = key;
+      const acertei = g.mine === g.ok, ganho = me >= 0 ? g.ganho[me] : 0, ehBand = g.t === 'band' || g.t === 'ufb';
+      const quem = i => g.esc.map((e, s) => e === i ? `<span>${nome(v, g, s).slice(0, 8)}</span>` : '').join('');
+      const msg = me < 0 ? '' : g.mine < 0 ? 'O tempo acabou!' : acertei ? `Acertou! +${ganho}${g.seq[me] > 1 ? ` · ${g.seq[me]} seguidas 🔥` : ''}` : 'Errou!';
+      S.innerHTML = `<div class="bq">${cabecalho(g)}${cartao(g, S, true)}
+        <div class="alts">${g.alts.map((a, i) => `<button class="alt A${i} ${i === g.ok ? 'ok' : i === g.mine ? 'bad' : 'dim'}" disabled><span class="lt">${i === g.ok ? '✓' : i === g.mine ? '✗' : LETRA[i]}</span><span class="tx">${esc(a)}</span>${g.n > 1 ? `<span class="who">${quem(i)}</span>` : ''}</button>`).join('')}</div>
+        <div class="res ${acertei ? 'good' : 'bad'}">${msg}</div>
+        <div class="expl">${ehBand ? '' : flagHtml(g.flag, 30, 'fmini')}<div>${esc(g.x).replace(/^([^—]+)—/, '<b>$1</b>—')}</div></div>
+        ${g.n > 1 ? `<div class="board" id="brd"></div>` : ''}
+        <div class="foot" id="ft"></div></div>`;
+      if(me >= 0) (acertei ? Snd.win : Snd.lose)();
+      if(g.n > 1) placar(g, v);
+    }
+    const ft = $('#ft', S), pronto = me >= 0 && g.pronto[me];
+    ft.innerHTML = pronto ? '<div class="msgl">Aguardando os outros...</div>' : `<button class="go" id="bOk">${g.i + 1 >= g.N ? 'Ver resultado' : 'Próxima ▶'}</button>`;
+    if($('#bOk', S)) $('#bOk', S).onclick = () => ui.act({t:'ok'});
+    relogio(); return;
+  }
+  // fim
+  if(LOC.key !== key){ LOC.key = key;
+    const ord = g.pts.map((p, i) => i).sort((a, b) => g.pts[b] - g.pts[a]);
+    const pod = g.n > 1 ? `<div class="podio">${[ord[1], ord[0], ord[2]].map((s, k) => s == null ? '' : `<div>${nome(v, g, s)}<small>${g.pts[s]} pts</small><i style="height:${[70, 100, 50][k]}px">${[2, 1, 3][k]}º</i></div>`).join('')}</div>` : '';
+    const er = (g.erros || []).length ? `<div class="msgl">Para revisar:</div><div class="erros">${g.erros.map(e => `<div>${flagHtml(e.flag, 34)}<span>${esc(e.t === 'cap' || e.t === 'ufc' ? e.nome + ': ' + e.r : e.r)}</span></div>`).join('')}</div>` : '';
+    S.innerHTML = `<div class="bq"><div class="splash"><div class="big">🏁</div><h2>Fim de jogo!</h2>
+      ${g.n === 1 ? `<p style="font-size:18px">Você acertou <b>${g.acertos[0]} de ${g.N}</b> — ${g.pts[0]} pontos.</p>` : pod}${er}</div></div>`;
+  }
+}
+function marcaEscolha(i){ $$('.alt').forEach(b => { b.disabled = true; b.classList.toggle('sel', +b.dataset.i === i); b.classList.toggle('dim', +b.dataset.i !== i); }); }
+// placar animado: as barras crescem e as linhas trocam de posição
+function placar(g, v){
+  const el = $('#brd'); if(!el) return;
+  const H = 36, ordA = g.prev.map((p, i) => i).sort((a, b) => g.prev[b] - g.prev[a] || a - b), ordB = g.pts.map((p, i) => i).sort((a, b) => g.pts[b] - g.pts[a] || a - b);
+  const mx = Math.max(1, ...g.pts);
+  el.style.minHeight = (g.n * H) + 'px';
+  el.innerHTML = g.names.map((x, s) => `<div class="brow ${s === v.me ? 'me' : ''}" data-s="${s}" style="top:${ordA.indexOf(s) * H}px"><span class="pos">${ordA.indexOf(s) + 1}º</span>
+    <span class="bn">${nome(v, g, s)}</span><span class="bt"><i style="width:${g.prev[s] / mx * 100}%"></i></span>${g.ganho[s] ? `<span class="gn">+${g.ganho[s]}</span>` : ''}<span class="bp">${g.prev[s]}</span></div>`).join('');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    $$('.brow', el).forEach(r => { const s = +r.dataset.s; $('i', r).style.width = (g.pts[s] / mx * 100) + '%'; contar($('.bp', r), g.prev[s], g.pts[s]); });
+    setTimeout(() => $$('.brow', el).forEach(r => { const s = +r.dataset.s; r.style.top = ordB.indexOf(s) * H + 'px'; $('.pos', r).textContent = (ordB.indexOf(s) + 1) + 'º'; }), 700);
+  }));
+}
+function contar(el, a, b){ const t0 = performance.now(); (function f(t){ const k = Math.min(1, (t - t0) / 900); el.textContent = Math.round(a + (b - a) * k); if(k < 1) requestAnimationFrame(f); })(t0); }
+function relogio(){
+  const left = Math.max(0, LOC.end - Date.now()), tb = $('#tb'), ts = $('#ts'), cnt = $('#cnt');
+  const g = Mesa.ui && Mesa.ui.view && Mesa.ui.view.game, emPerg = g && g.fase === 'perg';
+  if(tb){ tb.style.width = (emPerg ? clamp(left / LOC.dur, 0, 1) * 100 : 0) + '%'; tb.classList.toggle('low', left < LOC.dur * 0.3); }
+  if(ts){ ts.textContent = emPerg ? Math.ceil(left / 1000) : ''; ts.classList.toggle('low', left < 4000); }
+  if(cnt) cnt.textContent = Math.max(1, Math.ceil(left / 1000 / Math.max(0.05, (LOC.dur / PRE_MS))));
+}
+setInterval(relogio, 100);
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { LOC.key = ''; if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); }, 150); });
+</script>
+</body>
+</html>

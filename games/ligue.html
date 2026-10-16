@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Ligue os Pontos</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center;padding:6px 8px 8px}
+.lg{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;height:100%;min-height:0}
+.lbar{display:flex;align-items:center;gap:6px;width:100%;justify-content:center;flex-wrap:nowrap}
+.pill{background:rgba(0,0,0,.42);border-radius:12px;padding:8px 11px;font-weight:800;font-size:15px;color:#ffe6a6;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill.prog{color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.lbar .tbtn{font-size:15px;padding:9px 12px;border-radius:12px}
+.bwrap{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.board{position:relative;flex:none;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 3px rgba(231,180,58,.75);overflow:hidden;touch-action:none}
+.board svg{display:block;width:100%;height:100%}
+/* desenho */
+.board.dz{background:#fffaf0}
+.dz .ln{fill:none;stroke:#2d3436;stroke-width:.9;stroke-linecap:round;stroke-linejoin:round}
+.dz .rub{stroke:#e7b43a;stroke-width:.7;stroke-dasharray:1.6 1.2}
+.dz .dot{fill:#2d3436}
+.dz .dot.on{fill:#9aa5ab}
+.dz .dot.nx{fill:#e17055}
+.dz .halo{fill:none;stroke:#e17055;stroke-width:.6;animation:halo 1s infinite}
+@keyframes halo{0%{opacity:1}100%{opacity:.15}}
+.dz .hint{fill:rgba(253,203,110,.45);stroke:#e1a500;stroke-width:.6;animation:halo .5s infinite alternate}
+.dz .bad{fill:#ff3b30;animation:badF .6s forwards}
+@keyframes badF{to{opacity:0}}
+.dz text{font-weight:800;fill:#34495e;text-anchor:middle;dominant-baseline:central;pointer-events:none;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.dz text.on{fill:#b2bec3}
+.dz text.nx{fill:#d35400}
+.dz .fin{opacity:0}
+.dz.done .fin{opacity:1;transition:opacity .9s}
+.dz.done .fin .fill{animation:fillIn 1s ease-out both}
+@keyframes fillIn{from{fill-opacity:0}to{fill-opacity:1}}
+.dz.done .fin .det{animation:fade .8s .5s both}
+.dz.done .dots,.dz.done .labs{opacity:0;transition:opacity .6s}
+.dz.done .ln{opacity:0;transition:opacity .8s}
+/* animações do desenho pronto */
+.an{transform-box:fill-box;transform-origin:50% 60%}
+.dz.done .an.pula{animation:aPula 1.1s .8s infinite ease-in-out}
+@keyframes aPula{0%,100%{transform:translateY(0)}50%{transform:translateY(-5%)}}
+.dz.done .an.nada{animation:aNada 2.2s .8s infinite ease-in-out}
+@keyframes aNada{0%,100%{transform:translateX(-3%) rotate(-2deg)}50%{transform:translateX(3%) rotate(2deg)}}
+.dz.done .an.voa{animation:aVoa 1.6s .8s infinite ease-in-out}
+@keyframes aVoa{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6%) rotate(3deg)}}
+.dz.done .an.balanca{animation:aBal 1.8s .8s infinite ease-in-out}
+@keyframes aBal{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+.dz.done .an.pulsa{animation:aPul 1s .8s infinite ease-in-out}
+@keyframes aPul{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.dz.done .an.gira{animation:aGira 3s .8s infinite ease-in-out}
+@keyframes aGira{0%,100%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(8deg) scale(1.05)}}
+.dz.done .an.sobe{animation:aSobe 1.4s .8s infinite ease-in-out}
+@keyframes aSobe{0%,100%{transform:translateY(2%)}50%{transform:translateY(-6%)}}
+.dz.done .an.anda{animation:aAnda 1.2s .8s infinite ease-in-out}
+@keyframes aAnda{0%,100%{transform:translateX(-3%)}50%{transform:translateX(3%) translateY(-1%)}}
+/* caminhos */
+.board.cz{background:#141c22}
+.cz .cell{fill:#1d2830;stroke:#33424d;stroke-width:.03}
+.cz .pth{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.cz .end{stroke:#0b1014;stroke-width:.05}
+.cz .ring{fill:none;stroke:#fff;stroke-width:.06}
+.cz .hl{fill:none;stroke:#fff;stroke-width:.07;animation:halo .6s infinite alternate}
+/* fim da fase */
+.done2{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;width:min(360px,calc(100% - 20px));background:var(--panel);border:2px solid var(--gold);
+  border-radius:16px;padding:12px 16px;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.6);animation:upIn .4s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes upIn{from{transform:translate(-50%,40px);opacity:0}}
+.done2 h2{color:var(--gold);font-size:21px;margin-bottom:2px}
+.done2 p{color:#e3f3ea;font-size:14px;line-height:1.4}
+.done2 .stars{font-size:24px;letter-spacing:3px}
+.done2 .big{margin:8px 0 0;padding:12px}
+@keyframes fade{from{opacity:0}}
+@media (max-width:720px){ .lbar{gap:4px} .pill{padding:7px 8px;font-size:14px} .lbar .tbtn{padding:8px 9px} .lbar .tbtn .tx{display:none} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="ligue-desenhos.js"></script>
+<script>
+"use strict";
+/* ============================== LIGUE OS PONTOS ==============================
+   Modo "Desenho": pontos numerados ao longo do contorno de um desenho; ligue na
+   ordem (toque ou arraste) e o desenho aparece colorido e animado.
+   Modo "Caminhos": ligue os pares de cores na grade sem cruzar e preenchendo
+   todas as casas. O quebra-cabeça vem de uma solução gerada antes (caminho
+   hamiltoniano embaralhado e cortado em pedaços), então sempre tem solução. */
+const NPTS = {facil:15, normal:30, dificil:50};
+const NOME_NV = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+// tamanhos da grade por nível, fase a fase (depois repete o último)
+const GRADES = {facil:[5,5,5,6,6,6], normal:[6,6,7,7,7,7], dificil:[8,8,8,9,9,9]};
+const NCORES = {5:[4,5], 6:[5,6], 7:[6,7], 8:[7,9], 9:[8,10]};
+const CORES = ['#e53935','#1e66d0','#2eb84b','#f7d82b','#fb8c00','#29c5f6','#ec407a','#9c3fd0','#8d6e63','#f2f2f2'];
+const fmt = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const nvOf = k => NPTS[k] ? k : 'normal';
+
+/* ---------------------- geometria dos desenhos ---------------------- */
+function parsePts(str){ return str.trim().split(/\s+/).map(t => { const sm = t.endsWith('s'); const [x, y] = t.replace('s', '').split(',').map(Number); return {x, y, sm}; }); }
+// controles de Bézier: ponto suave usa a tangente dos vizinhos; canto vai reto
+function ctrl(P, i){
+  const n = P.length, p = P[i], q = P[(i+1)%n], a = P[(i-1+n)%n], b = P[(i+2)%n];
+  const t0 = p.sm ? {x:(q.x - a.x)/2, y:(q.y - a.y)/2} : {x:q.x - p.x, y:q.y - p.y};
+  const t1 = q.sm ? {x:(b.x - p.x)/2, y:(b.y - p.y)/2} : {x:q.x - p.x, y:q.y - p.y};
+  return [{x:p.x + t0.x/3, y:p.y + t0.y/3}, {x:q.x - t1.x/3, y:q.y - t1.y/3}];
+}
+function pathD(P){
+  let d = `M${P[0].x},${P[0].y}`;
+  for(let i=0;i<P.length;i++){ const q = P[(i+1)%P.length], [c1, c2] = ctrl(P, i);
+    d += ` C${c1.x.toFixed(2)},${c1.y.toFixed(2)} ${c2.x.toFixed(2)},${c2.y.toFixed(2)} ${q.x},${q.y}`; }
+  return d + 'Z';
+}
+function dense(P){
+  const out = [], S = 24;
+  for(let i=0;i<P.length;i++){
+    const p = P[i], q = P[(i+1)%P.length], [c1, c2] = ctrl(P, i);
+    for(let k=0;k<S;k++){ const t = k/S, u = 1 - t;
+      out.push({x:u*u*u*p.x + 3*u*u*t*c1.x + 3*u*t*t*c2.x + t*t*t*q.x, y:u*u*u*p.y + 3*u*u*t*c1.y + 3*u*t*t*c2.y + t*t*t*q.y, c:k === 0 && (!p.sm || i === 0)}); }
+  }
+  return out;
+}
+// distribui N pontos pelo contorno: cantos primeiro, o resto proporcional ao comprimento
+function resample(D, N){
+  const m = D.length, cum = [0];
+  for(let i=1;i<=m;i++) cum[i] = cum[i-1] + Math.hypot(D[i%m].x - D[i-1].x, D[i%m].y - D[i-1].y);
+  const tot = cum[m];
+  let anc = D.map((p, i) => p.c ? cum[i] : -1).filter(x => x >= 0);
+  if(anc.length > N){ // muitos cantos: fica com os mais bem espalhados
+    const keep = [0];
+    for(let j=1;j<N;j++){ const tg = j*tot/N; let best = null, bd = 1e9;
+      anc.forEach(a => { if(!keep.includes(a) && Math.abs(a - tg) < bd){ bd = Math.abs(a - tg); best = a; } }); keep.push(best); }
+    anc = keep.sort((a, b) => a - b);
+  }
+  const spans = anc.map((a, j) => (j + 1 < anc.length ? anc[j+1] : tot) - a);
+  let rest = N - anc.length; const want = spans.map(s => s/tot*rest), cnt = want.map(Math.floor);
+  let left = rest - cnt.reduce((a, b) => a + b, 0);
+  want.map((w, j) => [w - cnt[j], j]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, j]) => cnt[j]++);
+  const pos = [];
+  anc.forEach((a, j) => { pos.push(a); for(let k=1;k<=cnt[j];k++) pos.push(a + spans[j]*k/(cnt[j] + 1)); });
+  let i = 0;
+  return pos.map(s => { while(i < m - 1 && cum[i+1] < s) i++; const j = (i + 1)%m, f = (s - cum[i])/((cum[i+1] - cum[i]) || 1);
+    return [+(D[i].x + (D[j].x - D[i].x)*f).toFixed(1), +(D[i].y + (D[j].y - D[i].y)*f).toFixed(1)]; });
+}
+function segDist(x, y, a, b){
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = dx*dx + dy*dy;
+  const t = l ? clamp(((x - a[0])*dx + (y - a[1])*dy)/l, 0, 1) : 0;
+  return Math.hypot(x - a[0] - t*dx, y - a[1] - t*dy);
+}
+// pontos + posição dos números (para fora do contorno, longe das linhas e dos outros números)
+function layoutDots(di, N){
+  const P = parsePts(LIGUE_DESENHOS[di].p), D = dense(P), pts = resample(D, N);
+  let A = 0; D.forEach((p, i) => { const q = D[(i+1)%D.length]; A += p.x*q.y - q.x*p.y; });
+  const sg = A > 0 ? 1 : -1, off = N > 40 ? 3.4 : N > 20 ? 4 : 4.8, lab = [];
+  pts.forEach((p, i) => {
+    const a = pts[(i-1+N)%N], b = pts[(i+1)%N];
+    let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    const base = Math.atan2(-sg*tx, sg*ty);
+    let best = null, bs = -1e9;
+    for(const da of [0, .45, -.45, .9, -.9, 1.4, -1.4, 2, -2, Math.PI]) for(const r of [off, off*1.4]){
+      const x = p[0] + Math.cos(base + da)*r, y = p[1] + Math.sin(base + da)*r;
+      let md = 1e9;
+      pts.forEach((q, j) => { if(j !== i) md = Math.min(md, Math.hypot(q[0] - x, q[1] - y)); });
+      lab.forEach(L => { md = Math.min(md, Math.hypot(L[0] - x, L[1] - y)*.85); });
+      let ml = 1e9; for(let j=0;j<N;j++) ml = Math.min(ml, segDist(x, y, pts[j], pts[(j+1)%N]));
+      const sc = Math.min(md, ml*1.4) - Math.abs(da)*.5 - (r > off ? .6 : 0) - (x < -5 || x > 105 || y < -5 || y > 105 ? 30 : 0);
+      if(sc > bs){ bs = sc; best = [+x.toFixed(1), +y.toFixed(1)]; }
+    }
+    lab.push(best);
+  });
+  return {pts, lab};
+}
+
+/* ---------------------- gerador de "Caminhos" ---------------------- */
+function nbrs(n, c){ const r = Math.floor(c/n), k = c%n, o = []; if(r > 0) o.push(c - n); if(r < n-1) o.push(c + n); if(k > 0) o.push(c - 1); if(k < n-1) o.push(c + 1); return o; }
+const adj = (n, a, b) => Math.abs(Math.floor(a/n) - Math.floor(b/n)) + Math.abs(a%n - b%n) === 1;
+function genFlow(n){
+  const R = Math.random;
+  for(let att=0;att<400;att++){
+    // caminho que passa por todas as casas: serpentina embaralhada com "backbite"
+    let path = [];
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) path.push(r*n + (r%2 ? n-1-c : c));
+    for(let it=0; it<n*n*30; it++){
+      if(R() < .5) path.reverse();
+      const end = path[path.length-1], prev = path[path.length-2];
+      const cand = nbrs(n, end).filter(x => x !== prev), x = cand[Math.floor(R()*cand.length)];
+      const j = path.indexOf(x);
+      path = path.slice(0, j+1).concat(path.slice(j+1).reverse());
+    }
+    // corta em k pedaços (cada um com 3+ casas)
+    const [k0, k1] = NCORES[n], k = k0 + Math.floor(R()*(k1 - k0 + 1)), L = n*n;
+    const w = Array.from({length:k}, () => .4 + R()), lens = Array(k).fill(3);
+    for(let u=0; u<L - 3*k; u++){ let x = R()*w.reduce((a, b) => a + b, 0), j = 0; while(x > w[j]){ x -= w[j]; j++; } lens[Math.min(j, k-1)]++; }
+    const sol = []; let p = 0;
+    lens.forEach(l => { sol.push(path.slice(p, p + l)); p += l; });
+    // pontas vizinhas deixariam o caminho óbvio demais: tenta de novo
+    if(sol.some(s => adj(n, s[0], s[s.length-1]))) continue;
+    return {ends:sol.map(s => [s[0], s[s.length-1]]), sol};
+  }
+  return null;
+}
+function endColor(ph, cell){ return ph.ends.findIndex(e => e[0] === cell || e[1] === cell); }
+function connected(ph, c){ const p = ph.paths[c], e = ph.ends[c]; return p.length > 1 && e.includes(p[0]) && e.includes(p[p.length-1]) && p[0] !== p[p.length-1]; }
+function coverage(ph){ const s = new Set(); ph.paths.forEach(p => p.forEach(x => s.add(x))); return s.size; }
+// aplica um caminho da cor c cortando os que ele atravessa
+function setPath(ph, c, cells){
+  ph.paths[c] = cells.slice();
+  const used = new Set(cells);
+  ph.paths.forEach((p, d) => { if(d === c) return; const i = p.findIndex(x => used.has(x)); if(i >= 0) ph.paths[d] = i <= 1 ? [] : p.slice(0, i); });
+}
+function validPath(ph, c, cells){
+  const n = ph.n, N = n*n;
+  if(!Array.isArray(cells) || !cells.length || cells.length > N) return 'Caminho inválido.';
+  if(!cells.every(x => Number.isInteger(x) && x >= 0 && x < N)) return 'Caminho inválido.';
+  if(!ph.ends[c].includes(cells[0])) return 'O caminho tem de começar numa bolinha da mesma cor.';
+  if(new Set(cells).size !== cells.length) return 'O caminho não pode passar duas vezes pela mesma casa.';
+  for(let i=1;i<cells.length;i++){
+    if(!adj(n, cells[i-1], cells[i])) return 'Só dá para andar para casas vizinhas.';
+    const e = endColor(ph, cells[i]);
+    if(e >= 0 && e !== c) return 'Não dá para passar por cima de outra bolinha.';
+    if(e === c && i !== cells.length - 1) return 'O caminho termina ao chegar na outra bolinha.';
+  }
+  return null;
+}
+
+/* ------------------------------ regras ------------------------------ */
+function newPhase(st){
+  st.fase++; st.status = 'play'; st.t0 = Date.now(); st.gid++;
+  if(st.modo === 'desenho'){
+    if(!st.ordem.length) st.ordem = shuffle(LIGUE_DESENHOS.map((d, i) => i)).filter(i => i !== st.lastD);
+    const di = st.ordem.shift(), N = NPTS[st.nivel];
+    const L = layoutDots(di, N);
+    st.lastD = di;
+    st.ph = {di, n:N, pts:L.pts, lab:L.lab, k:0, errs:0, hints:0, hint:-1};
+  } else {
+    const G = GRADES[st.nivel], n = G[Math.min(st.fase - 1, G.length - 1)];
+    let f = null; while(!f) f = genFlow(n);
+    st.ph = {n, ends:f.ends, sol:f.sol, paths:f.ends.map(() => []), hist:[], hints:0, errs:0, hint:-1};
+  }
+}
+function clearPhase(st){
+  const ph = st.ph, ms = Date.now() - st.t0;
+  st.tot += ms; st.status = 'clear';
+  const stars = st.modo === 'desenho' ? (ph.hints === 0 && ph.errs <= 1 ? 3 : ph.hints <= 1 && ph.errs <= 4 ? 2 : 1) : (ph.hints === 0 ? 3 : ph.hints === 1 ? 2 : 1);
+  st.stars += stars; st.last = {ms, stars};
+  return [{k:'snd', s:'win'}, {k:'clear'}];
+}
+function result(st){
+  if(st.status !== 'done') return null;
+  const max = st.fases*3, nm = st.modo === 'desenho' ? 'desenhos' : 'quebra-cabeças';
+  const k = `central.ligue.rec.${st.modo}.${st.nivel}.${st.fases}`;
+  if(st.recMsg == null){
+    const old = lsGet(k);
+    if(!old || st.stars > old.s || (st.stars === old.s && st.tot < old.t)){ lsSet(k, {s:st.stars, t:st.tot}); st.recMsg = old ? '<br>🏅 Novo recorde!' : ''; }
+    else st.recMsg = `<br>Recorde: ${old.s} ⭐ em ${fmt(old.t)}.`;
+  }
+  return {winners:[0], text:`Você completou ${st.fases} ${nm} (${NOME_NV[st.nivel]}) em <b>${fmt(st.tot)}</b> com <b>${st.stars}</b> de ${max} ⭐.${st.recMsg}`};
+}
+
+Mesa.run({
+  id:'ligue', name:'Ligue os Pontos', icon:'✏️', tagline:'Ligue os pontos e descubra o desenho — ou ligue as cores',
+  options:[
+    {key:'modo', label:'Modo', default:'desenho', choices:[['desenho','Desenho'],['caminhos','Caminhos']]},
+    {key:'nivel', label:'Nível', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]},
+    {key:'fases', label:'Fases', default:'5', choices:[['5','5 fases'],['10','10 fases']]}
+  ],
+  solo:true, players:1,
+  modeLabel:o => (o.modo === 'caminhos' ? 'Caminhos' : 'Desenho') + ' · ' + (NOME_NV[o.nivel] || 'Normal'),
+  setup(players, o){
+    const st = {modo:o.modo === 'caminhos' ? 'caminhos' : 'desenho', nivel:nvOf(o.nivel), fases:+o.fases === 10 ? 10 : 5,
+      fase:0, status:'play', ordem:[], lastD:-1, tot:0, stars:0, gid:0, last:null};
+    newPhase(st);
+    return st;
+  },
+  waiting(st){ return st.status === 'done' ? [] : [0]; },
+  over(st){ return result(st); },
+  apply(st, s, a){
+    if(s !== 0 || !a || typeof a !== 'object') return {ok:false, err:'Jogada inválida.'};
+    const ph = st.ph;
+    if(a.t === 'next'){
+      if(st.status !== 'clear') return {ok:false, err:'Termine esta fase primeiro.'};
+      if(st.fase >= st.fases){ st.status = 'done'; return {events:[]}; }
+      newPhase(st); return {events:[{k:'snd', s:'deal', n:4}]};
+    }
+    if(st.status !== 'play') return {ok:false, err:'Toque em “Próximo” para continuar.'};
+    if(st.modo === 'desenho'){
+      if(a.t === 'link'){
+        if(a.i !== ph.k) return {ok:false, err:'Ponto fora de ordem.'};
+        ph.k++; ph.hint = -1;
+        if(ph.k === ph.n) return {events:clearPhase(st)};
+        return {events:[{k:'snd', s:'card'}]};
+      }
+      if(a.t === 'erro'){ // tocou num número errado
+        if(!Number.isInteger(a.i) || a.i < 0 || a.i >= ph.n || a.i === ph.k) return {ok:false, err:'Jogada inválida.'};
+        ph.errs++; return {events:[{k:'snd', s:'error'}]};
+      }
+      if(a.t === 'undo'){ if(ph.k > 0) ph.k--; ph.hint = -1; return {events:[{k:'snd', s:'move'}]}; }
+      if(a.t === 'hint'){ ph.hints++; ph.hint = ph.k; return {events:[{k:'snd', s:'alert'}]}; }
+      return {ok:false, err:'Jogada inválida.'};
+    }
+    // caminhos
+    if(a.t === 'path'){
+      const c = a.c;
+      if(!Number.isInteger(c) || c < 0 || c >= ph.ends.length) return {ok:false, err:'Cor inválida.'};
+      const er = validPath(ph, c, a.cells); if(er) return {ok:false, err:er};
+      const before = JSON.stringify(ph.paths);
+      ph.hist.push(before); if(ph.hist.length > 60) ph.hist.shift();
+      const was = connected(ph, c);
+      setPath(ph, c, a.cells.length > 1 ? a.cells : []);
+      if(JSON.stringify(ph.paths) === before){ ph.hist.pop(); return {events:[]}; }
+      ph.hint = -1;
+      const ev = [];
+      if(ph.paths.every((p, d) => connected(ph, d)) && coverage(ph) === ph.n*ph.n) return {events:clearPhase(st)};
+      if(connected(ph, c) && !was) ev.push({k:'snd', s:'capture'});
+      else ev.push({k:'snd', s:'card'});
+      if(ph.paths.every((p, d) => connected(ph, d))) ev.push({k:'toast', seat:0, text:'Todas as cores ligadas! Agora preencha as casas vazias.'});
+      return {events:ev};
+    }
+    if(a.t === 'undo'){
+      if(!ph.hist.length) return {ok:false, err:'Nada para desfazer.'};
+      ph.paths = JSON.parse(ph.hist.pop()); return {events:[{k:'snd', s:'move'}]};
+    }
+    if(a.t === 'hint'){
+      // mostra o caminho certo de uma cor que ainda não está igual à solução
+      const same = c => JSON.stringify(ph.paths[c]) === JSON.stringify(ph.sol[c]) || JSON.stringify(ph.paths[c]) === JSON.stringify(ph.sol[c].slice().reverse());
+      const cs = ph.sol.map((x, c) => c).filter(c => !same(c));
+      if(!cs.length) return {ok:false, err:'Está tudo certo!'};
+      const c = cs.find(c => !connected(ph, c)) ?? cs[0];
+      ph.hist.push(JSON.stringify(ph.paths));
+      setPath(ph, c, ph.sol[c]); ph.hints++; ph.hint = c;
+      if(ph.paths.every((p, d) => connected(ph, d)) && coverage(ph) === ph.n*ph.n) return {events:clearPhase(st)};
+      return {events:[{k:'snd', s:'alert'}]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  // bot só para os testes automáticos: resolve sozinho
+  bot(st){
+    if(st.status === 'clear') return {t:'next'};
+    const ph = st.ph;
+    if(st.modo === 'desenho') return {t:'link', i:ph.k};
+    const c = ph.sol.findIndex((x, c) => !connected(ph, c) || JSON.stringify(ph.paths[c]) !== JSON.stringify(x));
+    return {t:'path', c, cells:ph.sol[c]};
+  },
+  botDelay(st){ return st.status === 'clear' ? 800 : st.modo === 'desenho' ? 160 : 500; },
+  view(st){
+    const ph = st.ph, v = {modo:st.modo, nivel:st.nivel, fase:st.fase, fases:st.fases, status:st.status, gid:st.gid, t0:st.t0, tot:st.tot, stars:st.stars, last:st.last, now:Date.now()};
+    if(st.modo === 'desenho') Object.assign(v, {di:ph.di, n:ph.n, pts:ph.pts, lab:ph.lab, k:ph.k, hint:ph.hint, errs:ph.errs});
+    else Object.assign(v, {n:ph.n, ends:ph.ends, paths:ph.paths, canUndo:ph.hist.length > 0, hint:ph.hint});
+    return v;
+  },
+  render, topInfo, onEvent,
+  rules: `<h3>Objetivo</h3><p>Dois passatempos num jogo só, numa sequência de fases (5 ou 10).</p>
+  <h3>✏️ Desenho</h3><ul>
+  <li>Ligue os pontos <b>na ordem dos números</b>, começando pelo 1: toque em cada ponto ou <b>arraste o dedo</b> passando por eles.</li>
+  <li>No último ponto o desenho se fecha, ganha cores e se mexe. São mais de 30 desenhos (animais, objetos, veículos...).</li>
+  <li>Nível = quantidade de pontos: <b>Fácil 15</b>, <b>Normal 30</b>, <b>Difícil 50</b>. No Fácil o próximo ponto fica destacado.</li>
+  <li>Tocar num número fora de ordem conta como erro. <b>↶</b> desfaz a última ligação; <b>💡</b> mostra o próximo ponto.</li></ul>
+  <h3>🔀 Caminhos</h3><ul>
+  <li>Cada cor aparece em <b>duas bolinhas</b>. Arraste a partir de uma bolinha para desenhar o caminho até a outra da mesma cor.</li>
+  <li>Os caminhos andam só na horizontal/vertical, <b>não podem se cruzar</b>, e no fim <b>todas as casas</b> da grade devem estar preenchidas.</li>
+  <li>Passar por cima de um caminho de outra cor corta aquele caminho. Toque numa bolinha para apagar o caminho dela; arraste do meio de um caminho para refazer a partir dali.</li>
+  <li>Grades de <b>5×5 a 9×9</b>: Fácil 5×5–6×6, Normal 6×6–7×7, Difícil 8×8–9×9. Todo quebra-cabeça é gerado na hora e sempre tem solução.</li>
+  <li><b>💡 Dica</b> traça o caminho certo de uma cor; <b>↶</b> desfaz.</li></ul>
+  <h3>Estrelas</h3><p>Cada fase vale até ⭐⭐⭐: dicas e erros tiram estrelas. No fim aparecem o tempo total e as estrelas; o recorde fica guardado neste aparelho.</p>`
+});
+
+/* ------------------------------ interface ------------------------------ */
+let builtKey = '', G = null, UI = null, drag = null, rub = null, badAt = -1;
+function topInfo(g){ return `<div class="status">Fase ${g.fase}/${g.fases} · ${g.modo === 'desenho' ? '✏️ Desenho' : '🔀 Caminhos'} · ${g.stars} ⭐</div>`; }
+
+function build(g, ui){
+  const st = ui.stage, W = st.clientWidth - 16, H = st.clientHeight - 14 - 54;
+  const sz = Math.floor(Math.max(200, Math.min(W, H)));
+  st.innerHTML = `<div class="lg">
+    <div class="lbar"><span class="pill" id="pClock">⏱ 0:00</span><span class="pill prog" id="pProg"></span>
+      <button class="tbtn" id="bUndo" title="Desfazer">↶<span class="tx"> Desfazer</span></button>
+      <button class="tbtn" id="bHint" title="Dica">💡<span class="tx"> Dica</span></button></div>
+    <div class="bwrap"><div class="board ${g.modo === 'desenho' ? 'dz' : 'cz'}" id="board" style="width:${sz}px;height:${sz}px"></div></div></div>`;
+  $('#bUndo').onclick = () => { if(G && G.status === 'play') ui.act({t:'undo'}); };
+  $('#bHint').onclick = () => { if(G && G.status === 'play') ui.act({t:'hint'}); };
+  const bd = $('#board');
+  if(g.modo === 'desenho') wireDots(bd, ui); else wireFlow(bd, ui);
+}
+function render(g, v, ui){
+  G = g; UI = ui;
+  const st = ui.stage, key = [g.gid, g.modo, st.clientWidth, st.clientHeight].join(',');
+  const fresh = key !== builtKey || !$('#board');
+  if(fresh){ builtKey = key; build(g, ui); drag = null; rub = null; }
+  if(g.modo === 'desenho') drawDots(g, fresh); else drawFlow(g);
+  $('#bUndo').disabled = g.status !== 'play' || (g.modo === 'desenho' ? g.k === 0 : !g.canUndo);
+  $('#bHint').disabled = g.status !== 'play';
+  // cartão de fim da fase (embaixo, para o desenho continuar à vista)
+  const card = $('.done2', st);
+  if(g.status === 'clear' && v.phase === 'game'){
+    if(!card){
+      const l = g.last || {stars:1, ms:0}, d = g.modo === 'desenho' ? LIGUE_DESENHOS[g.di] : null, lastF = g.fase >= g.fases;
+      st.insertAdjacentHTML('beforeend', `<div class="done2"><h2>${d ? `É ${d.a} ${esc(d.n.toLowerCase())}!` : 'Grade completa!'}</h2>
+        <div class="stars">${'⭐'.repeat(l.stars)}${'☆'.repeat(3 - l.stars)}</div><p>Tempo: <b>${fmt(l.ms)}</b></p>
+        <button class="big g" id="bNext">${lastF ? '🏁 Ver resultado' : '▶ Próxima fase'}</button></div>`);
+      $('#bNext').onclick = () => ui.act({t:'next'});
+    }
+  } else if(card) card.remove();
+  paintClock();
+}
+function paintClock(){
+  const c = $('#pClock'); if(!c || !G) return;
+  const ms = G.status === 'play' ? Date.now() - G.t0 : (G.last ? G.last.ms : 0);
+  c.textContent = '⏱ ' + fmt(ms);
+}
+setInterval(paintClock, 500);
+function onEvent(e){
+  if(e.k === 'start'){ builtKey = ''; }
+  if(e.k === 'clear'){ try{ navigator.vibrate && navigator.vibrate([30, 40, 30]); }catch(_){} }
+}
+
+/* ---------- desenho ---------- */
+const svgPt = (svg, e) => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal; return [vb.x + (e.clientX - r.left)/r.width*vb.width, vb.y + (e.clientY - r.top)/r.height*vb.height, vb.width/r.width]; };
+function drawDots(g, fresh){
+  const bd = $('#board'), d = LIGUE_DESENHOS[g.di];
+  const fs = g.n > 40 ? 3.3 : g.n > 20 ? 3.9 : 4.8, dr = g.n > 40 ? 1.05 : g.n > 20 ? 1.25 : 1.5;
+  if(fresh || !bd.querySelector('svg')){
+    const P = parsePts(d.p);
+    bd.innerHTML = `<svg viewBox="-8 -8 116 116" xmlns="http://www.w3.org/2000/svg">
+      <g class="fin"><g class="an ${d.anim}"><path class="fill" d="${pathD(P)}" fill="${d.cor}" stroke="#2d3436" stroke-width="1.4" stroke-linejoin="round"/><g class="det">${d.det}</g>
+        <path d="${pathD(P)}" fill="none" stroke="#2d3436" stroke-width="1.4" stroke-linejoin="round"/></g></g>
+      <polyline class="ln" id="ln" points=""/><line class="ln rub" id="rub" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>
+      <g class="dots">${g.pts.map((p, i) => `<circle class="dot" data-i="${i}" cx="${p[0]}" cy="${p[1]}" r="${dr}"/>`).join('')}<g id="mk"></g></g>
+      <g class="labs">${g.lab.map((p, i) => `<text x="${p[0]}" y="${p[1]}" font-size="${fs}">${i+1}</text>`).join('')}</g></svg>`;
+  }
+  const done = g.status !== 'play';
+  bd.classList.toggle('done', done);
+  const linked = g.pts.slice(0, g.k);
+  if(done) linked.push(g.pts[0]);
+  $('#ln').setAttribute('points', linked.map(p => p.join(',')).join(' '));
+  const dots = bd.querySelectorAll('.dot'), labs = bd.querySelectorAll('.labs text');
+  const showNext = g.nivel === 'facil' || g.hint === g.k;
+  dots.forEach((el, i) => { el.setAttribute('class', 'dot' + (i < g.k ? ' on' : '') + (i === g.k && showNext ? ' nx' : '')); });
+  labs.forEach((el, i) => { el.setAttribute('class', (i < g.k ? 'on' : '') + (i === g.k && showNext ? ' nx' : '')); });
+  const p = g.pts[g.k];
+  $('#mk').innerHTML = !done && p ? (showNext ? `<circle class="halo" cx="${p[0]}" cy="${p[1]}" r="${dr*2.6}"/>` : '') + (g.hint === g.k ? `<circle class="hint" cx="${p[0]}" cy="${p[1]}" r="${dr*4}"/>` : '') : '';
+  $('#pProg').textContent = done ? `${g.n}/${g.n} pontos` : `${g.k}/${g.n} pontos`;
+  paintRub();
+}
+function paintRub(){
+  const r = $('#rub'); if(!r || !G || G.modo !== 'desenho') return;
+  if(rub && G.k > 0 && G.status === 'play'){ const a = G.pts[G.k - 1];
+    r.setAttribute('x1', a[0]); r.setAttribute('y1', a[1]); r.setAttribute('x2', rub[0]); r.setAttribute('y2', rub[1]); r.setAttribute('visibility', 'visible'); }
+  else r.setAttribute('visibility', 'hidden');
+}
+function wireDots(bd, ui){
+  let down = false;
+  // raio de toque: pelo menos ~22 px na tela
+  const tryLink = (e, tap) => {
+    const g = G; if(!g || g.status !== 'play' || g.modo !== 'desenho') return;
+    const svg = bd.querySelector('svg'); if(!svg) return;
+    const [x, y, upp] = svgPt(svg, e), rad = tap ? Math.max(4.2, 22*upp) : Math.max(2.6, 13*upp);
+    // ponto mais perto do toque entre os que faltam (com pontos muito juntos, vale o mais perto)
+    let near = -1, nd = 1e9;
+    g.pts.forEach((q, i) => { if(i < g.k) return; const dd = Math.hypot(q[0] - x, q[1] - y); if(dd < nd){ nd = dd; near = i; } });
+    const p = g.pts[g.k], dn = p ? Math.hypot(p[0] - x, p[1] - y) : 1e9;
+    if(p && dn <= rad && (near === g.k || dn <= nd + 1.2)){ ui.act({t:'link', i:g.k}); return true; }
+    if(tap && near >= 0 && near !== g.k && nd <= Math.max(3, 14*upp)){ ui.act({t:'erro', i:near}); flashBad(near); }
+    return false;
+  };
+  bd.addEventListener('pointerdown', e => { down = true; try{ bd.setPointerCapture(e.pointerId); }catch(_){} tryLink(e, true); setRub(e); });
+  bd.addEventListener('pointermove', e => { if(!down) return; tryLink(e, false); setRub(e); });
+  const up = () => { down = false; rub = null; paintRub(); };
+  bd.addEventListener('pointerup', up); bd.addEventListener('pointercancel', up);
+  function setRub(e){ const svg = bd.querySelector('svg'); if(!svg) return; const [x, y] = svgPt(svg, e); rub = [x, y]; paintRub(); }
+}
+function flashBad(i){
+  const g = G, mk = $('#mk'); if(!g || !mk) return;
+  const p = g.pts[i];
+  mk.insertAdjacentHTML('beforeend', `<circle class="bad" cx="${p[0]}" cy="${p[1]}" r="3.4"/>`);
+  const el = mk.lastElementChild; setTimeout(() => el && el.remove(), 650);
+}
+
+/* ---------- caminhos ---------- */
+function shownPaths(g){
+  const paths = g.paths.map(p => p.slice());
+  if(drag){
+    const used = new Set(drag.cells);
+    paths.forEach((p, d) => { if(d === drag.c) return; const i = p.findIndex(x => used.has(x)); if(i >= 0) paths[d] = i <= 1 ? [] : p.slice(0, i); });
+    paths[drag.c] = drag.cells.slice();
+  }
+  return paths;
+}
+function drawFlow(g){
+  const bd = $('#board'), n = g.n, paths = shownPaths(g);
+  const ctr = c => [(c%n) + .5, Math.floor(c/n) + .5];
+  let s = `<svg viewBox="0 0 ${n} ${n}" xmlns="http://www.w3.org/2000/svg">`;
+  for(let c=0;c<n*n;c++) s += `<rect class="cell" x="${c%n}" y="${Math.floor(c/n)}" width="1" height="1"/>`;
+  paths.forEach((p, d) => p.forEach(c => { s += `<rect x="${c%n + .04}" y="${Math.floor(c/n) + .04}" width=".92" height=".92" rx=".12" fill="${CORES[d]}" opacity=".26"/>`; }));
+  paths.forEach((p, d) => { if(p.length > 1) s += `<polyline class="pth" points="${p.map(c => ctr(c).join(',')).join(' ')}" stroke="${CORES[d]}" stroke-width="${drag && drag.c === d ? .38 : .32}"/>`; });
+  const conn = d => { const p = paths[d], e = g.ends[d]; return p.length > 1 && e.includes(p[0]) && e.includes(p[p.length-1]) && p[0] !== p[p.length-1]; };
+  g.ends.forEach((e, d) => e.forEach(c => { const [x, y] = ctr(c);
+    s += `<circle class="end" cx="${x}" cy="${y}" r=".34" fill="${CORES[d]}"/>`;
+    if(conn(d)) s += `<circle class="ring" cx="${x}" cy="${y}" r=".42"/>`;
+    if(g.hint === d && g.status === 'play') s += `<circle class="hl" cx="${x}" cy="${y}" r=".46"/>`; }));
+  bd.innerHTML = s + '</svg>';
+  const cov = new Set(); paths.forEach(p => p.forEach(c => cov.add(c)));
+  const k = g.ends.filter((e, d) => conn(d)).length;
+  $('#pProg').textContent = `${k}/${g.ends.length} cores · ${Math.round(100*cov.size/(n*n))}%`;
+}
+function wireFlow(bd, ui){
+  const cellAt = e => { const g = G, r = bd.getBoundingClientRect(), n = g.n;
+    const cx = Math.floor((e.clientX - r.left)/r.width*n), cy = Math.floor((e.clientY - r.top)/r.height*n);
+    return cx < 0 || cy < 0 || cx >= n || cy >= n ? -1 : cy*n + cx; };
+  const endOf = c => G.ends.findIndex(e => e[0] === c || e[1] === c);
+  bd.addEventListener('pointerdown', e => {
+    const g = G; if(!g || g.status !== 'play' || g.modo !== 'caminhos') return;
+    const c = cellAt(e); if(c < 0) return;
+    const ec = endOf(c);
+    if(ec >= 0) drag = {c:ec, cells:[c]};
+    else { const d = g.paths.findIndex(p => p.includes(c)); if(d < 0) return; drag = {c:d, cells:g.paths[d].slice(0, g.paths[d].indexOf(c) + 1)}; }
+    try{ bd.setPointerCapture(e.pointerId); }catch(_){}
+    drawFlow(g);
+  });
+  bd.addEventListener('pointermove', e => {
+    if(!drag || !G) return;
+    const c = cellAt(e); if(c < 0) return;
+    if(extend(c)) drawFlow(G);
+  });
+  const up = () => {
+    if(!drag) return;
+    const d = drag; drag = null;
+    const g = G, cur = g.paths[d.c];
+    const same = JSON.stringify(cur) === JSON.stringify(d.cells);
+    // toque numa bolinha sem arrastar: apaga o caminho dela
+    if(d.cells.length === 1 && endOf(d.cells[0]) === d.c){ if(cur.length) ui.act({t:'path', c:d.c, cells:d.cells}); else drawFlow(g); return; }
+    if(!same) ui.act({t:'path', c:d.c, cells:d.cells}); else drawFlow(g);
+  };
+  bd.addEventListener('pointerup', up); bd.addEventListener('pointercancel', up);
+}
+// estende o caminho arrastado até a casa "to" (anda casa a casa; volta se passar por cima do próprio caminho)
+function extend(to){
+  const g = G, n = g.n, cells = drag.cells; let changed = false;
+  for(let guard=0; guard<2*n; guard++){
+    const last = cells[cells.length-1];
+    if(last === to) break;
+    const idx = cells.indexOf(to);
+    if(idx >= 0){ cells.length = idx + 1; changed = true; break; }
+    const done = cells.length > 1 && g.ends[drag.c].includes(last);
+    if(done) break;
+    const lr = Math.floor(last/n), lc = last%n, tr = Math.floor(to/n), tc = to%n;
+    const opts = [];
+    const stepR = tr !== lr ? last + (tr > lr ? n : -n) : -1, stepC = tc !== lc ? last + (tc > lc ? 1 : -1) : -1;
+    if(Math.abs(tr - lr) >= Math.abs(tc - lc)){ opts.push(stepR, stepC); } else opts.push(stepC, stepR);
+    let moved = false;
+    for(const nx of opts){
+      if(nx < 0) continue;
+      const bi = cells.indexOf(nx);
+      if(bi >= 0){ cells.length = bi + 1; moved = true; changed = true; break; }
+      const e = g.ends.findIndex(x => x[0] === nx || x[1] === nx);
+      if(e >= 0 && e !== drag.c) continue;
+      if(e === drag.c && nx === cells[0]) continue;
+      cells.push(nx); moved = true; changed = true; break;
+    }
+    if(!moved) break;
+  }
+  return changed;
+}
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+</script>
+</body>
+</html>

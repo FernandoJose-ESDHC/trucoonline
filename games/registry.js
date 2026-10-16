@@ -113,7 +113,23 @@ const JOGOS = [
   { id:'cobrinha', name:'Cobrinha', cat:'solo', icon:'🐍', url:'games/cobrinha.html',
     players:'1', online:false, desc:'A cobrinha clássica: coma as maçãs, cresça, acelere e não bata em nada.' },
   { id:'blocos', name:'Blocos', cat:'solo', icon:'🧱', url:'games/blocos.html',
-    players:'1', online:false, desc:'Encaixe as peças que caem, complete linhas e suba de nível.' }
+    players:'1', online:false, desc:'Encaixe as peças que caem, complete linhas e suba de nível.' },
+  { id:'penaltis', name:'Pênaltis', cat:'festa', icon:'🥅', url:'games/penaltis.html',
+    players:'2', online:true, desc:'Disputa de pênaltis com times do Brasil: escolha canto e força, adivinhe o pulo do goleiro.' },
+  { id:'territorio', name:'Território', cat:'tabuleiro', icon:'🗺️', url:'games/territorio.html',
+    players:'2 a 6', online:true, desc:'Guerra de territórios no mapa do Brasil: reforce, ataque com dados e domine as regiões.' },
+  { id:'bandeiras', name:'Bandeiras e Capitais', cat:'palavras', icon:'🌎', url:'games/bandeiras.html',
+    players:'1 a 6', online:true, desc:'Adivinhe bandeiras e capitais do mundo e dos estados do Brasil.' },
+  { id:'soletrando', name:'Soletrando', cat:'palavras', icon:'🐝', url:'games/soletrando.html',
+    players:'1 a 6', online:true, desc:'Ouça a palavra e soletre certinho: acento conta! Último de pé vence.' },
+  { id:'anagramas', name:'Anagramas', cat:'palavras', icon:'🔠', url:'games/anagramas.html',
+    players:'1 a 6', online:true, desc:'7 letras sorteadas: forme o máximo de palavras antes do tempo acabar.' },
+  { id:'diferencas', name:'Ache as Diferenças', cat:'solo', icon:'🔍', url:'games/diferencas.html',
+    players:'1', online:false, desc:'Duas cenas coloridas geradas na hora: ache o que mudou antes do tempo acabar.' },
+  { id:'ligue', name:'Ligue os Pontos', cat:'solo', icon:'✏️', url:'games/ligue.html',
+    players:'1', online:false, desc:'Ligue os números e revele o desenho, ou ligue os pares de cores na grade.' },
+  { id:'labirinto', name:'Labirinto', cat:'solo', icon:'🌀', url:'games/labirinto.html',
+    players:'1', online:false, desc:'Labirintos gerados na hora: ache a saída rápido, com chave, moedas e névoa.' }
 ];
 const CATEGORIAS = [
   ['todos','Todos'], ['truco','Truco'], ['cartas','Cartas'], ['tabuleiro','Tabuleiro'], ['festa','Festa'], ['palavras','Palavras'], ['solo','Solo']

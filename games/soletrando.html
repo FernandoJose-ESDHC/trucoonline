@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<link rel="icon" href="../docs/img/icon-192.png">
+<title>Soletrando</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:8px 10px 8px}
+.so{display:flex;flex-direction:column;gap:8px;height:100%;width:100%;max-width:820px;margin:0 auto;min-height:0}
+.sh{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap;justify-content:space-between}
+.sn{font-weight:900;color:#ffe6a6;font-size:14px;letter-spacing:.5px}
+.nv{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 11px;font-weight:900;font-size:12.5px;color:#fff;background:var(--cc);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.tmr{display:flex;align-items:center;gap:8px;flex:1 1 140px;max-width:300px}
+.tbar{flex:1;height:10px;border-radius:6px;background:rgba(0,0,0,.4);overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ecf7a,#e7b43a);border-radius:6px}
+.tbar i.low{background:linear-gradient(90deg,#ff6b5b,#e7b43a)}
+.tsec{font-weight:900;font-size:19px;min-width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.tsec.low{color:#ff8f7f}
+.pls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:none}
+.pl{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.38);border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap;border:2px solid transparent;transition:opacity .3s}
+.pl.me{color:#bff5d4}.pl.vez{border-color:var(--gold);box-shadow:0 0 10px rgba(231,180,58,.5)}
+.pl.fora{opacity:.4;text-decoration:line-through}
+.pl .hs{letter-spacing:-1px;font-size:11px}
+.pl b{color:var(--gold)}
+.scard{flex:none;display:flex;flex-direction:column;align-items:center;gap:9px;background:linear-gradient(180deg,#fffdf4,#efe6cc);color:#1f2a22;border-radius:16px;padding:12px 14px;
+  text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.45);animation:pop .35s}
+.scard h3{font-size:19px;font-weight:900;color:#0d5c34}
+.scard .def{font-size:15px;font-weight:700;color:#3b3b2f;line-height:1.35}
+.scard .def i{color:#6b5a2a;font-style:normal;font-weight:800}
+.dbtns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.sb{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:11px;padding:8px 12px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;color:#fff;background:#2f74d0;box-shadow:0 3px 0 rgba(0,0,0,.3)}
+.sb:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.sb.ouv{font-size:17px;padding:11px 18px;background:#22985a}
+.sb.alt{background:#8a5a1d}.sb.gr{background:#5c6b63}
+.aviso{font-size:13px;font-weight:700;color:#7a3b00;background:#ffe7b8;border-radius:10px;padding:6px 10px;line-height:1.35}
+.lac{font-family:ui-monospace,Consolas,monospace;font-size:24px;font-weight:900;letter-spacing:3px;color:#1f2a22}
+.typed{flex:none;display:flex;align-items:center;justify-content:center;min-height:56px;padding:6px 12px;border-radius:14px;background:rgba(0,0,0,.35);border:3px solid rgba(255,255,255,.25);
+  font-size:30px;font-weight:900;letter-spacing:2px;color:#fff;word-break:break-all;text-align:center}
+.typed.on{border-color:var(--gold)}
+.typed .cur{display:inline-block;width:3px;height:1em;background:var(--gold);margin-left:2px;animation:blink 1s steps(1) infinite;vertical-align:-3px}
+.typed .ph{font-size:16px;font-weight:700;letter-spacing:0;opacity:.6}
+@keyframes blink{50%{opacity:0}}
+.kb{display:flex;flex-direction:column;gap:5px;width:100%;flex:none}
+.kb .kr{display:flex;gap:4px;justify-content:center}
+.kb button{flex:1;min-width:0;max-width:56px;height:var(--kh);border:none;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;font-weight:800;font-size:clamp(14px,calc(var(--kh)*.42),21px);cursor:pointer;padding:0;font-family:inherit}
+.kb button.ac{background:rgba(231,180,58,.35)}
+.kb button.wide{flex:1.7;max-width:110px;font-size:clamp(12px,calc(var(--kh)*.3),15px)}
+.kb button.ok{background:#2fb36b;flex:2.2;max-width:150px}
+.kb button:active{transform:scale(.94)}
+.wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.wait .mic{font-size:54px;animation:pop .45s}
+.wait h2{color:var(--gold);font-size:24px}
+.dots::after{content:'';animation:dots 1.4s steps(4) infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+.res{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.res .vd{font-size:26px;font-weight:900}
+.res .vd.good{color:#1f8a4c}.res .vd.bad{color:#b23a2a}
+.tiles{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.tiles span{display:grid;place-items:center;min-width:var(--tw);height:calc(var(--tw)*1.2);border-radius:7px;background:#1f5d3a;color:#fff;font-weight:900;font-size:calc(var(--tw)*.62);box-shadow:0 3px 0 rgba(0,0,0,.3);animation:pop .3s backwards;text-transform:uppercase}
+.tiles span.dif{background:#c2412f}
+.deu{font-size:15px;font-weight:700;color:#5b4a33}
+.deu s{color:#b23a2a;font-weight:900;text-decoration-thickness:2px}
+.foot{display:flex;justify-content:center;gap:8px;flex:none}
+.go{background:var(--nos);color:#06301a;border:none;border-radius:12px;font-size:16px;font-weight:900;padding:11px 26px;cursor:pointer;font-family:inherit}
+.msgl{font-size:13px;font-weight:700;color:#ffe9c4;text-align:center}
+.splash{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.splash .big{font-size:56px;line-height:1;animation:pop .45s}
+.splash h2{color:var(--gold);font-size:30px}
+.rank{display:flex;flex-direction:column;gap:5px;min-width:260px}
+.rank div{display:flex;justify-content:space-between;gap:12px;background:rgba(0,0,0,.3);border-radius:10px;padding:6px 12px;font-weight:800}
+.rank div.w{background:rgba(231,180,58,.35)}
+@media (max-width:600px){
+  .scard{padding:10px 10px;gap:7px}
+  .scard h3{font-size:17px}
+  .sb{padding:7px 10px;font-size:13px}
+  .typed{font-size:25px;min-height:50px}
+  .splash .big{font-size:46px} .splash h2{font-size:24px}
+}
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="soletrando-palavras.js"></script>
+<script>
+"use strict";
+/* ============================== SOLETRANDO ==============================
+   Cada jogador, na sua vez, ouve uma palavra (voz do próprio aparelho) e a
+   digita. Errou: perde uma vida. Acentuação conta. Último de pé vence.
+   Sozinho: sequência até errar 3 vezes, com recorde. */
+const clock = () => window.SO_CLOCK ? window.SO_CLOCK() : Date.now();
+const TS = () => CFG.speed < 0.3 ? Math.max(CFG.speed, 0.002) : 1;
+function seatInfo(s){ try{ const h = Mesa._H; if(h && h.seats && h.seats[s]) return h.seats[s]; }catch(_){} return null; }
+const isBot = (st, s) => { const x = seatInfo(s); return x ? !x.human : !st.hum[s]; };
+function rng(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = (st, s, j, k) => rng((st.seed ^ Math.imul(s + 1, 7919) ^ Math.imul(j + 1, 104729) ^ Math.imul(k + 1, 1299709)) >>> 0)();
+const NV = {f:{nome:'Fácil', cor:'#1f9d55'}, m:{nome:'Médio', cor:'#c8930f'}, d:{nome:'Difícil', cor:'#c2412f'}};
+const PRE_MS = 2200, REV_MS = 5500, MAX_ROD = 15;
+const USADAS = new Set();
+const normaliza = t => String(t == null ? '' : t).normalize('NFC').toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ').trim().slice(0, 40);
+
+/* ---------- palavras ---------- */
+function nivelDaVez(st){
+  if(st.nivel !== 'p') return st.nivel;
+  if(st.n === 1) return st.acertos[0] < 5 ? 'f' : st.acertos[0] < 12 ? 'm' : 'd';
+  return st.rodada <= 2 ? 'f' : st.rodada <= 4 ? 'm' : 'd';
+}
+function sorteiaPalavra(st){
+  const l = nivelDaVez(st);
+  let cand = [];
+  SOLE_PALAVRAS.forEach((p, i) => { if(p.l === l && !st.usadas.includes(i) && !USADAS.has(i)) cand.push(i); });
+  if(!cand.length){ SOLE_PALAVRAS.forEach((p, i) => { if(p.l === l){ USADAS.delete(i); if(!st.usadas.includes(i)) cand.push(i); } }); }
+  if(!cand.length) SOLE_PALAVRAS.forEach((p, i) => { if(p.l === l) cand.push(i); });
+  const i = cand[Math.floor(Math.random() * cand.length)];
+  st.usadas.push(i); USADAS.add(i);
+  return i;
+}
+
+/* ---------- erros plausíveis dos bots ---------- */
+const V = 'aeiouáéíóúâêôãõà';
+const TIRA = {á:'a', à:'a', â:'a', ã:'a', é:'e', ê:'e', í:'i', ó:'o', ô:'o', õ:'o', ú:'u', ç:'c'};
+const REGRAS = [
+  [/ç/g, ['ss', 's']], [/ss/g, ['ç', 's', 'c']], [/sc(?=[eiéêí])/g, ['s', 'c', 'ss']], [/xc/g, ['c', 'ss', 's']], [/sç/g, ['ç', 'ss']],
+  [/x/g, ['ch', 's', 'z']], [/ch/g, ['x']], [/g(?=[eiéêí])/g, ['j']], [/j/g, ['g']], [/z/g, ['s']],
+  [new RegExp(`(?<=[${V}])s(?=[${V}])`, 'g'), ['z']], [/c(?=[eiéêí])/g, ['s', 'ss']], [/^h/g, ['']], [/u$/g, ['l']], [/l$/g, ['u']],
+  [/rr/g, ['r']], [/[áàâãéêíóôõú]/g, null], [/eia/g, ['éia']], [/oo/g, ['ôo']], [/oi(?=[ac])/g, ['ói']], [/ei(?=r|x|j)/g, ['e']],
+  [/ig(?=[oa]$)/g, ['ing']], [/ei(?=v)/g, ['ein']], [/o(?=[^aeiou]*[aeiou][^aeiou]*$)/g, ['u']], [/e(?=[^aeiou]*[aeiou][^aeiou]*$)/g, ['i']]
+];
+function errar(w, r){
+  const cands = [];
+  for(const [re, subs] of REGRAS){
+    for(const m of w.matchAll(re)){
+      const opts = subs || [TIRA[m[0]]];
+      for(const o of opts){ const x = w.slice(0, m.index) + o + w.slice(m.index + m[0].length); if(x && x !== w && !/(.)\1\1/.test(x) && !cands.includes(x)) cands.push(x); }
+    }
+  }
+  // palavra sem armadilha conhecida: troca uma vogal ou dobra uma consoante
+  if(!cands.length){
+    const troca = {e:'i', i:'e', o:'u', u:'o'};
+    for(let i=1;i<w.length;i++) if(troca[w[i]]) cands.push(w.slice(0, i) + troca[w[i]] + w.slice(i + 1));
+    if(!cands.length) cands.push(w.slice(0, -1) || w + w);
+  }
+  // prefere armadilhas "clássicas" (as primeiras regras), mas varia
+  return cands[Math.floor(Math.pow(r(), 1.6) * cands.length)];
+}
+const SABE = {facil:{f:.8, m:.55, d:.3}, normal:{f:.94, m:.8, d:.58}, dificil:{f:.99, m:.93, d:.8}};
+const nivelBot = (st, s) => (st.dseat && st.dseat[s]) || st.diff;
+function respostaBot(st, s){
+  const p = SOLE_PALAVRAS[st.cur.i], dif = nivelBot(st, s), tab = SABE[dif] || SABE.normal;
+  const longa = Math.max(0, p.w.length - 9) * 0.02;
+  const r = rng((st.seed ^ Math.imul(st.turno + 1, 2654435761) ^ Math.imul(s + 1, 40503)) >>> 0);
+  return r() < tab[p.l] - longa ? p.w : errar(p.w, r);
+}
+
+/* ---------- motor ---------- */
+const vivos = st => st.vidas.map((v, s) => s).filter(s => !st.fora[s]);
+function iniciaPre(st, now){ st.fase = 'pre'; st.fim = now + PRE_MS * TS(); }
+function iniciaVez(st, now){
+  st.fase = 'vez'; st.turno++; st.ini = now; st.fim = now + st.T * TS();
+  st.cur = {i:sorteiaPalavra(st)}; st.resp = null; st.ok = false;
+  st.pronto = Array(st.n).fill(false);
+}
+function julga(st, s, txt, now){
+  const p = SOLE_PALAVRAS[st.cur.i];
+  st.resp = txt; st.ok = txt === p.w.normalize('NFC');
+  if(st.ok) st.acertos[s]++; else { st.vidas[s]--; st.erros[s]++; }
+  st.hist.push({s, i:st.cur.i, r:txt, ok:st.ok});
+  st.fase = 'rev'; st.fim = now + REV_MS * TS(); st.pronto = Array(st.n).fill(false);
+  const ev = [{k:'res', seat:s, ok:st.ok}];
+  if(st.n > 1) ev.push({k:'log', text:`${esc(st.names[s])}: <b>${esc(p.w)}</b> ${st.ok ? '✓' : '✗ (' + (txt ? esc(txt) : 'sem resposta') + ')'}`});
+  return ev;
+}
+function avanca(st, now){
+  const ev = [];
+  if(st.n === 1){
+    if(st.vidas[0] <= 0) return fimSolo(st);
+    iniciaVez(st, now); ev.push({k:'snd', s:'deal'}); return ev;
+  }
+  while(st.fila.length && st.fora[st.fila[0]]) st.fila.shift();
+  if(st.fila.length){ st.vez = st.fila.shift(); iniciaVez(st, now); ev.push({k:'snd', s:'deal'}); return ev; }
+  // fim da rodada: sai quem zerou as vidas (se todos zerarem, ninguém sai)
+  const vv = vivos(st), zerou = vv.filter(s => st.vidas[s] <= 0);
+  if(zerou.length && zerou.length === vv.length){
+    zerou.forEach(s => st.vidas[s] = 1);
+    ev.push({k:'banner', text:'Todos erraram: ninguém sai!'}, {k:'log', text:'Todos erraram na rodada — ninguém foi eliminado.'});
+  } else zerou.forEach(s => { st.fora[s] = true; ev.push({k:'log', text:`<b>${esc(st.names[s])}</b> foi eliminado.`}); });
+  if(zerou.length && zerou.length < vv.length) ev.push({k:'banner', text:zerou.map(s => st.names[s]).join(', ') + (zerou.length > 1 ? ' saíram!' : ' saiu!'), bad:true});
+  if(vivos(st).length <= 1 || st.rodada >= MAX_ROD){ st.fase = 'fim'; return ev; }
+  st.rodada++; st.fila = vivos(st); st.vez = -1; iniciaPre(st, now);
+  ev.push({k:'snd', s:'deal', n:3});
+  return ev;
+}
+function fimSolo(st){
+  st.fase = 'fim';
+  const key = 'central.soletrando.recorde.' + st.nivel, old = +(lsGet(key) || 0);
+  st.rec = Math.max(old, st.acertos[0]); st.novoRec = st.acertos[0] > old;
+  if(st.novoRec) lsSet(key, st.acertos[0]);
+  return st.novoRec ? [{k:'banner', text:'Novo recorde!'}] : [];
+}
+function proximoDepoisRev(st, now){ return avanca(st, now); }
+
+Mesa.run({
+  id:'soletrando', name:'Soletrando', icon:'🐝', tagline:'Ouça a palavra e soletre certinho — acento conta!',
+  seats: o => clamp(+o.jogadores || 3, 1, 6),
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'3', choices:[['1','Só eu'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'nivel', label:'Palavras', default:'p', choices:[['p','Progressivo'],['f','Fáceis'],['m','Médias'],['d','Difíceis']]},
+    {key:'vidas', label:'Vidas', default:'3', choices:[['3','3 vidas'],['1','Eliminação'],['5','5 vidas']]},
+    {key:'tempo', label:'Tempo', default:'45', choices:[['30','30 s'],['45','45 s'],['60','60 s']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => [({p:'PROGRESSIVO', f:'FÁCEIS', m:'MÉDIAS', d:'DIFÍCEIS'}[o.nivel] || 'PROGRESSIVO'),
+    +o.jogadores === 1 ? 'SOZINHO' : 'BOT ' + ({facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'}[o.diff] || 'NORMAL')].join(' · '),
+  seatLabel: s => 'Jogador ' + (s + 1),
+  tickMs: 250,
+  setup(players, o){
+    const n = players.length, vid = n === 1 ? 3 : ([1, 3, 5].includes(+o.vidas) ? +o.vidas : 3);
+    const st = {n, names:players.map(p => p.name), hum:players.map(p => !!p.human),
+      nivel:['p','f','m','d'].includes(o.nivel) ? o.nivel : 'p', diff:['facil','normal','dificil'].includes(o.diff) ? o.diff : 'normal',
+      T:clamp(+o.tempo || 45, 15, 90) * 1000, vidasIni:vid, vidas:Array(n).fill(vid), fora:Array(n).fill(false),
+      acertos:Array(n).fill(0), erros:Array(n).fill(0), rodada:1, fila:[...Array(n).keys()], vez:-1, turno:0,
+      cur:null, resp:null, ok:false, hist:[], usadas:[], pronto:Array(n).fill(false), seed:(Math.random() * 1e9) | 0, fase:'pre', fim:0};
+    if(n === 1){ st.vez = 0; st.fila = []; }
+    iniciaPre(st, clock());
+    return st;
+  },
+  startEvents(){ return [{k:'snd', s:'deal', n:3}]; },
+  waiting(st){
+    if(st.fase === 'vez') return [st.vez];
+    if(st.fase === 'rev'){ const w = []; for(let s=0;s<st.n;s++) if(!isBot(st, s) && !st.pronto[s]) w.push(s); return w; }
+    return [];
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || !Number.isInteger(seat) || seat < 0 || seat >= st.n) return {ok:false, err:'Jogada inválida.'};
+    const now = clock();
+    if(a.t === 'r'){
+      if(st.fase !== 'vez') return {ok:false, err:'Agora não é hora de responder.'};
+      if(seat !== st.vez) return {ok:false, err:'Não é a sua vez.'};
+      if(typeof a.txt !== 'string' || a.txt.length > 60) return {ok:false, err:'Resposta inválida.'};
+      const txt = normaliza(a.txt);
+      if(!txt) return {ok:false, err:'Digite a palavra antes de enviar.'};
+      if(!/^[a-záàâãéêíóôõúüç -]+$/.test(txt)) return {ok:false, err:'Use só letras.'};
+      return {events:julga(st, seat, txt, now)};
+    }
+    if(a.t === 'ok'){
+      if(st.fase !== 'rev') return {ok:false, err:'Aguarde.'};
+      st.pronto[seat] = true;
+      for(let s=0;s<st.n;s++) if(!isBot(st, s) && !st.pronto[s]) return {events:[]};
+      return {events:proximoDepoisRev(st, now)};
+    }
+    if(a.t === 'nada') return {events:[]};
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, agora){
+    const now = window.SO_CLOCK ? clock() : agora;
+    if(st.fase === 'fim') return null;
+    if(st.fase === 'pre' && now >= st.fim){
+      if(st.n === 1){ iniciaVez(st, now); return {changed:true, events:[{k:'vez'}]}; }
+      while(st.fila.length && st.fora[st.fila[0]]) st.fila.shift();
+      st.vez = st.fila.shift(); iniciaVez(st, now); return {changed:true, events:[{k:'vez'}]};
+    }
+    if(st.fase === 'vez'){
+      // tempo esgotado (para bots, só uma rede de segurança)
+      if(now >= st.fim + (isBot(st, st.vez) ? 3000 * TS() : 0)){
+        const txt = isBot(st, st.vez) ? respostaBot(st, st.vez) : '';
+        const ev = julga(st, st.vez, txt, now); if(!txt) ev.unshift({k:'snd', s:'alert'}, {k:'toast', seat:st.vez, text:'O tempo acabou!'});
+        return {changed:true, events:ev};
+      }
+      return null;
+    }
+    if(st.fase === 'rev' && now >= st.fim) return {changed:true, events:proximoDepoisRev(st, now)};
+    return null;
+  },
+  over(st){
+    if(st.fase !== 'fim') return null;
+    if(st.n === 1){
+      const a = st.acertos[0];
+      return {winners:st.novoRec || a >= 10 ? [0] : [], draw:false,
+        text:`Você soletrou <b>${a}</b> palavra${a === 1 ? '' : 's'} certa${a === 1 ? '' : 's'}.${st.novoRec ? ' <b>Novo recorde!</b> 🏆' : ` Recorde: <b>${st.rec}</b>.`}`};
+    }
+    const vv = vivos(st);
+    let w = vv;
+    if(vv.length > 1){
+      const mx = Math.max(...vv.map(s => st.vidas[s])); w = vv.filter(s => st.vidas[s] === mx);
+      const ma = Math.max(...w.map(s => st.acertos[s])); w = w.filter(s => st.acertos[s] === ma);
+    }
+    const ord = [...Array(st.n).keys()].sort((a, b) => (st.fora[a] - st.fora[b]) || (st.vidas[b] - st.vidas[a]) || (st.acertos[b] - st.acertos[a]));
+    return {winners:w, draw:false, scores:st.acertos.slice(),
+      text:(vv.length > 1 ? `Fim das ${MAX_ROD} rodadas.<br>` : '') + ord.map((s, k) => `${k + 1}º <b>${esc(st.names[s])}</b> — ${st.acertos[s]} acerto(s)${st.fora[s] ? ' · eliminado' : ` · ${Math.max(0, st.vidas[s])} vida(s)`}`).join('<br>')};
+  },
+  bot(st, s){
+    if(st.fase === 'vez' && st.vez === s) return {t:'r', txt:respostaBot(st, s)};
+    if(st.fase === 'rev') return {t:'ok'};
+    return {t:'nada'};
+  },
+  botFallback(){ return {t:'nada'}; },
+  // tempo de "pensar e digitar" do bot
+  botDelay(st, s){
+    if(st.fase !== 'vez' || !st.cur) return 700;
+    const w = SOLE_PALAVRAS[st.cur.i].w;
+    return 2600 + w.length * 260 + rnd(st, s, st.turno, 9) * 2200;
+  },
+  view(st, seat){
+    const now = clock(), aberto = st.fase === 'rev' || st.fase === 'fim';
+    const v = {n:st.n, names:st.names, fase:st.fase, rodada:st.rodada, vez:st.vez, turno:st.turno, left:Math.max(0, st.fim - now),
+      dur:st.fase === 'pre' ? PRE_MS * TS() : st.fase === 'vez' ? st.T * TS() : REV_MS * TS(),
+      vidas:st.vidas.slice(), vidasIni:st.vidasIni, fora:st.fora.slice(), acertos:st.acertos.slice(), pronto:st.pronto.slice(),
+      nivel:st.nivel, nv:nivelDaVez(st), botVez:st.vez >= 0 && isBot(st, st.vez), maxRod:MAX_ROD};
+    if(st.cur && (st.fase === 'vez' || aberto)){
+      const p = SOLE_PALAVRAS[st.cur.i];
+      v.l = p.l; v.d = p.d;
+      // a palavra só vai para quem está soletrando (precisa dela para a voz) — ou para todos se quem joga é bot
+      if(aberto || seat === st.vez || v.botVez){ v.w = p.w; v.f = p.f; }
+      if(aberto){ v.resp = st.resp; v.ok = st.ok; }
+    }
+    if(st.fase === 'fim'){ v.rec = st.rec || 0; v.novoRec = !!st.novoRec; v.hist = st.hist.filter(h => st.n === 1 || h.s === seat).slice(-12).map(h => ({w:SOLE_PALAVRAS[h.i].w, r:h.r, ok:h.ok})); }
+    return v;
+  },
+  topInfo(g, v){
+    if(g.n === 1) return `<div class="status">Acertos: ${g.acertos[0]} · Vidas: ${'❤'.repeat(Math.max(0, g.vidas[0]))}</div>`;
+    return `<div class="status">Rodada ${g.rodada}${v.me >= 0 ? ` · Você: ${g.fora[v.me] ? 'eliminado' : '❤'.repeat(Math.max(0, g.vidas[v.me])) || '0 ❤'}` : ''}</div>`;
+  },
+  render(g, v, ui){ desenha(g, v, ui); },
+  onEvent(e, v){
+    const me = v ? v.me : -1;
+    if(e.k === 'res'){ if(e.seat === me) (e.ok ? Snd.win : Snd.lose)(); else beep(e.ok ? 660 : 220, 0.08, 'sine', 0.04); }
+    if(e.k === 'vez') Snd.card();
+  },
+  rules:`<h3>Objetivo</h3><p>Soletrar corretamente as palavras ditas pela voz do aparelho — com todas as letras e <b>acentos</b> no lugar certo — e ser o último a ficar no jogo.</p>
+<h3>Como jogar</h3><ul>
+<li>Na sua vez, o aparelho <b>fala</b> uma palavra. Toque em <b>🔊 Ouvir de novo</b> quantas vezes quiser, ou em <b>🐢 Mais devagar</b>.</li>
+<li>Ficou na dúvida (ex.: “sessão”, “seção” ou “cessão”)? Peça a <b>📖 Definição</b> ou a <b>💬 Frase de exemplo</b>.</li>
+<li>Digite a palavra no teclado da tela (tem as letras acentuadas e o <b>ç</b>) ou no teclado do computador e toque em <b>Enviar</b>. Maiúsculas não importam; <b>acento conta</b>: “excecao” é diferente de “exceção”.</li>
+<li>Cada jogador tem um tempo para responder (30, 45 ou 60 s). Se o tempo acabar, conta como erro.</li>
+<li>Depois de cada resposta aparece a grafia correta, letra por letra.</li></ul>
+<h3>Rodadas e vidas</h3><ul>
+<li>Em cada rodada, cada jogador recebe a <b>sua própria</b> palavra, do mesmo nível. Errou: perde uma vida (3 vidas, 5 vidas ou eliminação direta).</li>
+<li>Quem fica sem vidas sai no fim da rodada. Se <b>todos</b> os que restam errarem na mesma rodada, ninguém sai.</li>
+<li>No modo <b>Progressivo</b>, as rodadas 1–2 têm palavras fáceis, 3–4 médias e depois difíceis.</li>
+<li>Vence o último de pé. Se a partida chegar a ${MAX_ROD} rodadas, vence quem tiver mais vidas (e, no empate, mais acertos).</li></ul>
+<h3>Sozinho</h3><p>Palavras em sequência até você errar 3 vezes (no Progressivo elas ficam mais difíceis conforme você acerta). Seu <b>recorde</b> fica guardado neste aparelho, por tipo de palavra.</p>
+<h3>Sem voz?</h3><p>Se o aparelho não tiver voz em português, aparece a definição e a palavra com <b>lacunas</b> nas letras traiçoeiras (e um botão para ver as letras embaralhadas). Você também pode tocar em “Não consigo ouvir” para usar a dica escrita.</p>
+<h3>Bots</h3><p>A chance de o bot acertar depende do nível dele e da dificuldade da palavra. Quando erra, erra como gente: troca <b>s/ç/ss</b>, <b>x/ch</b>, <b>g/j</b>, esquece ou inventa um acento.</p>`
+});
+
+/* ================================ VOZ ================================ */
+const VOZ = {ok:null, v:null};      // ok: null = ainda não sei; true/false
+function achaVoz(){
+  try{
+    if(!('speechSynthesis' in window)){ VOZ.ok = false; return; }
+    const vs = speechSynthesis.getVoices() || [];
+    const v = vs.find(x => /pt[-_]BR/i.test(x.lang)) || vs.find(x => /^pt/i.test(x.lang));
+    if(v){ VOZ.v = v; VOZ.ok = true; } else if(vs.length) VOZ.ok = false;
+  }catch(_){ VOZ.ok = false; }
+}
+achaVoz();
+try{ if('speechSynthesis' in window) speechSynthesis.addEventListener('voiceschanged', () => { const a = VOZ.ok; achaVoz(); if(a !== VOZ.ok){ LOC.key = ''; redesenha(); } }); }catch(_){}
+setTimeout(() => { if(VOZ.ok === null){ VOZ.ok = false; LOC.key = ''; redesenha(); } }, 1800);
+function fala(txt, rate){
+  if(!VOZ.ok || !txt) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = 'pt-BR'; u.rate = rate || 0.9;
+    try{ if(VOZ.v) u.voice = VOZ.v; }catch(_){}
+    speechSynthesis.speak(u);
+  }catch(_){}
+}
+function calaBoca(){ try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(_){} }
+
+/* ============================ DICAS ESCRITAS ============================ */
+// esconde as letras traiçoeiras (s, ç, x, ch, z, g/j, h, acentos...) e mais algumas, se precisar
+function lacunas(w, seed){
+  const r = rng(seed), esconde = new Array(w.length).fill(false);
+  const traica = /[sçxzjgh]|[áàâãéêíóôõú]|c(?=[eiéêí])/g;
+  for(const m of w.matchAll(traica)) esconde[m.index] = true;
+  for(let i=0;i<w.length - 1;i++) if(w[i] === w[i + 1] && /[rs]/.test(w[i])) esconde[i] = esconde[i + 1] = true;
+  let n = esconde.filter(Boolean).length;
+  const alvo = Math.max(2, Math.round(w.length * 0.35));
+  for(let k=0; n < alvo && k < 50; k++){ const i = 1 + Math.floor(r() * (w.length - 1)); if(!esconde[i]){ esconde[i] = true; n++; } }
+  if(n >= w.length - 1) esconde[0] = false;
+  return [...w].map((c, i) => esconde[i] ? '_' : c).join(' ');
+}
+function embaralha(w, seed){
+  const r = rng(seed ^ 77), a = [...w].map(c => TIRA[c] || c);
+  for(let i=a.length - 1;i>0;i--){ const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a.join(' ').toUpperCase();
+}
+const mascara = (f, w) => f.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '_____');
+
+/* ================================ TELA ================================ */
+const LOC = {key:'', end:0, dur:1, txt:'', falou:'', semVoz:false, emb:false, sent:'', turno:''};
+const nome = (v, g, s) => esc(v.seats[s] ? v.seats[s].name : g.names[s]);
+function redesenha(){ try{ if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); }catch(_){} }
+const nvChip = l => `<span class="nv" style="--cc:${NV[l].cor}">${NV[l].nome}</span>`;
+function coracoes(g, s){ const n = Math.max(0, g.vidas[s]); return g.vidasIni > 5 ? n + '❤' : '❤'.repeat(n) + '<span style="opacity:.3">' + '❤'.repeat(Math.max(0, g.vidasIni - n)) + '</span>'; }
+function plsHtml(g, v){
+  if(g.n === 1) return '';
+  return `<div class="pls">${g.names.map((x, s) => `<div class="pl ${s === v.me ? 'me' : ''} ${s === g.vez && g.fase !== 'pre' ? 'vez' : ''} ${g.fora[s] ? 'fora' : ''}" data-seat="${s}">${nome(v, g, s)}${s === v.me ? ' (você)' : ''} <span class="hs">${g.fora[s] ? '✖' : coracoes(g, s)}</span> <b>${g.acertos[s]}</b></div>`).join('')}</div>`;
+}
+function cabecalho(g){
+  const tit = g.n === 1 ? `PALAVRA ${g.turno}` : `RODADA ${g.rodada}`;
+  return `<div class="sh"><span class="sn">${tit}</span>${nvChip(g.l || g.nv)}${g.n === 1 ? `<span class="sn">${coracoes(g, 0)}</span>` : ''}
+    <div class="tmr"><div class="tbar"><i id="tb"></i></div><span class="tsec" id="ts"></span></div></div>`;
+}
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me, mob = S.clientWidth < 600;
+  LOC.end = Date.now() + g.left; LOC.dur = g.dur;
+  const minhaVez = g.fase === 'vez' && g.vez === me;
+  const key = [v.gameNo, g.turno, g.rodada, g.fase, mob, VOZ.ok, LOC.semVoz, LOC.emb, S.clientHeight, g.vez].join(':');
+  if(g.fase === 'pre'){
+    if(LOC.key !== key){ LOC.key = key;
+      S.innerHTML = `<div class="so"><div class="splash"><div class="big">🐝</div><h2>${g.n === 1 ? 'Vamos soletrar!' : 'Rodada ' + g.rodada}</h2><div>${nvChip(g.nv)}</div>
+        ${g.n > 1 ? `<div class="msgl">${vivos2(g).length} jogador(es) na disputa</div>` : `<div class="msgl">Você tem 3 vidas. Acento conta!</div>`}</div>${plsHtml(g, v)}</div>`; }
+    relogio(); return;
+  }
+  if(g.fase === 'vez'){
+    const turnoKey = v.gameNo + ':' + g.turno;
+    if(LOC.turno !== turnoKey){ LOC.turno = turnoKey; LOC.txt = ''; LOC.emb = false; LOC.sent = ''; LOC.key = ''; }
+    if(LOC.key !== key){
+      LOC.key = key;
+      if(minhaVez) telaMinhaVez(g, v, ui, S, mob); else telaEspera(g, v, S);
+    } else if(minhaVez) atualizaDigitado();
+    const pb = $('#plBox', S); if(pb) pb.innerHTML = plsHtml(g, v);
+    // fala a palavra uma vez por turno (para quem joga — e para todos quando quem joga é bot)
+    const tk = v.gameNo + ':' + g.turno;
+    if(LOC.falou !== tk && g.w && (minhaVez || g.botVez)){ LOC.falou = tk; setTimeout(() => fala(minhaVez ? `Soletre: ${g.w}.` : `${g.names[g.vez]}, soletre: ${g.w}.`, 0.9), 250); }
+    relogio(); return;
+  }
+  if(g.fase === 'rev'){
+    if(LOC.key !== key){ LOC.key = key; calaBoca(); telaResultado(g, v, S, mob); }
+    const ft = $('#ft', S), pronto = me >= 0 && g.pronto[me];
+    if(ft){ ft.innerHTML = pronto ? '<div class="msgl">Aguardando os outros...</div>' : `<button class="go" id="bOk">Próxima ▶</button>`;
+      if($('#bOk', S)) $('#bOk', S).onclick = () => ui.act({t:'ok'}); }
+    const pb = $('#plBox', S); if(pb) pb.innerHTML = plsHtml(g, v);
+    relogio(); return;
+  }
+  // fim
+  if(LOC.key !== key){ LOC.key = key; calaBoca(); telaFim(g, v, S); }
+}
+const vivos2 = g => g.fora.map((f, s) => f ? -1 : s).filter(s => s >= 0);
+function botoesDica(semVoz){
+  return `<div class="dbtns">${semVoz ? '' : `<button class="sb ouv" data-b="ouvir">🔊 Ouvir de novo</button><button class="sb" data-b="lento">🐢 Mais devagar</button>`}
+    <button class="sb alt" data-b="def">📖 Definição</button><button class="sb alt" data-b="frase">💬 Frase de exemplo</button>
+    ${semVoz ? `<button class="sb gr" data-b="emb">🔀 ${LOC.emb ? 'Ver lacunas' : 'Letras embaralhadas'}</button>` : `<button class="sb gr" data-b="semvoz">🔇 Não consigo ouvir</button>`}</div>`;
+}
+function telaMinhaVez(g, v, ui, S, mob){
+  const semVoz = VOZ.ok === false || LOC.semVoz;
+  const kh = Math.round(clamp(S.clientHeight * (mob ? 0.058 : 0.062), 34, 50));
+  const aviso = semVoz ? `<div class="aviso">${VOZ.ok === false ? 'Este aparelho não tem voz em português disponível. ' : ''}Use a dica escrita abaixo: a palavra com lacunas nas letras difíceis.</div>
+    <div class="def"><i>Definição:</i> ${esc(g.d)}</div><div class="lac" id="lac">${LOC.emb ? esc(embaralha(g.w, g.turno)) : esc(lacunas(g.w, g.turno * 31 + 7))}</div>` : `<div class="def" id="dica"></div>`;
+  const linha = (ls, extra, cls) => `<div class="kr">${extra && extra[0] || ''}${[...ls].map(c => `<button data-k="${c}" class="${cls || ''}">${c}</button>`).join('')}${extra && extra[1] || ''}</div>`;
+  S.innerHTML = `<div class="so">${cabecalho(g)}<div id="plBox"></div>
+    <div class="scard"><h3>Sua vez! Soletre a palavra.</h3>${aviso}${botoesDica(semVoz)}</div>
+    <div class="typed on" id="typed"></div>
+    <div class="kb" style="--kh:${kh}px">${linha('áàâãéêíóôõúç', null, 'ac')}${linha('qwertyuiop')}${linha('asdfghjkl')}
+      ${linha('zxcvbnm', ['', '<button data-k="back" class="wide" aria-label="Apagar">⌫</button>'])}
+      <div class="kr"><button data-k="clear" class="wide">Limpar</button><button data-k="enter" class="ok">Enviar ✓</button></div></div></div>`;
+  $$('.kb button', S).forEach(b => b.onclick = () => tecla(b.dataset.k, ui));
+  $$('.scard .sb', S).forEach(b => b.onclick = () => dica(b.dataset.b, g));
+  atualizaDigitado();
+}
+function dica(b, g){
+  const el = $('#dica');
+  if(b === 'ouvir') fala(g.w, 0.9);
+  else if(b === 'lento') fala(g.w, 0.5);
+  else if(b === 'def'){ if(el) el.innerHTML = `<i>Definição:</i> ${esc(g.d)}`; fala(g.d, 0.95); }
+  else if(b === 'frase'){ const t = `<i>Frase:</i> ${esc(mascara(g.f, g.w))}`; if(el) el.innerHTML = t; else { const d = $('.scard .def'); if(d) d.innerHTML = t + `<br><i>Definição:</i> ${esc(g.d)}`; } fala(g.f, 0.95); }
+  else if(b === 'semvoz'){ LOC.semVoz = true; LOC.key = ''; redesenha(); }
+  else if(b === 'emb'){ LOC.emb = !LOC.emb; LOC.key = ''; redesenha(); }
+}
+function atualizaDigitado(){
+  const el = $('#typed'); if(!el) return;
+  el.innerHTML = LOC.txt ? `${esc(LOC.txt)}<span class="cur"></span>` : `<span class="ph">digite a palavra…</span><span class="cur"></span>`;
+}
+function tecla(k, ui){
+  const g = Mesa.ui.view && Mesa.ui.view.game, me = Mesa.ui.view ? Mesa.ui.view.me : -1;
+  if(!g || g.fase !== 'vez' || g.vez !== me) return;
+  const tk = Mesa.ui.view.gameNo + ':' + g.turno;
+  if(LOC.sent === tk) return;
+  if(k === 'back') LOC.txt = LOC.txt.slice(0, -1);
+  else if(k === 'clear') LOC.txt = '';
+  else if(k === 'enter'){
+    const t = normaliza(LOC.txt); if(!t){ toast('Digite a palavra primeiro.'); return; }
+    LOC.sent = tk; calaBoca(); (ui || Mesa.ui).act({t:'r', txt:t}); return;
+  }
+  else if(k === ' '){ if(LOC.txt && !LOC.txt.endsWith(' ')) LOC.txt += ' '; }
+  else if(/^[a-záàâãéêíóôõúüç-]$/i.test(k) && LOC.txt.length < 30){ LOC.txt += k.toLocaleLowerCase('pt-BR'); Snd.move && Snd.move(); }
+  atualizaDigitado();
+}
+// teclado físico (inclui letras acentuadas compostas com tecla morta)
+document.addEventListener('keydown', e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) return;
+  if(!$('#typed')) return;
+  let k = e.key;
+  if(k === 'Backspace') k = 'back'; else if(k === 'Enter') k = 'enter'; else if(k === 'Escape') k = 'clear';
+  else if(!(k && k.length === 1 && /^[a-záàâãéêíóôõúüç -]$/i.test(k))) return;
+  e.preventDefault(); tecla(k.normalize('NFC'));
+});
+function telaEspera(g, v, S){
+  const quem = nome(v, g, g.vez), eu = v.me;
+  S.innerHTML = `<div class="so">${cabecalho(g)}<div id="plBox"></div>
+    <div class="wait"><div class="mic">🎤</div><h2>${quem} está soletrando<span class="dots"></span></h2>
+    <div class="msgl">${g.d ? 'Definição: <i>' + esc(g.d) + '</i>' : ''}</div>
+    ${eu >= 0 && g.fora[eu] ? '<div class="msgl">Você foi eliminado — acompanhe até o fim.</div>' : ''}</div></div>`;
+}
+function telaResultado(g, v, S, mob){
+  const quem = g.vez === v.me ? 'Você' : nome(v, g, g.vez), w = g.w || '', r = g.resp || '';
+  const tw = Math.round(clamp((S.clientWidth - 40) / Math.max(8, w.length) - 4, 18, mob ? 30 : 40));
+  const tiles = [...w].map((c, i) => `<span class="${r[i] !== c ? 'dif' : ''}" style="animation-delay:${i * 60}ms">${esc(c)}</span>`).join('');
+  const deu = g.ok ? '' : `<div class="deu">${g.vez === v.me ? 'Você escreveu' : 'Resposta'}: ${r ? `<s>${esc(r)}</s>` : '<i>sem resposta (tempo esgotado)</i>'}</div>`;
+  S.innerHTML = `<div class="so">${cabecalho(g)}<div id="plBox"></div>
+    <div class="scard res"><div class="vd ${g.ok ? 'good' : 'bad'}">${g.ok ? `✓ ${quem} acertou!` : `✗ ${quem} errou${g.vez === v.me ? '' : ''}!`}</div>
+      <div class="tiles" style="--tw:${tw}px">${tiles}</div>${deu}
+      <div class="def"><i>${esc(w)}</i>: ${esc(g.d || '')}</div>
+      ${!g.ok && g.vidas[g.vez] <= 0 ? `<div class="aviso">${g.n === 1 ? 'Acabaram as vidas!' : quem + ' ficou sem vidas.'}</div>` : ''}</div>
+    <div class="foot" id="ft"></div></div>`;
+}
+function telaFim(g, v, S){
+  let corpo;
+  if(g.n === 1){
+    corpo = `<p style="font-size:19px">Você soletrou <b>${g.acertos[0]}</b> palavra${g.acertos[0] === 1 ? '' : 's'} certa${g.acertos[0] === 1 ? '' : 's'}.</p>
+      <p class="msgl">${g.novoRec ? '🏆 Novo recorde!' : 'Recorde (' + ({p:'progressivo', f:'fáceis', m:'médias', d:'difíceis'}[g.nivel]) + '): ' + g.rec}</p>`;
+  } else {
+    const ord = [...Array(g.n).keys()].sort((a, b) => (g.fora[a] - g.fora[b]) || (g.vidas[b] - g.vidas[a]) || (g.acertos[b] - g.acertos[a]));
+    corpo = `<div class="rank">${ord.map((s, k) => `<div class="${k === 0 ? 'w' : ''}"><span>${k + 1}º ${nome(v, g, s)}</span><span>${g.acertos[s]} ✓ ${g.fora[s] ? '· fora' : '· ' + Math.max(0, g.vidas[s]) + '❤'}</span></div>`).join('')}</div>`;
+  }
+  const er = (g.hist || []).filter(h => !h.ok);
+  const rev = er.length ? `<div class="msgl">Para revisar: ${er.map(h => `<b>${esc(h.w)}</b>`).join(', ')}</div>` : '';
+  S.innerHTML = `<div class="so"><div class="splash"><div class="big">🏁</div><h2>Fim do Soletrando!</h2>${corpo}${rev}</div></div>`;
+}
+function relogio(){
+  const left = Math.max(0, LOC.end - Date.now()), tb = $('#tb'), ts = $('#ts');
+  const g = Mesa.ui && Mesa.ui.view && Mesa.ui.view.game, emVez = g && g.fase === 'vez';
+  if(tb){ tb.style.width = (emVez ? clamp(left / LOC.dur, 0, 1) * 100 : 0) + '%'; tb.classList.toggle('low', left < LOC.dur * 0.25); }
+  if(ts){ ts.textContent = emVez ? Math.ceil(left / 1000) : ''; ts.classList.toggle('low', left < 8000); }
+}
+setInterval(relogio, 150);
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { LOC.key = ''; redesenha(); }, 150); });
+</script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<link rel="icon" href="../docs/img/icon-192.png">
+<title>Anagramas</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;padding:6px 8px 8px}
+.ag{display:flex;flex-direction:column;gap:8px;height:100%;width:100%;max-width:760px;margin:0 auto;min-height:0}
+.hd{display:flex;align-items:center;justify-content:center;gap:14px;flex:none;flex-wrap:wrap}
+.hbox{display:flex;flex-direction:column;align-items:center;font-weight:800;color:#ffe6a6;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.hbox b{font-size:24px;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none}
+.hbox b.low{color:#ff8f7f;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.45}}
+.opps{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:none}
+.opp{background:rgba(0,0,0,.35);border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap;border:2px solid transparent}
+.opp.me{color:#bff5d4;border-color:rgba(62,207,122,.5)} .opp.fim{opacity:.6} .opp.ok{border-color:var(--nos)}
+.opp.lead{border-color:var(--gold)}
+/* palavra sendo montada */
+.mont{display:flex;justify-content:center;gap:5px;min-height:calc(var(--t)*0.9 + 6px);flex:none;align-items:center;cursor:pointer}
+.mont .sl{width:calc(var(--t)*0.78);height:calc(var(--t)*0.9);border-radius:10px;border:2px dashed rgba(255,255,255,.22)}
+.tile{width:var(--t);height:var(--t);border-radius:12px;background:linear-gradient(180deg,#fff7df,#f0cf7a);color:#3a2600;font-weight:900;font-size:calc(var(--t)*0.55);
+  display:grid;place-items:center;box-shadow:0 4px 0 #8a6200,0 7px 14px rgba(0,0,0,.35);border:none;cursor:pointer;user-select:none;-webkit-user-select:none;position:relative;
+  transition:transform .12s,opacity .12s;touch-action:manipulation}
+.tile:active{transform:translateY(3px);box-shadow:0 1px 0 #8a6200}
+.tile.used{opacity:.25;transform:scale(.9);cursor:default;box-shadow:none}
+.mont .tile{width:calc(var(--t)*0.78);height:calc(var(--t)*0.9);font-size:calc(var(--t)*0.48);animation:pop .15s}
+.mont.ok .tile{background:linear-gradient(180deg,#d8ffe6,#5fdc95)}
+.mont.bad{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+.rack{display:flex;justify-content:center;gap:var(--g);flex:none}
+.ctr{display:flex;justify-content:center;gap:8px;flex:none;flex-wrap:wrap}
+.cb{border:none;border-radius:12px;font-weight:900;font-size:15px;padding:10px 14px;cursor:pointer;background:#4a4a4a;color:#fff;min-width:64px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.cb.go{background:var(--nos);color:#06301a;min-width:110px}
+.cb.y{background:var(--gold);color:#3a2600}
+.cb:disabled{opacity:.45;cursor:default}
+.cb:not(:disabled):active{transform:translateY(2px);box-shadow:none}
+.msgl{font-size:13px;font-weight:700;color:#ffe9c4;text-align:center;min-height:18px;flex:none}
+.msgl.bad{color:#ff9b8c} .msgl.ok{color:#9ff0c0}
+.scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;background:rgba(0,0,0,.22);border-radius:12px;padding:8px 10px}
+.scroll h4{color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:2px 0 5px}
+.wl{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.w{background:rgba(255,255,255,.1);border-radius:8px;padding:3px 8px;font-weight:800;font-size:14px;white-space:nowrap}
+.w i{font-style:normal;color:var(--gold);font-size:11px;margin-left:4px}
+.w.new{animation:pop .3s;background:rgba(62,207,122,.35)}
+.w.miss{background:rgba(90,176,255,.18)}
+.w.sete{background:linear-gradient(180deg,#ffe28a,#e7b43a);color:#3a2600} .w.sete i{color:#6b4a00}
+.w.dup{text-decoration:line-through;opacity:.55}
+.vazio{opacity:.6;font-size:13px}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex:none;font-size:12px;opacity:.85}
+.foot .cb{font-size:13px;padding:7px 12px;min-width:0}
+/* resultado */
+.pc{background:rgba(0,0,0,.28);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+.pc .pn{display:flex;justify-content:space-between;font-weight:900;margin-bottom:5px}
+.pc .pn span:last-child{color:var(--gold)}
+.pc.me{box-shadow:inset 0 0 0 2px rgba(62,207,122,.5)}
+.tot{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;flex:none}
+.tot div{background:rgba(0,0,0,.35);border-radius:10px;padding:5px 10px;font-weight:800;font-size:13px}
+.tot b{color:var(--gold)}
+.bar{display:flex;gap:8px;justify-content:center;flex:none}
+@media (max-width:520px){ .hbox b{font-size:20px} .cb{font-size:14px;padding:9px 10px;min-width:54px} .cb.go{min-width:96px} .w{font-size:13px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script src="anagramas-dic.js"></script>
+<script>
+"use strict";
+/* ============================ ANAGRAMAS ============================ */
+const chave = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+const PTS = {3:1, 4:2, 5:4, 6:6, 7:10}, BONUS7 = 5;
+const pontos = k => (PTS[k.length] || 0) + (k.length === 7 ? BONUS7 : 0);
+const DIFS = {facil:'Fácil', normal:'Normal', dificil:'Difícil'};
+const fmtS = ms => { const s = Math.max(0, Math.ceil(ms/1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+function rng(seed){ let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------------- dicionário (anagramas-dic.js) ---------------------- */
+// DIC: chave sem acento -> {w: grafia mais comum, t: nível 0 (muito comum) .. 3 (rara)}
+const DIC = new Map();
+(function(){
+  const s = ANAG_DIC; let prev = '', i = 0;
+  while(i < s.length){
+    const c = s.charCodeAt(i) - 48, t = Math.floor(c / 7), p = c % 7;
+    let j = i + 1; while(j < s.length){ const x = s.charCodeAt(j); if(x >= 48 && x < 76) break; j++; }
+    const w = prev.slice(0, p) + s.slice(i + 1, j); prev = w; i = j;
+    const k = chave(w), o = DIC.get(k);
+    if(!o || t < o.t) DIC.set(k, {w, t});
+  }
+})();
+const KEYS = [...DIC.keys()];
+const SETE = KEYS.filter(k => k.length === 7 && DIC.get(k).t <= 1);       // palavras-semente (comuns)
+const mostra = k => (DIC.get(k) || {w:k}).w;
+function conta(s){ const c = new Array(26).fill(0); for(const ch of s) c[ch.charCodeAt(0) - 97]++; return c; }
+function cabe(k, cnt){ const c = cnt.slice(); for(const ch of k){ const i = ch.charCodeAt(0) - 97; if(--c[i] < 0) return false; } return true; }
+function solucoes(letras){ const cnt = conta(letras.join('')); return KEYS.filter(k => k.length <= letras.length && cabe(k, cnt)); }
+
+/* ---------------------------- MOTOR ---------------------------- */
+function sorteiaLetras(st){
+  let melhor = null;
+  for(let a = 0; a < 40; a++){
+    const base = pick(SETE); if(st.bases.includes(base)) continue;
+    const sol = solucoes(base.split('')), comuns = sol.filter(k => DIC.get(k).t <= 2).length;
+    if(!melhor || comuns > melhor.comuns) melhor = {base, sol, comuns};
+    if(comuns >= 25 && sol.length <= 220) break;                  // nem pobre demais, nem infinita
+  }
+  st.bases.push(melhor.base); st.base = melhor.base;
+  let L = melhor.base.split('');
+  do shuffle(L); while(L.join('') === melhor.base);
+  return {letras:L, sol:melhor.sol};
+}
+function novaRodada(st, agora){
+  st.r++; st.fase = 'jogo';
+  const x = sorteiaLetras(st); st.letras = x.letras; st.sol = x.sol;
+  st.t0 = agora; st.fim = agora + st.tempo * 1000; st.seed = Math.floor(Math.random() * 1e9);
+  st.p.forEach(p => { p.w = []; p.fim = false; p.ok = false; });
+  st.res = null;
+}
+function fechaRodada(st, agora){
+  const quantos = {};
+  st.p.forEach(p => p.w.forEach(k => quantos[k] = (quantos[k] || 0) + 1));
+  const unicas = st.rep === 'unicas' && st.n > 1;
+  const pal = st.p.map(p => p.w.map(k => { const dup = quantos[k] > 1; return [k, unicas && dup ? 0 : pontos(k), dup ? 1 : 0]; }));
+  const pts = pal.map(l => l.reduce((a, x) => a + x[1], 0));
+  pts.forEach((v, i) => st.tot[i] += v);
+  // algumas que ninguém achou (as de 7 letras sempre aparecem)
+  const falta = st.sol.filter(k => !quantos[k]);
+  const sete = falta.filter(k => k.length === 7 && (k === st.base || DIC.get(k).t <= 2));
+  const outras = falta.filter(k => k.length < 7 && DIC.get(k).t <= 1).sort((a, b) => b.length - a.length || DIC.get(a).t - DIC.get(b).t).slice(0, Math.max(0, 14 - sete.length));
+  st.res = {pal, pts, perd:[...sete, ...outras], nSol:st.sol.filter(k => DIC.get(k).t <= 2).length};
+  st.fase = 'res'; st.fim = agora + 25000;
+  st.p.forEach(p => p.ok = false);
+  return [{k:'snd', s:'deal', n:4}, {k:'log', text:`Rodada ${st.r}: ` + st.names.map((n, i) => `${esc(n)} +${pts[i]}`).join(' · ')}];
+}
+function proxima(st, agora){
+  if(st.r >= st.R){ st.fase = 'acabou'; return [{k:'snd', s:'deal', n:3}]; }
+  novaRodada(st, agora);
+  return [{k:'banner', text:`Rodada ${st.r}`}, {k:'snd', s:'deal', n:7}];
+}
+// confere uma palavra enviada pelo lugar; devolve a chave ou uma mensagem de erro
+function confere(st, seat, txt){
+  const k = chave(txt);
+  if(k.length < 3) return {err:'Use pelo menos 3 letras.'};
+  if(k.length > 7) return {err:'Só há 7 letras.'};
+  if(!cabe(k, conta(st.letras.join('')))) return {err:'Use só as letras sorteadas (cada uma uma vez).'};
+  if(!DIC.has(k)) return {err:`"${String(txt).slice(0, 12).toUpperCase()}" não está no dicionário.`};
+  if(st.p[seat].w.includes(k)) return {err:`Você já achou ${mostra(k).toUpperCase()}.`};
+  return {k};
+}
+
+/* ---------------------------- BOTS ---------------------------- */
+const NIVEL = {
+  facil:  {p:[0.45, 0.20, 0.05, 0], p7:0.35, passo:[6000, 4500], ini:3500},
+  normal: {p:[0.72, 0.45, 0.15, 0.02], p7:0.70, passo:[3800, 2800], ini:2500},
+  dificil:{p:[0.92, 0.75, 0.40, 0.08], p7:0.95, passo:[2400, 1800], ini:1800}
+};
+// plano determinístico do bot na rodada: [{k, t}] (t = ms desde o início)
+const PLANOS = new Map();
+function plano(st, seat, dif){
+  const id = st.seed + ':' + seat + ':' + dif + ':' + st.r;
+  if(PLANOS.has(id)) return PLANOS.get(id);
+  const N = NIVEL[dif] || NIVEL.normal, r = rng(st.seed + seat * 7919);
+  const cand = [];
+  for(const k of st.sol){
+    const t = DIC.get(k).t, p = k.length === 7 ? N.p7 : N.p[t] * (k.length >= 6 ? 0.8 : 1);
+    if(r() < p) cand.push({k, ord: t + (k.length - 3) * 0.45 + r() * 2.2 - (k.length === 7 && dif === 'dificil' ? 1.5 : 0)});
+  }
+  cand.sort((a, b) => a.ord - b.ord);
+  let t = N.ini + r() * 1500; const lim = st.tempo * 1000 * 0.93, out = [];
+  for(const x of cand){ t += N.passo[0] + r() * N.passo[1] + (x.k.length - 3) * 350; if(t > lim) break; out.push({k:x.k, t}); }
+  if(PLANOS.size > 300) PLANOS.clear();
+  PLANOS.set(id, out);
+  return out;
+}
+function botJogo(st, seat, dif){
+  const pl = plano(st, seat, dif), dt = (Date.now() - st.t0) / CFG.speed, meu = st.p[seat].w;
+  const ws = pl.filter(x => x.t <= dt && !meu.includes(x.k)).map(x => x.k);
+  if(ws.length) return {t:'w', ws:ws.slice(0, 10)};
+  if(pl.every(x => x.t <= dt)) return {t:'fim'};
+  return {t:'pensa'};
+}
+
+Mesa.run({
+  id:'anagramas', name:'Anagramas', icon:'🔤', tagline:'7 letras, quantas palavras você acha?',
+  seats: o => +o.jogadores || 2,
+  options:[
+    {key:'jogadores', label:'Jogadores', default:'2', choices:[['1','Só eu'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6']]},
+    {key:'rodadas', label:'Rodadas', default:'3', choices:[['3','3'],['5','5']]},
+    {key:'tempo', label:'Tempo', default:'90', choices:[['60','60 s'],['90','90 s'],['120','120 s']]},
+    {key:'rep', label:'Repetidas', default:'todas', choices:[['todas','Todas valem'],['unicas','Só únicas']]},
+    {key:'diff', label:'Nível dos bots', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil']]}
+  ],
+  modeLabel: o => ((+o.jogadores === 1 ? 'Sozinho' : (o.rep === 'unicas' ? 'Só únicas' : 'Todas valem') + ' · bot ' + DIFS[o.diff || 'normal']) + ` · ${o.rodadas || 3} rodadas · ${o.tempo || 90}s`).toUpperCase(),
+  seatLabel: s => 'Jogador ' + (s+1),
+  tickMs: 400,
+
+  setup(players, o){
+    const n = players.length;
+    const st = {n, names:players.map(p => p.name), human:players.map(p => !!p.human), R:[3,5].includes(+o.rodadas) ? +o.rodadas : 3, r:0,
+      tempo:[60,90,120].includes(+o.tempo) ? +o.tempo : 90, rep:o.rep === 'unicas' ? 'unicas' : 'todas',
+      bases:[], tot:Array(n).fill(0), p:players.map(() => ({w:[], fim:false, ok:false}))};
+    novaRodada(st, Date.now());
+    return st;
+  },
+  startEvents(){ return [{k:'banner', text:'Rodada 1'}, {k:'snd', s:'deal', n:7}]; },
+  waiting(st){
+    if(st.fase === 'jogo') return st.p.map((p, i) => p.fim ? -1 : i).filter(i => i >= 0);
+    if(st.fase === 'res') return st.p.map((p, i) => p.ok ? -1 : i).filter(i => i >= 0);
+    return [];
+  },
+  apply(st, seat, a){
+    if(!a || typeof a !== 'object' || !st.p[seat]) return {ok:false, err:'Jogada inválida.'};
+    const p = st.p[seat], agora = Date.now();
+    if(st.fase === 'jogo'){
+      if(p.fim) return {ok:false, err:'Você já encerrou esta rodada.'};
+      if(a.t === 'pensa') return {events:[]};
+      if(a.t === 'fim'){
+        p.fim = true;
+        if(st.p.every(q => q.fim)) return {events:fechaRodada(st, agora)};
+        return {events: st.n > 1 ? [{k:'say', seat, text:'Terminei ✋'}] : []};
+      }
+      if(a.t === 'w'){
+        const lista = Array.isArray(a.ws) ? a.ws.slice(0, 10) : [a.w];
+        const ev = []; let erro = null, novas = 0;
+        for(const txt of lista){
+          if(typeof txt !== 'string'){ erro = 'Palavra inválida.'; continue; }
+          const c = confere(st, seat, txt.slice(0, 20));
+          if(c.err){ erro = c.err; continue; }
+          p.w.push(c.k); novas++;
+          if(c.k.length === 7){ ev.push({k:'say', seat, text:'7 letras! 🌟'}, {k:'log', text:`<b>${esc(st.names[seat])}</b> achou uma palavra com as 7 letras!`}); if(st.n > 1) ev.push({k:'snd', s:'alert'}); }
+        }
+        if(!novas) return {ok:false, err:erro || 'Palavra inválida.'};
+        return {events:ev};
+      }
+      return {ok:false, err:'Aguarde.'};
+    }
+    if(st.fase === 'res'){
+      if(a.t !== 'ok') return {ok:false, err:'Aguarde a próxima rodada.'};
+      p.ok = true;
+      if(st.p.every(q => q.ok)) return {events:proxima(st, agora)};
+      return {events:[]};
+    }
+    return {ok:false, err:'A partida acabou.'};
+  },
+  tick(st, o, agora){
+    if(agora < st.fim) return null;
+    if(st.fase === 'jogo') return {changed:true, events:[{k:'banner', text:'Tempo!', bad:true}, ...fechaRodada(st, agora)]};
+    if(st.fase === 'res') return {changed:true, events:proxima(st, agora)};
+    return null;
+  },
+  over(st){
+    if(st.fase !== 'acabou') return null;
+    if(st.n === 1) return {winners:[0], scores:st.tot.slice(), text:`Você fez <b>${st.tot[0]}</b> pontos em ${st.R} rodadas.`};
+    const mx = Math.max(...st.tot), ord = st.tot.map((t, i) => i).sort((a, b) => st.tot[b] - st.tot[a]);
+    return {winners:st.tot.map((t, i) => t === mx ? i : -1).filter(i => i >= 0), scores:st.tot.slice(),
+      text:ord.map((i, k) => `${k+1}º <b>${esc(st.names[i])}</b>: ${st.tot[i]} pontos`).join('<br>')};
+  },
+  bot(st, seat, o){
+    if(st.fase === 'jogo') return botJogo(st, seat, o.diff || 'normal');
+    return {t:'ok'};
+  },
+  botFallback(st){ return st.fase === 'jogo' ? {t:'fim'} : {t:'ok'}; },
+  botDelay(st, seat, o){
+    const k = Math.max(1, st.p.filter((p, i) => !st.human[i] && (st.fase === 'jogo' ? !p.fim : !p.ok)).length);
+    if(st.fase === 'res') return 2200 / k;
+    const pl = plano(st, seat, o.diff || 'normal'), dt = (Date.now() - st.t0) / CFG.speed;
+    const prox = pl.map(x => x.t).filter(t => t > dt)[0];
+    return Math.max(300, Math.min(3000, prox == null ? 1500 : prox - dt)) / k;
+  },
+  view(st, seat){
+    const aberto = st.fase !== 'jogo';
+    return {
+      fase:st.fase, r:st.r, R:st.R, n:st.n, rep:st.rep, letras:st.letras.slice(), fim:st.fim, tempo:st.tempo,
+      minhas: st.p[seat] ? st.p[seat].w.slice() : [],
+      fimMeu: st.p[seat] ? st.p[seat].fim : true,
+      // dos outros, durante a rodada, só a quantidade (as palavras ajudariam a resolver)
+      outros: st.p.map((p, i) => ({i, name:st.names[i], tot:st.tot[i], n:p.w.length, fim:p.fim, ok:p.ok})),
+      res: aberto ? st.res : null
+    };
+  },
+  topInfo(g, v){ return `<div class="status">Rodada ${g.r}/${g.R} · ${g.outros[v.me] ? g.outros[v.me].tot : 0} pts</div>`; },
+  render(g, v, ui){ desenha(g, v, ui); },
+  rules:`<h3>Objetivo</h3><p>Formar o máximo de palavras com as <b>7 letras sorteadas</b> e somar mais pontos ao fim das rodadas.</p>
+<h3>Como jogar</h3><ul>
+<li>A cada rodada saem 7 letras — sempre existe pelo menos uma palavra que usa <b>todas as 7</b>.</li>
+<li>Todos jogam <b>ao mesmo tempo</b>: toque nas letras para montar a palavra e aperte <b>Enviar</b> (ou digite no teclado e tecle Enter). <b>⌫</b> apaga a última letra, <b>🔀</b> embaralha as letras, tocar na palavra montada limpa tudo.</li>
+<li>Vale qualquer palavra do dicionário com <b>3 a 7 letras</b>, incluindo plurais e formas de verbos (ex.: CASA, CASAS, CASOU). Cada letra só pode ser usada uma vez por palavra. Nomes próprios, siglas e palavras estrangeiras não valem.</li>
+<li><b>Acentos e cedilha não importam</b> ao digitar (MACA vale MAÇÃ); a palavra aparece escrita certinho.</li>
+<li>A rodada acaba quando o tempo esgota ou quando todos apertam <b>Terminei</b>.</li></ul>
+<h3>Pontos</h3><ul><li>3 letras: <b>1</b> · 4 letras: <b>2</b> · 5 letras: <b>4</b> · 6 letras: <b>6</b> · 7 letras: <b>10 + 5 de bônus</b>.</li>
+<li><b>Repetidas</b> (opção): em "Todas valem", cada um pontua tudo o que achou; em "Só únicas" (como no Stop), a palavra que outro jogador também achou vale <b>zero</b> para os dois.</li></ul>
+<h3>Fim da rodada</h3><p>Aparecem as palavras de todos (as repetidas riscadas, no modo "Só únicas") e algumas que <b>ninguém achou</b>. Vence quem somar mais pontos após 3 ou 5 rodadas. Jogando sozinho, seu <b>recorde</b> (por número de rodadas e tempo) fica guardado neste aparelho.</p>
+<h3>Bots</h3><p>Acham palavras ao longo do tempo, em ritmo de gente: o Fácil acha poucas e quase só as mais comuns; o Normal acha bastante; o Difícil é rápido, conhece palavras menos usadas e quase sempre encontra a de 7 letras. Durante a rodada ninguém vê as palavras dos outros, só a quantidade.</p>
+<p class="small">Dicionário: listas de palavras dos pacotes "@andsfonseca/palavras-pt-br" e "an-array-of-portuguese-words" (licença MIT), atualizadas para a grafia nova.</p>`
+});
+
+/* ---------------------------- TELA ---------------------------- */
+const LOC = {key:'', ordem:[], sel:[], ui:null, nMinhas:0, recKey:'', resKey:''};
+const REC = (R, T) => 'central.anagramas.rec.' + R + '.' + T;
+function relogio(){
+  const v = Mesa.ui.view, g = v && v.game, el = $('#tm');
+  if(!g || !el) return;
+  const rest = g.fim - Date.now();
+  el.textContent = fmtS(rest); el.classList.toggle('low', g.fase === 'jogo' && rest < 10500);
+}
+setInterval(relogio, 250);
+function tamTile(S){ const w = Math.min(S.clientWidth - 16, 640); return Math.max(36, Math.min(66, Math.floor((w - 6 * 8) / 7))); }
+function oppsHtml(g, v, modo){
+  if(g.n === 1) return '';
+  const mx = Math.max(...g.outros.map(o => o.tot));
+  return `<div class="opps">${g.outros.map(o => `<div class="opp ${o.i === v.me ? 'me' : ''} ${modo === 'jogo' && o.fim ? 'fim' : ''} ${modo !== 'jogo' && o.ok ? 'ok' : ''} ${mx > 0 && o.tot === mx ? 'lead' : ''}" data-seat="${o.i}">${esc(o.name)}${o.i === v.me ? ' (você)' : ''} · ${modo === 'jogo' ? o.n + ' pal.' + (o.fim ? ' ✋' : '') + ' · ' : ''}${o.tot} pts${modo !== 'jogo' && o.ok ? ' ✓' : ''}</div>`).join('')}</div>`;
+}
+function wChip(k, extra, cls){ return `<span class="w ${k.length === 7 ? 'sete' : ''} ${cls || ''}">${esc(mostra(k).toUpperCase())}${extra != null ? `<i>${extra}</i>` : ''}</span>`; }
+function listaMinhas(g){
+  if(!g.minhas.length) return '<div class="vazio">Nenhuma palavra ainda. Toque nas letras e aperte Enviar.</div>';
+  const by = {}; g.minhas.forEach(k => (by[k.length] = by[k.length] || []).push(k));
+  const ult = g.minhas[g.minhas.length - 1];
+  return Object.keys(by).sort((a, b) => b - a).map(L => `<h4>${L} letras · ${by[L].length}</h4><div class="wl">${by[L].map(k => wChip(k, '+' + pontos(k), k === ult ? 'new' : '')).join('')}</div>`).join('');
+}
+function palavraAtual(g){ return LOC.sel.map(i => g.letras[i]).join(''); }
+function desenhaMont(g){
+  const m = $('#mont'); if(!m) return;
+  const s = palavraAtual(g);
+  m.innerHTML = s ? s.split('').map(c => `<span class="tile">${c.toUpperCase()}</span>`).join('') : '<span class="sl"></span><span class="sl"></span><span class="sl"></span>';
+  m.classList.toggle('ok', s.length >= 3 && DIC.has(s) && !g.minhas.includes(s));
+  $$('#rack .tile').forEach(b => b.classList.toggle('used', LOC.sel.includes(+b.dataset.i)));
+  const env = $('#bEnv'); if(env) env.disabled = s.length < 3 || g.fimMeu;
+  const del = $('#bDel'); if(del) del.disabled = !s.length;
+}
+function aviso(txt, cls){ const el = $('#aMsg'); if(!el) return; el.textContent = txt; el.className = 'msgl ' + (cls || ''); }
+function falha(txt){ aviso(txt, 'bad'); Snd.error(); const m = $('#mont'); if(m){ m.classList.remove('bad'); void m.offsetWidth; m.classList.add('bad'); } }
+function toca(i){
+  const g = Mesa.ui.view && Mesa.ui.view.game; if(!g || g.fase !== 'jogo' || g.fimMeu) return;
+  if(LOC.sel.includes(i) || LOC.sel.length >= 7) return;
+  LOC.sel.push(i); Snd.card(); aviso(''); desenhaMont(g);
+}
+function apaga(tudo){ const g = Mesa.ui.view && Mesa.ui.view.game; if(!g) return; if(tudo) LOC.sel = []; else LOC.sel.pop(); desenhaMont(g); }
+function embaralha(){
+  const g = Mesa.ui.view && Mesa.ui.view.game; if(!g) return;
+  const o = LOC.ordem.slice(); shuffle(o); LOC.ordem = o;
+  const r = $('#rack'); if(!r) return;
+  LOC.ordem.forEach(i => r.appendChild(r.querySelector(`[data-i="${i}"]`)));
+}
+function envia(){
+  const v = Mesa.ui.view, g = v && v.game; if(!g || g.fase !== 'jogo' || g.fimMeu) return;
+  const s = palavraAtual(g);
+  if(s.length < 3){ falha('Use pelo menos 3 letras.'); return; }
+  if(!DIC.has(s)){ falha(`"${s.toUpperCase()}" não está no dicionário.`); LOC.sel = []; desenhaMont(g); return; }
+  if(g.minhas.includes(s)){ falha(`Você já achou ${mostra(s).toUpperCase()}.`); LOC.sel = []; desenhaMont(g); return; }
+  aviso(`${mostra(s).toUpperCase()} +${pontos(s)}${s.length === 7 ? ' 🌟 usou as 7 letras!' : ''}`, 'ok');
+  LOC.sel = []; desenhaMont(g);
+  Mesa.ui.act({t:'w', w:s});
+}
+function teclado(e){
+  const v = Mesa.ui.view, g = v && v.game;
+  if(!g || g.fase !== 'jogo' || v.phase !== 'game' || g.fimMeu) return;
+  const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return;
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.key === 'Enter'){ e.preventDefault(); envia(); return; }
+  if(e.key === 'Backspace'){ e.preventDefault(); apaga(false); return; }
+  if(e.key === 'Escape'){ apaga(true); return; }
+  if(e.key === ' '){ e.preventDefault(); embaralha(); return; }
+  const c = chave(e.key); if(c.length !== 1) return;
+  const i = LOC.ordem.find(j => g.letras[j] === c && !LOC.sel.includes(j));
+  if(i == null){ falha(`Não há mais "${c.toUpperCase()}" disponível.`); return; }
+  toca(i);
+}
+document.addEventListener('keydown', teclado);
+
+function desenha(g, v, ui){
+  const S = ui.stage, me = v.me;
+  if(g.fase === 'jogo'){
+    const key = v.gameNo + '-' + g.r;
+    if(LOC.key !== key){                                       // rodada nova: monta a tela uma vez
+      LOC.key = key; LOC.sel = []; LOC.ordem = [0,1,2,3,4,5,6]; LOC.nMinhas = g.minhas.length;
+      const t = tamTile(S);
+      const rec = g.n === 1 ? +(lsGet(REC(g.R, g.tempo)) || 0) : null;
+      S.innerHTML = `<div class="ag" style="--t:${t}px;--g:${Math.max(5, Math.min(10, Math.round(t / 8)))}px">
+        <div class="hd"><div class="hbox">Rodada<b>${g.r}/${g.R}</b></div><div class="hbox">Tempo<b id="tm">${fmtS(g.fim - Date.now())}</b></div>
+          <div class="hbox">Na rodada<b id="hPts">0</b></div>${rec != null ? `<div class="hbox">Recorde<b>${rec}</b></div>` : ''}</div>
+        <div id="oppBox"></div>
+        <div class="mont" id="mont" title="Tocar para limpar"></div>
+        <div class="msgl" id="aMsg"></div>
+        <div class="rack" id="rack">${g.letras.map((c, i) => `<button class="tile" data-i="${i}" aria-label="Letra ${c.toUpperCase()}">${c.toUpperCase()}</button>`).join('')}</div>
+        <div class="ctr"><button class="cb" id="bMix" title="Embaralhar (espaço)">🔀</button><button class="cb" id="bDel" title="Apagar (Backspace)">⌫</button><button class="cb go" id="bEnv" title="Enviar (Enter)">Enviar ✓</button></div>
+        <div class="scroll" id="lista"></div>
+        <div class="foot"><span id="fTxt"></span><button class="cb y" id="bFim">Terminei</button></div></div>`;
+      $$('#rack .tile', S).forEach(b => b.onclick = () => toca(+b.dataset.i));
+      $('#bMix', S).onclick = embaralha; $('#bDel', S).onclick = () => apaga(false); $('#bEnv', S).onclick = envia;
+      $('#mont', S).onclick = () => apaga(true);
+      $('#bFim', S).onclick = () => modal('<h2>Encerrar sua rodada?</h2><p>Você não poderá mandar mais palavras nesta rodada.</p>',
+        [{label:'Terminei', fn:() => ui.act({t:'fim'})}, {label:'Continuar', cls:'b-no'}]);
+      embaralha();
+      desenhaMont(g);
+    }
+    if(g.minhas.length > LOC.nMinhas && LOC.nMinhas >= 0){ if(g.minhas.length && g.minhas[g.minhas.length - 1].length === 7) Snd.win(); else Snd.move(); }
+    LOC.nMinhas = g.minhas.length;
+    $('#oppBox', S).innerHTML = oppsHtml(g, v, 'jogo');
+    $('#lista', S).innerHTML = listaMinhas(g);
+    const pts = g.minhas.reduce((a, k) => a + pontos(k), 0);
+    $('#hPts', S).textContent = pts;
+    const tem7 = g.minhas.some(k => k.length === 7);
+    $('#fTxt', S).innerHTML = g.fimMeu ? 'Você encerrou. Aguardando os outros...' : (tem7 ? '🌟 Você achou a de 7 letras!' : 'Existe ao menos uma palavra com as 7 letras.');
+    $('#bFim', S).disabled = g.fimMeu;
+    if(g.fimMeu) $$('#rack .tile, .ctr .cb', S).forEach(b => b.disabled = true);
+    desenhaMont(g);
+    relogio();
+    return;
+  }
+  LOC.key = '';
+  // resultado da rodada / fim
+  const r = g.res; if(!r) return;
+  const sc = $('.scroll', S), top = sc && LOC.resKey === v.gameNo + '-' + g.r ? sc.scrollTop : 0;
+  LOC.resKey = v.gameNo + '-' + g.r;
+  const uni = g.rep === 'unicas' && g.n > 1;
+  const ordem = g.outros.map(o => o.i).sort((a, b) => (a === me ? -1 : b === me ? 1 : r.pts[b] - r.pts[a]));
+  const cards = ordem.map(i => {
+    const o = g.outros[i], l = r.pal[i].slice().sort((a, b) => b[0].length - a[0].length || (a[0] < b[0] ? -1 : 1));
+    return `<div class="pc ${i === me ? 'me' : ''}"><div class="pn"><span>${esc(o.name)}${i === me ? ' (você)' : ''} · ${l.length} palavra(s)</span><span>+${r.pts[i]}</span></div>
+      <div class="wl">${l.length ? l.map(x => wChip(x[0], x[1] ? '+' + x[1] : (uni && x[2] ? 'repetida' : '0'), uni && x[2] ? 'dup' : '')).join('') : '<span class="vazio">Nenhuma palavra.</span>'}</div></div>`;
+  }).join('');
+  const perd = r.perd.length ? `<div class="pc"><div class="pn"><span>Ninguém achou (algumas)</span><span></span></div><div class="wl">${r.perd.map(k => wChip(k, null, 'miss')).join('')}</div></div>` : '';
+  const meuOk = g.outros[me] && g.outros[me].ok;
+  let recHtml = '';
+  if(g.fase === 'acabou' && g.n === 1){
+    const k = REC(g.R, g.tempo), old = +(lsGet(k) || 0), tot = g.outros[0].tot;
+    if(LOC.recKey !== v.gameNo + ''){ LOC.recKey = v.gameNo + ''; LOC.recOld = old; if(tot > old) lsSet(k, tot); }
+    recHtml = tot > LOC.recOld ? `<div class="msgl ok">🏆 Novo recorde: ${tot} pontos!</div>` : `<div class="msgl">Recorde: ${Math.max(LOC.recOld, tot)} pontos</div>`;
+  }
+  const btn = g.fase === 'res' ? (meuOk ? '<div class="msgl">Aguardando os outros...</div>' : `<button class="cb go" id="bOk">${g.r >= g.R ? 'Ver resultado' : 'Próxima rodada'}</button>`) : '';
+  S.innerHTML = `<div class="ag">
+    <div class="hd"><div class="hbox">Rodada<b>${g.r}/${g.R}</b></div>${g.fase === 'res' ? `<div class="hbox">Próxima em<b id="tm">${fmtS(g.fim - Date.now())}</b></div>` : ''}
+      <div class="hbox">Letras<b>${g.letras.join('').toUpperCase()}</b></div></div>
+    ${g.n > 1 ? `<div class="tot">${g.outros.map(o => `<div>${esc(o.name)}: <b>${o.tot}</b>${o.ok && g.fase === 'res' ? ' ✓' : ''}</div>`).join('')}</div>` : `<div class="tot"><div>Total: <b>${g.outros[0].tot}</b> pontos</div></div>`}
+    ${recHtml}
+    <div class="scroll">${cards}${perd}</div>
+    <div class="bar">${btn}</div></div>`;
+  const sc2 = $('.scroll', S); if(sc2) sc2.scrollTop = top;
+  if($('#bOk', S)) $('#bOk', S).onclick = () => ui.act({t:'ok'});
+  relogio();
+}
+let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { LOC.key = ''; Mesa.ui.rerender(); }, 150); });
+</script>
+</body>
+</html>

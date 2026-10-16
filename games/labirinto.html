@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="../docs/img/icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<title>Labirinto</title>
+<link rel="stylesheet" href="../shared/core.css">
+<style>
+#stage{display:flex;flex-direction:column;align-items:center}
+.lz{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px}
+.hud{display:flex;gap:6px;align-items:stretch;justify-content:center;flex-wrap:wrap;width:100%}
+.hb{background:rgba(0,0,0,.42);border-radius:10px;padding:3px 10px;text-align:center;min-width:64px}
+.hb small{display:block;font-size:9.5px;font-weight:800;letter-spacing:1px;color:#cfe;text-transform:uppercase}
+.hb b{font-size:16px;color:#ffe6a6;font-variant-numeric:tabular-nums}
+.hb.ok b{color:#7ff0a8}
+.hud .tbtn{border-radius:10px;font-size:13.5px;padding:6px 10px}
+.hud .tbtn.on{background:var(--gold);color:#3a2600;border-color:var(--gold)}
+.cvw{position:relative;flex:none;border-radius:12px;box-shadow:0 10px 26px rgba(0,0,0,.5);touch-action:none}
+.cvw canvas{display:block;border-radius:12px;touch-action:none}
+.cover{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center}
+.cover span{background:rgba(0,0,0,.72);padding:10px 16px;border-radius:12px;font-weight:900;font-size:17px;color:#ffe6a6}
+.cover small{display:block;font-size:12.5px;font-weight:700;color:#e3f3ea;margin-top:3px}
+.pad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,50px);gap:6px;flex:none}
+.pad button{border:none;border-radius:12px;background:rgba(0,0,0,.4);color:#ffe6a6;font-size:24px;font-weight:900;cursor:pointer;border:2px solid rgba(255,255,255,.15);touch-action:none}
+.pad button:active{background:rgba(231,180,58,.35)}
+.pad .u{grid-column:2;grid-row:1}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+.hud .tbtn{display:inline-flex;align-items:center;justify-content:center}
+.hud .tx{margin-left:5px}
+@media (max-width:480px){ .hud{gap:4px;flex-wrap:nowrap} .hud .tx{display:none} .hud .tbtn{font-size:18px;padding:4px 9px} .hb small{font-size:8.5px;letter-spacing:.5px} }
+.lmsg{font-size:12px;color:#cfe;text-align:center;min-height:15px;opacity:.85}
+@media (max-width:720px){ .hb{min-width:54px;padding:2px 7px} .hb b{font-size:14.5px} .hud .tbtn{font-size:13px;padding:5px 8px} }
+</style>
+</head>
+<body>
+<script src="../shared/core.js"></script>
+<script src="../shared/chips.js"></script>
+<script src="../shared/mesa.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   Labirinto — jogo solo. Labirinto gerado na hora (árvore crescente:
+   mistura de backtracking e Prim, com semente). Deslize o dedo / setas /
+   WASD / inclinação do celular. Modo Desafio: pegue a chave antes da saída.
+   ===================================================================== */
+const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];          // 0=cima 1=direita 2=baixo 3=esquerda
+const SIZES = {facil:{s:7, nw:1, lb:'Fácil'}, normal:{s:11, nw:0.8, lb:'Normal'}, dificil:{s:16, nw:0.55, lb:'Difícil'}, gigante:{s:24, nw:0.6, lb:'Gigante'}};
+const REC_KEY = 'central.labirinto.rec';
+const COIN_BONUS = 2000;                               // cada moeda desconta 2 s do tempo
+let NEWREC = null;
+
+function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const coarse = () => { try{ return matchMedia('(pointer:coarse)').matches; }catch(_){ return false; } };
+
+/* ---------- geração (árvore crescente: nw=1 → backtracking puro; menor → mais ramificado, estilo Prim) ---------- */
+function generate(W, H, seed, nw){
+  const R = rng(seed), N = W*H, m = new Array(N).fill(0), seen = new Uint8Array(N);
+  const first = Math.floor(R()*N), list = [first]; seen[first] = 1;
+  while(list.length){
+    const li = R() < nw ? list.length - 1 : Math.floor(R()*list.length), c = list[li], x = c % W, y = (c / W) | 0;
+    const opts = [];
+    for(let d=0; d<4; d++){ const nx = x + DX[d], ny = y + DY[d]; if(nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[ny*W + nx]) opts.push(d); }
+    if(!opts.length){ list.splice(li, 1); continue; }
+    const d = opts[Math.floor(R()*opts.length)], n = (y + DY[d])*W + x + DX[d];
+    m[c] |= 1 << d; m[n] |= 1 << ((d + 2) % 4); seen[n] = 1; list.push(n);
+  }
+  return {m, R};
+}
+const nb = (st, c, d) => (st.m[c] & (1 << d)) ? (((c / st.W) | 0) + DY[d])*st.W + (c % st.W) + DX[d] : -1;
+function bfs(st, from){
+  const N = st.W*st.H, dist = new Int32Array(N).fill(-1), par = new Int32Array(N).fill(-1), q = [from]; dist[from] = 0;
+  for(let i=0; i<q.length; i++){ const c = q[i]; for(let d=0; d<4; d++){ const n = nb(st, c, d); if(n >= 0 && dist[n] < 0){ dist[n] = dist[c] + 1; par[n] = c; q.push(n); } } }
+  return {dist, par};
+}
+function pathTo(st, from, to){
+  const {par} = bfs(st, from), p = [];
+  for(let c = to; c >= 0; c = par[c]){ p.push(c); if(c === from) break; }
+  return p.reverse();
+}
+const degree = (st, c) => [0,1,2,3].reduce((k, d) => k + ((st.m[c] >> d) & 1), 0);
+
+function newMaze(o){
+  const sz = SIZES[o.tamanho] || SIZES.normal;
+  // proporção conforme a tela (retrato no celular, paisagem no PC)
+  let aw = 1000, ah = 640;
+  try{ aw = innerWidth - 16; ah = innerHeight - 70 - 56 - (coarse() ? 125 : 0); }catch(_){}
+  const ar = clamp(Math.max(aw, ah) / Math.max(1, Math.min(aw, ah)), 1, 1.9), L = Math.round(sz.s * ar);
+  const W = ah > aw ? sz.s : L, H = ah > aw ? L : sz.s;
+  const seed = Math.floor(Math.random()*2**31), {m, R} = generate(W, H, seed, sz.nw);
+  const st = {gid:seed, W, H, m, pos:0, exit:W*H - 1, mode:o.modo === 'desafio' ? 'desafio' : 'classico', fog:o.nevoa === 'sim',
+    size:SIZES[o.tamanho] ? o.tamanho : 'normal', key:-1, hasKey:false, coins:[], got:[], vis:new Array(W*H).fill(0), trail:[0],
+    t0:null, tEnd:null, moves:0, seq:0, path:[0], done:false, res:null, fin:false, finAt:0, sol:null};
+  st.vis[0] = 1;
+  if(st.mode === 'desafio'){
+    // chave num beco sem saída que obrigue um desvio grande; moedas em outros becos
+    const dS = bfs(st, 0).dist, dE = bfs(st, st.exit).dist, base = dS[st.exit];
+    const ends = [];
+    for(let c=1; c<W*H - 1; c++) if(degree(st, c) === 1) ends.push(c);
+    const sc = ends.map(c => ({c, v:dS[c] + dE[c] - base})).sort((a, b) => b.v - a.v);
+    const top = sc.slice(0, Math.max(1, Math.ceil(sc.length*0.2)));
+    st.key = top.length ? top[Math.floor(R()*top.length)].c : Math.floor(W*H/2);
+    const rest = ends.filter(c => c !== st.key);
+    const nC = Math.min(rest.length, Math.max(3, Math.round(Math.sqrt(W*H)/2.2)));
+    for(let i=0; i<nC; i++){ const j = Math.floor(R()*rest.length); st.coins.push(rest.splice(j, 1)[0]); }
+  }
+  return st;
+}
+const target = st => st.mode === 'desafio' && !st.hasKey ? st.key : st.exit;
+function solution(st){
+  if(st.mode === 'desafio' && !st.hasKey) return pathTo(st, st.pos, st.key).concat(pathTo(st, st.key, st.exit).slice(1));
+  return pathTo(st, st.pos, st.exit);
+}
+const fmt = ms => { if(ms == null) return '—'; const s = ms/1000, m = Math.floor(s/60); return `${m}:${(s - m*60).toFixed(1).padStart(4, '0').replace('.', ',')}`; };
+const finalMs = st => Math.max(0, (st.tEnd - st.t0) - st.got.length*COIN_BONUS);
+const recKey = o => `${o.size}.${o.mode}.${o.fog ? 'n' : 'c'}`;
+
+/* ---------- movimento ---------- */
+function enter(st, n, ev){
+  const T = st.trail;
+  if(T.length >= 2 && T[T.length - 2] === n) T.pop(); else T.push(n);
+  st.vis[n] = 1;
+  if(st.coins.includes(n) && !st.got.includes(n)){ st.got.push(n); ev.push({k:'snd', s:'card'}); }
+  if(n === st.key && !st.hasKey){ st.hasKey = true; ev.push({k:'banner', text:'🔑 Chave!'}, {k:'snd', s:'win'}); }
+}
+function doMove(st, d, run, now){
+  let c = st.pos, n = nb(st, c, d);
+  if(n < 0) return [];
+  if(st.t0 == null) st.t0 = now;
+  const ev = [], path = [c];
+  let dir = d;
+  for(let guard=0; guard < st.W*st.H; guard++){
+    c = n; path.push(c); enter(st, c, ev);
+    if(!run || c === st.exit || c === st.key) break;
+    // segue o corredor até a próxima bifurcação (ou beco)
+    const outs = [0,1,2,3].filter(k => k !== (dir + 2) % 4 && (st.m[c] & (1 << k)));
+    if(outs.length !== 1) break;
+    dir = outs[0]; n = nb(st, c, dir);
+  }
+  st.pos = c; st.moves++; st.seq++; st.path = path;
+  if(c === st.exit){
+    if(st.mode === 'desafio' && !st.hasKey) ev.push({k:'toast', text:'🔒 A saída está trancada — pegue a chave primeiro!'});
+    else {
+      st.done = true; st.res = 'win'; st.tEnd = now; st.finAt = now + 1100*CFG.speed;
+      ev.push({k:'banner', text:'Saída!'}, {k:'snd', s:'fanfare'});
+    }
+  }
+  if(!ev.length) ev.push({k:'snd', s:'move'});
+  return ev;
+}
+
+/* ---------- definição para a Mesa ---------- */
+Mesa.run({
+  id:'labirinto', name:'Labirinto', icon:'🌀', tagline:'Ache a saída o mais rápido possível',
+  solo:true, players:1,
+  options:[
+    {key:'tamanho', label:'Tamanho', default:'normal', choices:[['facil','Fácil'],['normal','Normal'],['dificil','Difícil'],['gigante','Gigante']]},
+    {key:'modo', label:'Modo', default:'classico', choices:[['classico','Clássico'],['desafio','Desafio 🔑']]},
+    {key:'nevoa', label:'Névoa', default:'nao', choices:[['nao','Sem névoa'],['sim','Com névoa']]}
+  ],
+  modeLabel: o => [(SIZES[o.tamanho] || SIZES.normal).lb, o.modo === 'desafio' ? 'Desafio' : '', o.nevoa === 'sim' ? 'Névoa' : ''].filter(Boolean).join(' · ').toUpperCase(),
+  tickMs:200,
+  setup(players, o){ NEWREC = null; return newMaze(o); },
+  waiting(st){ return st.done ? [] : [0]; },
+  apply(st, s, a){
+    if(!a || typeof a !== 'object' || s !== 0) return {ok:false, err:'Jogada inválida.'};
+    if(st.done) return {ok:false, err:'A partida terminou.'};
+    const now = Date.now();
+    if(a.t === 'move'){
+      if(!Number.isInteger(a.d) || a.d < 0 || a.d > 3) return {ok:false, err:'Direção inválida.'};
+      return {events:doMove(st, a.d, !!a.run, now)};
+    }
+    if(a.t === 'giveup'){
+      st.sol = solution(st); st.done = true; st.res = 'quit'; st.tEnd = now; st.finAt = now + 2600*CFG.speed;
+      return {events:[{k:'banner', text:'Solução', bad:true}]};
+    }
+    return {ok:false, err:'Jogada inválida.'};
+  },
+  tick(st, o, now){ if(st.done && !st.fin && now >= st.finAt){ st.fin = true; return {changed:true}; } return null; },
+  over(st){
+    if(!st.fin) return null;
+    if(st.res !== 'win') return {winners:[], text:'Você desistiu — a solução ficou marcada no mapa. Tente outro!'};
+    const bonus = st.got.length ? ` (−${st.got.length*COIN_BONUS/1000} s pelas ${st.got.length} moeda${st.got.length > 1 ? 's' : ''})` : '';
+    return {winners:[0], text:`Tempo: <b>${fmt(finalMs(st))}</b>${bonus} · ${st.moves} movimentos.${NEWREC === st.gid ? '<br>🏆 <b>Novo recorde!</b>' : ''}`};
+  },
+  bot(st){
+    // usado nos testes automáticos: segue o caminho mais curto até a chave/saída
+    const p = pathTo(st, st.pos, target(st));
+    const n = p[1]; if(n == null) return {t:'giveup'};
+    for(let d=0; d<4; d++) if(nb(st, st.pos, d) === n) return {t:'move', d, run:true};
+    return {t:'giveup'};
+  },
+  botFallback(){ return {t:'giveup'}; },
+  botDelay(){ return 110; },
+  view(st){ return st; },
+  topInfo(g){ return `<div class="status">${g.W}×${g.H}${g.mode === 'desafio' ? ' · 🔑 Desafio' : ''}</div>`; },
+  render(g, v, ui){ renderLab(g, v, ui); },
+  onEvent(e){ if(e.k === 'start'){ built = null; AN = null; tiltStop(); } },
+  rules:`<h3>Objetivo</h3><p>Sair do canto de cima (🟢) e chegar à <b>saída</b> (🏁) no canto oposto no menor tempo.</p>
+  <h3>Como jogar</h3><ul>
+  <li><b>Celular:</b> deslize o dedo (ou toque no lado para onde quer ir) — a bolinha corre pelo corredor até a <b>próxima bifurcação</b>. As setas na tela andam uma casa por vez (segure para repetir).</li>
+  <li><b>PC:</b> setas ou W A S D andam uma casa; com <b>Shift</b> correm até a bifurcação.</li>
+  <li><b>📱 Inclinação</b> (opcional, se o aparelho tiver sensor): incline o celular para rolar a bolinha.</li>
+  <li>O cronômetro começa no primeiro movimento. O caminho percorrido fica marcado (azul forte = trilha atual; azul fraco = por onde já passou).</li>
+  <li><b>💡 Solução</b> mostra o caminho — e conta como desistência.</li></ul>
+  <h3>Opções</h3><ul>
+  <li><b>Tamanho:</b> Fácil, Normal, Difícil ou Gigante. Labirintos maiores também têm mais ramificações.</li>
+  <li><b>Desafio 🔑:</b> a saída fica trancada até você pegar a <b>chave</b>. Cada <b>moeda</b> 🪙 recolhida desconta 2 s do tempo final.</li>
+  <li><b>Névoa:</b> você só enxerga perto da bolinha (e lembra vagamente por onde passou).</li></ul>
+  <p>O recorde de cada combinação (tamanho + modo + névoa) fica guardado neste aparelho.</p>`
+});
+
+/* ============================== INTERFACE ============================== */
+let built = null, CUR = null, AN = null, cv = null, ctx = null, base = null, fogc = null, LY = null;
+const recs = () => lsGet(REC_KEY) || {};
+
+function renderLab(g, v, ui){
+  CUR = {g, v, ui};
+  const key = [g.gid, ui.stage.clientWidth, ui.stage.clientHeight].join(',');
+  if(built !== key || !$('#lzCv')) build(g, ui, key);
+  // animação do último movimento
+  if(LY.seq !== g.seq){
+    const from = AN ? AN.cur : null;
+    LY.seq = g.seq;
+    if(g.path && g.path.length > 1) AN = {path:g.path, t0:performance.now(), dur:Math.min(900, Math.max(90, 55*(g.path.length - 1))), from, cur:null};
+  }
+  // recorde
+  if(g.done && g.res === 'win' && LY.saved !== g.gid){
+    LY.saved = g.gid;
+    const r = recs(), k = recKey(g), t = finalMs(g);
+    if(r[k] == null || t < r[k]){ r[k] = t; lsSet(REC_KEY, r); NEWREC = g.gid; }
+  }
+  hud();
+  draw();
+  if(AN && !AN.raf) loop();
+}
+function build(g, ui, key){
+  built = key;
+  const st = ui.stage, Wp = st.clientWidth, Hp = st.clientHeight, pad = coarse();
+  st.innerHTML = `<div class="lz">
+    <div class="hud" id="lzHud">
+      <div class="hb"><small>Tempo</small><b id="lzT">0:00,0</b></div>
+      <div class="hb"><small>Recorde</small><b id="lzR">—</b></div>
+      ${g.mode === 'desafio' ? '<div class="hb" id="lzKb"><small>Chave</small><b id="lzK">—</b></div><div class="hb"><small>Moedas</small><b id="lzC">0</b></div>' : ''}
+      <button class="tbtn" id="lzSol" title="Mostrar a solução (desiste)">💡<span class="tx"> Solução</span></button>
+      ${'DeviceOrientationEvent' in window ? '<button class="tbtn" id="lzTilt" title="Controlar inclinando o celular">📱<span class="tx"> Inclinar</span></button>' : ''}
+    </div>
+    <div class="cvw" id="lzW"><canvas id="lzCv"></canvas><div class="cover hidden" id="lzCov"></div></div>
+    ${pad ? `<div class="pad">${[['u',0,'▲'],['l',3,'◀'],['d',2,'▼'],['r',1,'▶']].map(([c, d, t]) => `<button class="${c}" data-d="${d}">${t}</button>`).join('')}</div>` : ''}
+    <div class="lmsg" id="lzMsg">${pad ? 'Deslize o dedo para correr até a próxima bifurcação.' : 'Setas / W A S D andam; com Shift correm até a bifurcação.'}</div></div>`;
+  // mede o que sobrou para o labirinto depois do placar, setas e dica
+  const used = $('#lzHud').offsetHeight + ($('.pad', st) ? $('.pad', st).offsetHeight : 0) + $('#lzMsg').offsetHeight;
+  const aw = Wp - 14, ah = Hp - used - 34;
+  const cs = Math.max(6, Math.floor(Math.min((aw - 12) / g.W, (ah - 12) / g.H, 64)));
+  const wall = Math.max(2, Math.round(cs*0.16)), M = wall + 2;
+  const cw = g.W*cs + M*2, ch = g.H*cs + M*2, dpr = Math.min(2.5, window.devicePixelRatio || 1);
+  cv = $('#lzCv'); cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr); cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  ctx = cv.getContext('2d');
+  LY = {cs, wall, M, cw, ch, dpr, seq:g.seq, saved:LY && LY.saved, gid:g.gid};
+  AN = null;
+  // camada fixa: chão + paredes
+  base = document.createElement('canvas'); base.width = cv.width; base.height = cv.height;
+  const b = base.getContext('2d'); b.scale(dpr, dpr);
+  const grd = b.createLinearGradient(0, 0, cw, ch); grd.addColorStop(0, '#173f2b'); grd.addColorStop(1, '#0f2f20');
+  b.fillStyle = grd; b.beginPath(); b.roundRect ? b.roundRect(0, 0, cw, ch, 12) : b.rect(0, 0, cw, ch); b.fill();
+  b.strokeStyle = '#e7b43a'; b.lineWidth = wall; b.lineCap = 'round'; b.shadowColor = 'rgba(0,0,0,.45)'; b.shadowBlur = 3; b.shadowOffsetY = 1.5;
+  b.beginPath();
+  for(let y=0; y<g.H; y++) for(let x=0; x<g.W; x++){
+    const c = y*g.W + x, px = M + x*cs, py = M + y*cs;
+    if(!(g.m[c] & 1)){ b.moveTo(px, py); b.lineTo(px + cs, py); }
+    if(!(g.m[c] & 8)){ b.moveTo(px, py); b.lineTo(px, py + cs); }
+    if(x === g.W - 1 && !(g.m[c] & 2)){ b.moveTo(px + cs, py); b.lineTo(px + cs, py + cs); }
+    if(y === g.H - 1 && !(g.m[c] & 4) && c !== g.exit){ b.moveTo(px, py + cs); b.lineTo(px + cs, py + cs); }
+  }
+  b.stroke();
+  fogc = document.createElement('canvas'); fogc.width = cv.width; fogc.height = cv.height;
+  wireInput(ui);
+  $('#lzSol').onclick = () => {
+    const c = CUR; if(!c || c.g.done) return;
+    modal('<h2>Mostrar a solução?</h2><p>O caminho até a saída aparece no mapa e a partida conta como desistência.</p>',
+      [{label:'Mostrar', cls:'b-up', fn:() => c.ui.act({t:'giveup'})}, {label:'Continuar tentando', cls:'b-no'}]);
+  };
+  if($('#lzTilt')){ $('#lzTilt').onclick = () => TILT.on ? tiltStop() : tiltStart(); $('#lzTilt').classList.toggle('on', TILT.on); }
+}
+const cxy = c => [LY.M + (c % CUR.g.W + 0.5)*LY.cs, LY.M + (((c / CUR.g.W) | 0) + 0.5)*LY.cs];
+function playerXY(){
+  const g = CUR.g;
+  if(!AN) return cxy(g.pos);
+  const n = AN.path.length - 1, u = clamp((performance.now() - AN.t0) / AN.dur, 0, 1), f = u*n, i = Math.min(n - 1, Math.floor(f)), r = f - i;
+  const a = cxy(AN.path[i]), b = cxy(AN.path[i + 1]);
+  return AN.cur = [a[0] + (b[0] - a[0])*r, a[1] + (b[1] - a[1])*r];
+}
+function loop(){
+  AN.raf = requestAnimationFrame(() => {
+    if(!AN) return;
+    AN.raf = 0; draw();
+    if(performance.now() - AN.t0 < AN.dur) loop(); else { AN = null; draw(); }
+  });
+}
+function emoji(t, c, scale){
+  const [x, y] = cxy(c);
+  ctx.font = `${Math.round(LY.cs*scale)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y + LY.cs*0.04);
+}
+function draw(){
+  if(!CUR || !ctx) return;
+  const g = CUR.g, {cs, M, cw, ch, dpr} = LY;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(base, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // casas visitadas
+  ctx.fillStyle = 'rgba(90,176,255,.13)';
+  for(let c=0; c<g.vis.length; c++) if(g.vis[c]){ const x = M + (c % g.W)*cs, y = M + ((c / g.W) | 0)*cs; ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2); }
+  // início e saída
+  { const x = M, y = M; ctx.fillStyle = 'rgba(62,207,122,.45)'; ctx.fillRect(x + 2, y + 2, cs - 4, cs - 4); }
+  { const c = g.exit, x = M + (c % g.W)*cs, y = M + ((c / g.W) | 0)*cs, q = Math.max(2, cs/6);
+    for(let i=0; i<6; i++) for(let j=0; j<6; j++){ ctx.fillStyle = (i + j) % 2 ? 'rgba(255,255,255,.75)' : 'rgba(20,20,20,.75)'; ctx.fillRect(x + i*cs/6, y + j*cs/6, cs/6 + .5, cs/6 + .5); }
+    if(g.mode === 'desafio' && !g.hasKey) emoji('🔒', c, 0.62); }
+  // trilha atual
+  const T = g.trail;
+  if(T.length > 1){
+    ctx.strokeStyle = 'rgba(90,176,255,.75)'; ctx.lineWidth = Math.max(2, cs*0.2); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); T.forEach((c, i) => { const [x, y] = cxy(c); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  }
+  // solução (desistência)
+  if(g.sol && g.sol.length > 1){
+    ctx.strokeStyle = '#ff7a59'; ctx.lineWidth = Math.max(2, cs*0.22); ctx.setLineDash([cs*0.3, cs*0.22]);
+    ctx.beginPath(); g.sol.forEach((c, i) => { const [x, y] = cxy(c); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // itens
+  if(g.mode === 'desafio'){
+    g.coins.forEach(c => { if(!g.got.includes(c)) emoji('🪙', c, 0.62); });
+    if(!g.hasKey) emoji('🔑', g.key, 0.7);
+  }
+  // jogador
+  const [px, py] = playerXY(), pr = Math.max(3, cs*0.32);
+  const rg = ctx.createRadialGradient(px - pr*0.35, py - pr*0.35, pr*0.1, px, py, pr);
+  rg.addColorStop(0, '#fff6d6'); rg.addColorStop(0.5, '#f5c84a'); rg.addColorStop(1, '#b07a10');
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4; ctx.fillStyle = rg;
+  ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+  // névoa
+  if(g.fog && !(g.done && g.res === 'quit')){
+    const f = fogc.getContext('2d');
+    f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, fogc.width, fogc.height); f.setTransform(dpr, 0, 0, dpr, 0, 0);
+    f.globalCompositeOperation = 'source-over'; f.fillStyle = 'rgba(4,16,10,.97)'; f.fillRect(0, 0, cw, ch);
+    f.globalCompositeOperation = 'destination-out';
+    f.fillStyle = 'rgba(0,0,0,.42)';
+    for(let c=0; c<g.vis.length; c++) if(g.vis[c]){ const x = M + (c % g.W)*cs, y = M + ((c / g.W) | 0)*cs; f.fillRect(x - 1, y - 1, cs + 2, cs + 2); }
+    const R = cs*2.8, fg = f.createRadialGradient(px, py, R*0.35, px, py, R);
+    fg.addColorStop(0, 'rgba(0,0,0,1)'); fg.addColorStop(1, 'rgba(0,0,0,0)');
+    f.fillStyle = fg; f.beginPath(); f.arc(px, py, R, 0, Math.PI*2); f.fill();
+    f.globalCompositeOperation = 'source-over';
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fogc, 0, 0);
+  }
+}
+function hud(){
+  if(!CUR || !$('#lzT')) return;
+  const g = CUR.g, now = Date.now();
+  $('#lzT').textContent = fmt(g.t0 == null ? 0 : ((g.tEnd || now) - g.t0));
+  const r = recs()[recKey(g)]; $('#lzR').textContent = r == null ? '—' : fmt(r);
+  if($('#lzK')){ $('#lzK').textContent = g.hasKey ? '✓' : '—'; $('#lzKb').classList.toggle('ok', g.hasKey); $('#lzC').textContent = `${g.got.length}/${g.coins.length}`; }
+  $('#lzSol').disabled = g.done;
+  const cov = $('#lzCov');
+  if(g.done){ cov.classList.remove('hidden'); cov.innerHTML = g.res === 'win' ? `<span>🏁 Saída!<small>${fmt(finalMs(g))}</small></span>` : ''; }
+  else cov.classList.add('hidden');
+}
+setInterval(() => { if(CUR && !CUR.g.done && CUR.g.t0 != null) hud(); }, 100);
+
+/* ---------- controles ---------- */
+function move(d, run){
+  const c = CUR; if(!c || c.g.done || c.v.phase !== 'game' || $('#modal.show')) return;
+  if(!(c.g.m[c.g.pos] & (1 << d))) return;          // parede: nada acontece
+  c.ui.act({t:'move', d, run:!!run});
+}
+function wireInput(ui){
+  const w = $('#lzCv');
+  let s0 = null;
+  w.addEventListener('pointerdown', e => { s0 = {x:e.clientX, y:e.clientY}; try{ w.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+  w.addEventListener('pointerup', e => {
+    if(!s0) return;
+    const dx = e.clientX - s0.x, dy = e.clientY - s0.y; s0 = null;
+    if(Math.max(Math.abs(dx), Math.abs(dy)) >= 18) return turnRun(dx, dy);
+    // toque: anda na direção do toque em relação à bolinha
+    const r = w.getBoundingClientRect(), [px, py] = cxy(CUR.g.pos);
+    turnRun(e.clientX - r.left - px, e.clientY - r.top - py);
+  });
+  w.addEventListener('pointercancel', () => s0 = null);
+  $$('.pad button').forEach(b => {
+    let rep = null;
+    const stop = () => { clearInterval(rep); rep = null; };
+    b.addEventListener('pointerdown', e => { e.preventDefault(); const d = +b.dataset.d; move(d, false); stop(); rep = setInterval(() => move(d, false), 150); });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+  });
+}
+// usa o eixo dominante; se houver parede, tenta o outro eixo
+function turnRun(dx, dy){
+  const g = CUR && CUR.g; if(!g) return;
+  const h = dx > 0 ? 1 : 3, v = dy > 0 ? 2 : 0;
+  const order = Math.abs(dx) >= Math.abs(dy) ? [h, v] : [v, h];
+  const d = order.find(k => g.m[g.pos] & (1 << k));
+  if(d != null) move(d, true);
+}
+document.addEventListener('keydown', e => {
+  if($('#modal.show') || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const d = {ArrowUp:0, ArrowRight:1, ArrowDown:2, ArrowLeft:3, w:0, d:1, s:2, a:3, W:0, D:1, S:2, A:3}[e.key];
+  if(d != null){ e.preventDefault(); move(d, e.shiftKey); }
+});
+window.addEventListener('resize', () => { if(Mesa.ui.view && Mesa.ui.view.game) Mesa.ui.rerender(); });
+
+/* ---------- inclinação (DeviceOrientation, opcional) ---------- */
+const TILT = {on:false, b0:null, g0:null, b:0, gm:0, timer:null, got:false};
+function onOri(e){
+  if(e.beta == null || e.gamma == null) return;
+  TILT.got = true;
+  if(TILT.b0 == null){ TILT.b0 = e.beta; TILT.g0 = e.gamma; }    // calibra na posição em que o jogador segura
+  TILT.b = e.beta - TILT.b0; TILT.gm = e.gamma - TILT.g0;
+}
+async function tiltStart(){
+  try{
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      const r = await DeviceOrientationEvent.requestPermission();
+      if(r !== 'granted'){ toast('Permissão para o sensor negada.'); return; }
+    }
+  }catch(_){ toast('Não foi possível ativar o sensor.'); return; }
+  Object.assign(TILT, {on:true, b0:null, g0:null, b:0, gm:0, got:false});
+  window.addEventListener('deviceorientation', onOri);
+  TILT.timer = setInterval(() => {
+    if(!TILT.on || !CUR) return;
+    const ax = Math.abs(TILT.gm), ay = Math.abs(TILT.b);
+    if(Math.max(ax, ay) < 9) return;
+    const g = CUR.g, h = TILT.gm > 0 ? 1 : 3, v = TILT.b > 0 ? 2 : 0;
+    const order = ax >= ay ? [h, v] : [v, h], d = order.find((k, i) => (i === 0 || (i === 1 && Math.min(ax, ay) >= 9)) && (g.m[g.pos] & (1 << k)));
+    if(d != null) move(d, false);
+  }, 170);
+  setTimeout(() => { if(TILT.on && !TILT.got){ toast('Este aparelho não enviou dados do sensor.'); tiltStop(); } }, 1800);
+  toast('Inclinação ativada — segure o celular como está e incline.');
+  if($('#lzTilt')) $('#lzTilt').classList.add('on');
+}
+function tiltStop(){
+  TILT.on = false; clearInterval(TILT.timer); window.removeEventListener('deviceorientation', onOri);
+  if($('#lzTilt')) $('#lzTilt').classList.remove('on');
+}
+</script>
+</body>
+</html>

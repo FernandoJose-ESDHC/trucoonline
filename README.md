@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="55 jogos" src="https://img.shields.io/badge/jogos-55-e7b43a">
+  <img alt="63 jogos" src="https://img.shields.io/badge/jogos-63-e7b43a">
   <img alt="Sem cadastro" src="https://img.shields.io/badge/cadastro-n%C3%A3o%20precisa-3ecf7a">
   <img alt="Offline" src="https://img.shields.io/badge/contra%20bots-funciona%20offline-11603a">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
@@ -91,6 +91,14 @@ Funciona no **PC, Android e iPhone**, sem instalar nada. Também dá para instal
 | 🀄 | **[Mahjong Solitário](https://fernandojose-esdhc.github.io/trucoonline/games/mahjong.html)** | 1 | 4 formatos, sempre com solução |
 | 🐍 | **[Cobrinha](https://fernandojose-esdhc.github.io/trucoonline/games/cobrinha.html)** | 1 | A clássica, com obstáculos e recorde |
 | 🧱 | **[Blocos](https://fernandojose-esdhc.github.io/trucoonline/games/blocos.html)** | 1 | Encaixe as peças que caem e complete linhas |
+| 🥅 | **[Pênaltis](https://fernandojose-esdhc.github.io/trucoonline/games/penaltis.html)** | 2 | 20 times do Brasil com nomes genéricos, canto, força e goleiro |
+| 🗺️ | **[Território](https://fernandojose-esdhc.github.io/trucoonline/games/territorio.html)** | 2 a 6 | Guerra de territórios no mapa do Brasil, com dados e cartas |
+| 🌎 | **[Bandeiras e Capitais](https://fernandojose-esdhc.github.io/trucoonline/games/bandeiras.html)** | 1 a 6 | 195 países e os 27 estados do Brasil |
+| 🐝 | **[Soletrando](https://fernandojose-esdhc.github.io/trucoonline/games/soletrando.html)** | 1 a 6 | A voz do aparelho fala, você soletra; acento conta |
+| 🔠 | **[Anagramas](https://fernandojose-esdhc.github.io/trucoonline/games/anagramas.html)** | 1 a 6 | 7 letras, todos ao mesmo tempo contra o relógio |
+| 🔍 | **[Ache as Diferenças](https://fernandojose-esdhc.github.io/trucoonline/games/diferencas.html)** | 1 | Cenas geradas na hora em 7 temas |
+| ✏️ | **[Ligue os Pontos](https://fernandojose-esdhc.github.io/trucoonline/games/ligue.html)** | 1 | 34 desenhos numerados ou caminhos de cores |
+| 🌀 | **[Labirinto](https://fernandojose-esdhc.github.io/trucoonline/games/labirinto.html)** | 1 | Gerado na hora, 4 tamanhos, chave e névoa |
 
 Todos os jogos de mais de uma pessoa têm **sala online** e **bots** para completar a mesa.
 
@@ -475,6 +483,26 @@ Regras oficiais completas: **roque** (dos dois lados), **en passant**, **promoç
 - **FreeCell:** 4 células livres, todas as cartas abertas; jogos numerados 1 a 32000 com dica.
 - **Mahjong Solitário:** tire pares de peças livres; tabuleiros sempre com solução.
 - **Cobrinha** e **Blocos:** os clássicos de ação, com recorde e controles de toque.
+</details>
+
+<details>
+<summary><b>🥅 Pênaltis</b>, <b>🗺️ Território</b>, <b>🌎 Bandeiras e Capitais</b>, <b>🐝 Soletrando</b> e <b>🔠 Anagramas</b></summary>
+
+- **Pênaltis:** escolha um dos 20 times (nomes genéricos inspirados no Brasileirão). 5 cobranças para cada lado e depois morte súbita. Ao mesmo tempo, o batedor escolhe um dos 6 cantos e para a barra de força; o goleiro escolhe para onde pular.
+- **Território:** os 27 estados são sorteados. Reforço = maior entre 3 e estados ÷ 3, mais bônus das regiões completas (N +4, NE +5, CO +3, SE +3, S +2). Ataque com até 3 dados contra 2 (empate é do defensor), cartas trocadas por tropas e uma fortificação por vez. Vence quem dominar o mapa (ou o modo Rápido, com meta de estados).
+- **Bandeiras e Capitais:** bandeira → país, país → capital, misto ou estados do Brasil. Todos respondem ao mesmo tempo; acerto rápido vale mais.
+- **Soletrando:** o aparelho fala a palavra (com definição e frase de exemplo). Acento conta; quem erra perde uma vida e o último de pé vence.
+- **Anagramas:** com 7 letras, forme palavras de 3+ letras (1, 2, 4, 6 pontos e 10 + 5 de bônus pela de 7). Opção de valer só palavras que ninguém mais achou.
+</details>
+
+<details>
+<summary><b>🔍 Ache as Diferenças</b>, <b>✏️ Ligue os Pontos</b> e <b>🌀 Labirinto</b> — 1 jogador</summary>
+
+- **Ache as Diferenças:** 5 a 7 diferenças por fase em cenas geradas na hora; toque errado e dica custam tempo.
+- **Ligue os Pontos:** "Desenho" (pontos numerados que viram um desenho animado) ou "Caminhos" (ligue os pares de cores preenchendo a grade).
+- **Labirinto:** deslize, use as setas ou incline o celular. Modo Desafio com chave e moedas, e névoa opcional.
+
+Créditos de dados: mapa do Brasil de [@svg-maps/brazil](https://www.npmjs.com/package/@svg-maps/brazil) (CC BY 4.0, Victor Cazanave); bandeiras de [flag-icons](https://www.npmjs.com/package/flag-icons) (MIT) e [br-state-flags](https://www.npmjs.com/package/br-state-flags) (MIT); palavras de [@andsfonseca/palavras-pt-br](https://www.npmjs.com/package/@andsfonseca/palavras-pt-br) e [an-array-of-portuguese-words](https://www.npmjs.com/package/an-array-of-portuguese-words) (MIT).
 </details>
 
 ---
