@@ -141,13 +141,26 @@ function montaPergunta(tipo, item){
     flag = item.k; certo = item.nome; err = erradas(item, lista, 'nome', true).map(z => z.nome);
   } else {
     const lista = tipo === 'cap' ? PAISES : ESTADOS;
-    p = tipo === 'cap' ? `Qual é a capital de ${item.nome}?` : `Qual é a capital ${artigoUF(item)}?`;
+    p = tipo === 'cap' ? `Qual é a capital ${prepPais(item.nome)}?` : `Qual é a capital ${artigoUF(item)}?`;
     flag = item.k; certo = item.cap; err = erradas(item, lista, 'cap', false).map(z => z.cap);
   }
   if(tipo === 'band' || tipo === 'cap') x = `${item.nome} — capital: ${item.cap === '-' ? '—' : item.cap} · ${CONT[item.c]}.${item.nota ? ' ' + item.nota : ''}`;
   else x = `${item.nome} (${item.uf}) — capital: ${item.cap} · Região ${REG[item.c]}.`;
   const alts = [certo, ...err], ord = shuffle([0, 1, 2, 3]);
   return {t:tipo, key:item.k, l:item.l, p, nome:item.nome, flag, alts:ord.map(i => alts[i]), ok:ord.indexOf(0), x};
+}
+// "do Brasil", "da Argentina", "de Portugal", "dos Estados Unidos"...
+const PREP_DE = new Set(['Portugal','Cuba','Angola','Moçambique','Cabo Verde','Timor-Leste','Israel','Andorra','Mônaco','San Marino','Malta','Chipre','Madagascar',
+  'Singapura','Honduras','El Salvador','Trinidad e Tobago','Barbados','Granada','Santa Lúcia','São Vicente e Granadinas','Antígua e Barbuda','São Cristóvão e Névis',
+  'São Tomé e Príncipe','Belize','Liechtenstein','Gana','Burkina Faso','Botsuana','Uganda','Ruanda','Maurício','Seicheles','Comores','Camarões','Essuatíni','Omã',
+  'Brunei','Fiji','Samoa','Tonga','Tuvalu','Nauru','Kiribati','Vanuatu','Palau','Belarus','Mianmar']);
+const PREP_DOS = {'Estados Unidos':'dos', 'Países Baixos':'dos', 'Emirados Árabes Unidos':'dos', 'Bahamas':'das', 'Maldivas':'das', 'Filipinas':'das', 'Ilhas Salomão':'das', 'Ilhas Marshall':'das'};
+const PREP_DA = /^(Costa do Marfim|Guiné|Papua|República|Coreia|Macedônia|África)/;
+function prepPais(n){
+  if(PREP_DE.has(n)) return 'de ' + n;
+  if(PREP_DOS[n]) return PREP_DOS[n] + ' ' + n;
+  if(['Sri Lanka', 'Quênia', 'Camboja'].includes(n)) return 'do ' + n;
+  return (PREP_DA.test(n) || /a$/.test(n) ? 'da ' : 'do ') + n;
 }
 // "do Acre", "da Bahia", "de Minas Gerais", "do Distrito Federal"
 function artigoUF(e){
@@ -367,6 +380,7 @@ Mesa.run({
 <h3>Créditos</h3><p style="font-size:13px">Bandeiras dos países: projeto <i>flag-icons</i> (licença MIT). Bandeiras dos estados: projeto <i>br-state-flags</i> (licença MIT), com ajustes.</p>`
 });
 
+const LOC = {key:'', end:0, dur:1};
 /* ================================ BANDEIRAS (SVG) ================================ */
 // As bandeiras vêm comprimidas em bandeiras-dados.js; descomprime uma vez, em segundo plano.
 let SVG = null, SVG_ERR = false;
@@ -390,7 +404,6 @@ function flagHtml(k, fh, cls){
 }
 
 /* ================================ TELA ================================ */
-const LOC = {key:'', end:0, dur:1};
 const nome = (v, g, s) => esc(v.seats[s] ? v.seats[s].name : g.names[s]);
 function catChip(g){ const t = TIPO[g.t] || TIPO.band; return `<span class="cat" style="--cc:${t.cor}">${t.ico} ${t.nome}</span><span class="lv">${LV_NOME[g.l]}</span>`; }
 function cabecalho(g){
@@ -483,7 +496,7 @@ function placar(g, v){
 function contar(el, a, b){ const t0 = performance.now(); (function f(t){ const k = Math.min(1, (t - t0) / 900); el.textContent = Math.round(a + (b - a) * k); if(k < 1) requestAnimationFrame(f); })(t0); }
 function relogio(){
   const left = Math.max(0, LOC.end - Date.now()), tb = $('#tb'), ts = $('#ts'), cnt = $('#cnt');
-  const g = Mesa.ui.view && Mesa.ui.view.game, emPerg = g && g.fase === 'perg';
+  const g = Mesa.ui && Mesa.ui.view && Mesa.ui.view.game, emPerg = g && g.fase === 'perg';
   if(tb){ tb.style.width = (emPerg ? clamp(left / LOC.dur, 0, 1) * 100 : 0) + '%'; tb.classList.toggle('low', left < LOC.dur * 0.3); }
   if(ts){ ts.textContent = emPerg ? Math.ceil(left / 1000) : ''; ts.classList.toggle('low', left < 4000); }
   if(cnt) cnt.textContent = Math.max(1, Math.ceil(left / 1000 / Math.max(0.05, (LOC.dur / PRE_MS))));

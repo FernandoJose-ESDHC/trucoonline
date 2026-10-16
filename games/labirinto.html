@@ -28,6 +28,9 @@
 .pad button{border:none;border-radius:12px;background:rgba(0,0,0,.4);color:#ffe6a6;font-size:24px;font-weight:900;cursor:pointer;border:2px solid rgba(255,255,255,.15);touch-action:none}
 .pad button:active{background:rgba(231,180,58,.35)}
 .pad .u{grid-column:2;grid-row:1}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+.hud .tbtn{display:inline-flex;align-items:center;justify-content:center}
+.hud .tx{margin-left:5px}
+@media (max-width:480px){ .hud{gap:4px;flex-wrap:nowrap} .hud .tx{display:none} .hud .tbtn{font-size:18px;padding:4px 9px} .hb small{font-size:8.5px;letter-spacing:.5px} }
 .lmsg{font-size:12px;color:#cfe;text-align:center;min-height:15px;opacity:.85}
 @media (max-width:720px){ .hb{min-width:54px;padding:2px 7px} .hb b{font-size:14.5px} .hud .tbtn{font-size:13px;padding:5px 8px} }
 </style>
@@ -241,15 +244,16 @@ function build(g, ui, key){
       <div class="hb"><small>Tempo</small><b id="lzT">0:00,0</b></div>
       <div class="hb"><small>Recorde</small><b id="lzR">—</b></div>
       ${g.mode === 'desafio' ? '<div class="hb" id="lzKb"><small>Chave</small><b id="lzK">—</b></div><div class="hb"><small>Moedas</small><b id="lzC">0</b></div>' : ''}
-      <button class="tbtn" id="lzSol">💡 Solução</button>
-      ${'DeviceOrientationEvent' in window ? '<button class="tbtn" id="lzTilt" title="Controlar inclinando o celular">📱 Inclinar</button>' : ''}
+      <button class="tbtn" id="lzSol" title="Mostrar a solução (desiste)">💡<span class="tx"> Solução</span></button>
+      ${'DeviceOrientationEvent' in window ? '<button class="tbtn" id="lzTilt" title="Controlar inclinando o celular">📱<span class="tx"> Inclinar</span></button>' : ''}
     </div>
     <div class="cvw" id="lzW"><canvas id="lzCv"></canvas><div class="cover hidden" id="lzCov"></div></div>
     ${pad ? `<div class="pad">${[['u',0,'▲'],['l',3,'◀'],['d',2,'▼'],['r',1,'▶']].map(([c, d, t]) => `<button class="${c}" data-d="${d}">${t}</button>`).join('')}</div>` : ''}
-    <div class="lmsg" id="lzMsg">${pad ? 'Deslize o dedo no labirinto para correr até a próxima bifurcação.' : 'Setas / W A S D andam; com Shift correm até a bifurcação.'}</div></div>`;
-  const hudH = 52, padH = pad ? 118 : 0, msgH = 22;
-  const aw = Wp - 14, ah = Hp - hudH - padH - msgH - 30;
-  const cs = Math.max(6, Math.floor(Math.min(aw / g.W, ah / g.H, 64)));
+    <div class="lmsg" id="lzMsg">${pad ? 'Deslize o dedo para correr até a próxima bifurcação.' : 'Setas / W A S D andam; com Shift correm até a bifurcação.'}</div></div>`;
+  // mede o que sobrou para o labirinto depois do placar, setas e dica
+  const used = $('#lzHud').offsetHeight + ($('.pad', st) ? $('.pad', st).offsetHeight : 0) + $('#lzMsg').offsetHeight;
+  const aw = Wp - 14, ah = Hp - used - 34;
+  const cs = Math.max(6, Math.floor(Math.min((aw - 12) / g.W, (ah - 12) / g.H, 64)));
   const wall = Math.max(2, Math.round(cs*0.16)), M = wall + 2;
   const cw = g.W*cs + M*2, ch = g.H*cs + M*2, dpr = Math.min(2.5, window.devicePixelRatio || 1);
   cv = $('#lzCv'); cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr); cv.style.width = cw + 'px'; cv.style.height = ch + 'px';

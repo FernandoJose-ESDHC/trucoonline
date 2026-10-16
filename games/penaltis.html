@@ -25,7 +25,7 @@
 .tcard .who{position:absolute;top:3px;right:5px;font-size:10px;color:#ffe6a6}
 @media (hover:hover){ .tcard:not(.taken):hover{border-color:var(--gold)} }
 /* partida */
-.pz{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px}
+.pz{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 6px 8px}
 .sb{width:100%;max-width:560px;display:flex;flex-direction:column;gap:4px}
 .sr{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.35);border-radius:12px;padding:3px 9px;border:2px solid transparent}
 .sr.vez{border-color:var(--gold)}
@@ -39,7 +39,7 @@
 .dt.nx{border-color:var(--gold);animation:pulse 1.2s infinite}
 .sr .gl{font-size:20px;font-weight:900;color:var(--gold);min-width:22px;text-align:right;font-variant-numeric:tabular-nums}
 .scene{position:relative;flex:none;border-radius:14px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.5)}
-.scene svg{display:block;width:100%;height:100%;touch-action:manipulation}
+.scene>svg{display:block;width:100%;height:100%;touch-action:manipulation}
 .zn{fill:rgba(255,255,255,0);stroke:rgba(255,255,255,0);cursor:default;transition:fill .15s}
 .zon .zn{fill:rgba(255,255,255,.07);stroke:rgba(255,255,255,.55);stroke-width:1;stroke-dasharray:3 3;cursor:pointer}
 .zon .zn:hover{fill:rgba(231,180,58,.22)}
@@ -201,7 +201,7 @@ function botKick(st, s, lvl){
   }
   if(lvl === 'normal'){
     const z = softPick(PRIOR_KICK.map(Math.log), 1);
-    return {z, p:clamp((row(z) === 0 ? 0.68 : 0.72) + gauss()*0.08, 0.05, 1)};
+    return {z, p:clamp((row(z) === 0 ? 0.66 : 0.7) + gauss()*0.11, 0.05, 1)};
   }
   // difícil: lê para onde o goleiro adversário costuma pular e escolhe canto + força de maior chance
   const dives = st.kicks.filter(k => k.by === s).map(k => k.d);
@@ -212,8 +212,10 @@ function botKick(st, s, lvl){
     for(let p=0.55;p<=0.86;p+=0.03){ let v = 0; for(let d=0;d<6;d++) v += P[d] * goalProb(z, d, p); if(v > bv){ bv = v; bp = p; } }
     best.push({v:bv, p:bp});
   }
-  const z = softPick(best.map(b => b.v), 0.035);
-  return {z, p:clamp(best[z].p + gauss()*0.035, 0.05, 1)};
+  // não fica previsível: evita repetir os cantos que acabou de usar
+  const mine = st.kicks.filter(k => k.by === s).slice(-3).map(k => k.z);
+  const z = softPick(best.map((b, i) => b.v - 0.035*mine.filter(x => x === i).length), 0.02);
+  return {z, p:clamp(best[z].p + gauss()*0.03, 0.05, 1)};
 }
 function botDive(st, s, lvl){
   const opp = 1 - s;
@@ -414,7 +416,9 @@ function figure(t, gk){
       <svg x="-16" y="-62" width="32" height="42" viewBox="0 0 40 52">${jersey(t)}</svg>
       <circle cx="0" cy="-66" r="7.5" fill="#2b1a0e"/></g>`;
 }
-function sceneSVG(){
+function sceneSVG(ar){
+  const top = Math.max(0, Math.round(360/ar - 300));              // em tela alta (celular) mostra mais arquibancada
+
   const stripes = [...Array(7)].map((_, i) => {
     const y0 = 150 + i*22, y1 = y0 + 22;
     return i % 2 ? '' : `<polygon points="0,${y0} 360,${y0} 360,${y1} 0,${y1}" fill="rgba(255,255,255,.05)"/>`;
@@ -423,16 +427,16 @@ function sceneSVG(){
     const x = GX0 + col(z)*(GX1 - GX0)/3, y = row(z) ? 105 : GY0, w = (GX1 - GX0)/3, h = 45;
     return `<rect class="zn" data-z="${z}" x="${x+1}" y="${y+1}" width="${w-2}" height="${h-2}" rx="5"/>`;
   }).join('');
-  return `<svg viewBox="0 0 360 300" id="pzSvg" preserveAspectRatio="xMidYMid meet">
+  return `<svg viewBox="0 ${-top} 360 ${300 + top}" id="pzSvg" preserveAspectRatio="xMidYMid meet">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1f33"/><stop offset="1" stop-color="#173b54"/></linearGradient>
     <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f8f47"/><stop offset="1" stop-color="#1f6e34"/></linearGradient>
     <pattern id="net" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 0 L7 7 M7 0 L0 7" stroke="rgba(255,255,255,.38)" stroke-width=".7"/></pattern>
     <radialGradient id="ballg" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cfcfcf"/></radialGradient>
   </defs>
-  <rect width="360" height="300" fill="url(#sky)"/>
-  <g opacity=".55">${[...Array(4)].map((_, r) => `<rect x="0" y="${8 + r*12}" width="360" height="9" fill="${['#24435e','#2b4d69','#1f3b54','#29506b'][r]}"/>`).join('')}
-    ${[...Array(60)].map((_, i) => `<circle cx="${(i*37) % 360 + 3}" cy="${12 + (i % 4)*12}" r="2.2" fill="${['#e7b43a','#ddd','#c8102e','#5ab0ff','#3ecf7a'][i % 5]}"/>`).join('')}</g>
+  <rect y="${-top}" width="360" height="${300 + top}" fill="url(#sky)"/>
+  <g opacity=".55">${[...Array(4 + Math.ceil(top/12))].map((_, r) => `<rect x="0" y="${44 - r*12}" width="360" height="9" fill="${['#24435e','#2b4d69','#1f3b54','#29506b'][r % 4]}"/>`).join('')}
+    ${[...Array(15*(4 + Math.ceil(top/12)))].map((_, i) => `<circle cx="${(i*37 + (i/15|0)*11) % 360 + 3}" cy="${48 - (i % (4 + Math.ceil(top/12)))*12}" r="2.2" fill="${['#e7b43a','#ddd','#c8102e','#5ab0ff','#3ecf7a'][i % 5]}"/>`).join('')}</g>
   <rect x="0" y="56" width="360" height="94" fill="#1d5a32"/>
   <rect x="0" y="146" width="360" height="154" fill="url(#grass)"/>${stripes}
   <g fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.6">
@@ -460,11 +464,12 @@ function sceneSVG(){
 }
 function buildPitch(g, v, ui, key){
   const W = ui.stage.clientWidth, H = ui.stage.clientHeight;
-  const sbH = 74, ctlH = 132;
-  const sw = Math.max(240, Math.min(W - 12, (H - sbH - ctlH - 24) * 1.2, 760));
+  const sbH = 74, ctlH = 156;
+  const room = H - sbH - ctlH - 24, ar = room > (W - 12)*1.02 ? 1 : 1.2;   // proporção da cena
+  const sw = Math.max(240, Math.min(W - 12, room * ar, 760));
   ui.stage.innerHTML = `<div class="pz">
     <div class="sb" id="pzSb"></div>
-    <div class="scene" id="pzScene" style="width:${sw}px;height:${sw/1.2}px">${sceneSVG()}</div>
+    <div class="scene" id="pzScene" style="width:${sw}px;height:${sw/ar}px">${sceneSVG(ar)}</div>
     <div class="ctl" id="pzCtl" style="max-width:${Math.max(300, Math.min(520, sw))}px">
       <div class="st" id="pzSt"></div><div class="tm" id="pzTm"><i></i></div>
       <div class="meter off" id="pzMeter"><div class="lb"><span>FRACO</span><span>IDEAL</span><span>FORTE</span></div><div class="mk" id="pzMk" style="left:0"></div></div>
@@ -556,7 +561,7 @@ function onZone(z){
   if(g.kicker === v.me){
     if(M.z === z && M.run){ shoot(); return; }
     M.z = z; Snd.card(); renderAll(g, v, ui);
-  } else { M.sent = true; M.z = z; ui.act({t:'dive', z}); Snd.card(); renderAll(g, v, ui); }
+  } else { M.sent = true; M.z = z; Snd.card(); ui.act({t:'dive', z}); renderAll(CUR.g, CUR.v, CUR.ui); }
 }
 function shoot(){
   if(!CUR || !M || M.z == null || M.sent) return;
@@ -565,7 +570,7 @@ function shoot(){
   const p = Math.round(meterVal()*100) / 100;
   M.sent = true; M.run = false;
   const mk = $('#pzMk'); if(mk) mk.style.left = (p*100) + '%';
-  ui.act({t:'kick', z:M.z, p}); renderAll(g, v, ui);
+  ui.act({t:'kick', z:M.z, p}); renderAll(CUR.g, CUR.v, CUR.ui);   // CUR já traz a vista nova
 }
 function updTimer(){
   if(!CUR || !$('#pzTm')) return;

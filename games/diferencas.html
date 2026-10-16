@@ -491,7 +491,7 @@ function clearPhase(st, now){
   st.pts += bonus + (perf ? 100 : 0);
   st.last = {bonus, perf, stars, left, miss:st.miss, hints:st.hints};
   st.stars += stars; st.status = 'clear'; st.hint = null;
-  return [{k:'banner', text:'Fase concluída!'}, {k:'snd', s:'win'}];
+  return [{k:'snd', s:'win'}];
 }
 function result(st){
   if(st.status === 'done'){

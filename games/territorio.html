@@ -29,7 +29,7 @@
 #tmap .bd.lt text{fill:#2a1d00;stroke:rgba(255,255,255,.4)}
 #tmap .bd.sel circle{stroke:#fff;stroke-width:3}
 #tmap .bd.tg circle{stroke:var(--gold);stroke-width:3}
-#tmap .bd.bump circle{animation:bdb .6s ease-out}
+#tmap .bd.bmp circle{animation:bdb .6s ease-out}
 @keyframes bdb{30%{r:16}}
 #tmap .sg{font:700 7.5px "Segoe UI",system-ui,Arial,sans-serif;fill:rgba(255,255,255,.78);text-anchor:middle;pointer-events:none;letter-spacing:.3px}
 #tmap .ld{stroke:rgba(255,255,255,.55);stroke-width:.8;fill:none;pointer-events:none}
@@ -37,12 +37,13 @@
 #tmap .arw.cur{stroke:#fff;stroke-dasharray:6 5;animation:dash .7s linear infinite}
 @keyframes dash{to{stroke-dashoffset:-11}}
 #tmap .rgl{font:900 13px "Segoe UI",system-ui,Arial,sans-serif;fill:#fff;text-anchor:middle;paint-order:stroke;stroke:rgba(0,0,0,.6);stroke-width:3px;pointer-events:none;letter-spacing:1px}
-.zb{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:5px;z-index:3}
+.zb{position:absolute;left:6px;bottom:6px;display:flex;flex-direction:column;gap:5px;z-index:3}
 .zb button{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.45);color:#fff;font-size:18px;font-weight:900;cursor:pointer;line-height:1}
 .zb button.on{background:var(--gold);color:#3a2600}
-.dice{position:absolute;left:8px;bottom:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:12px;padding:6px 9px;display:flex;flex-direction:column;gap:4px;
+.dice{position:absolute;right:8px;bottom:8px;align-items:flex-end;z-index:3;background:rgba(0,0,0,.6);border-radius:12px;padding:6px 9px;display:flex;flex-direction:column;gap:4px;
   font-size:12px;font-weight:700;color:#e3f3ea;max-width:calc(100% - 16px);pointer-events:none}
 .dice:empty{display:none}
+#stage.port .dice{position:static;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:3px 10px;max-width:none;background:rgba(0,0,0,.32);padding:5px 8px}
 .dice .dr{display:flex;gap:4px;align-items:center}
 .dice .dd{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-weight:900;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
 .dice .dd.a{background:#d8433a;color:#fff}.dice .dd.d{background:#f4efe2;color:#222}
@@ -50,7 +51,7 @@
 .dice .vs{margin:0 4px;color:var(--gold)}
 .dice.roll .dd{animation:roll .5s ease-out}
 @keyframes roll{0%{transform:rotate(-200deg) scale(.4);opacity:0}100%{transform:none;opacity:1}}
-.rlegend{position:absolute;left:8px;top:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:10px;padding:6px 9px;font-size:12px;font-weight:700;line-height:1.55;pointer-events:none}
+.rlegend{position:absolute;right:8px;top:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:10px;padding:6px 9px;font-size:12px;font-weight:700;line-height:1.55;pointer-events:none}
 .rlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .side{width:300px;flex:none;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
 #stage.port .side{width:auto;display:contents}
@@ -67,7 +68,9 @@
 #stage.port .pl .sw{width:12px;height:12px}
 #stage.port .pl .nums{font-size:10.5px;width:100%;padding-left:17px}
 .acts{background:rgba(0,0,0,.32);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(255,255,255,.08)}
-#stage.port .acts{padding:7px 8px;gap:6px;min-height:96px}
+#stage.port .acts{padding:7px 8px;gap:6px;min-height:96px;flex:1;justify-content:center}
+#stage.port .regs{flex:none;order:5;display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:center;font-size:12px;padding:5px 8px}
+.regs .rc i{margin:0 0 0 3px}
 .acts .msg2{font-size:14px;font-weight:700;color:#e3f3ea;line-height:1.35;text-align:center}
 .acts .msg2 b{color:var(--gold)}
 .acts .row2{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
@@ -76,6 +79,7 @@
 .ab.y{background:var(--gold);color:#3a2600}.ab.g{background:var(--nos);color:#06301a}.ab.r{background:#d8433a;color:#fff}
 .ab.on{outline:3px solid #fff}
 .ab:disabled{opacity:.4;cursor:default}
+.mc{display:inline-block;width:8px;height:11px;border-radius:2px;background:#f4efe2;border:1px solid #7a2a10;margin:0 2px 0 3px;vertical-align:-1px}
 .cards{display:flex;gap:5px;justify-content:center;align-items:center;font-size:12.5px;color:#cfe;font-weight:700}
 .cd{width:26px;height:34px;border-radius:5px;background:linear-gradient(160deg,#fffef9,#ece4cf);color:#7a2a10;display:grid;place-items:center;font-size:16px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
 .regs{background:rgba(0,0,0,.25);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.6}
@@ -115,7 +119,7 @@ const COL = [{n:'Vermelho', c:'#e0463c'}, {n:'Azul', c:'#2f7fe0'}, {n:'Amarelo',
              {n:'Roxo', c:'#9a5bd6'}, {n:'Laranja', c:'#ef7f1a'}];
 const CARD = ['▲','■','●'];
 const TROCA = [4,6,8,10,12,15];
-const bonusTroca = k => k < TROCA.length ? TROCA[k] : 15 + 5 * (k - TROCA.length + 1);
+const bonusTroca = k => k < TROCA.length ? TROCA[k] : Math.min(30, 15 + 5 * (k - TROCA.length + 1));   // teto de 30
 const INI = {2:30, 3:25, 4:21, 5:18, 6:16};       // tropas iniciais por jogador
 const DIFS = {facil:'FÁCIL', normal:'NORMAL', dificil:'DIFÍCIL'};
 const nome = u => TMAPA[u].n;
@@ -284,6 +288,7 @@ function apply(st, s, a){
         if(min >= max){ st.tr[from] -= max; st.tr[to] = max; st.mv = {from, to}; }
         else { st.pend = {from, to, min, max}; st.fase = 'mover'; }
         checarVitoria(st, s);
+        if(st.res && st.pend){ st.tr[from] -= max; st.tr[to] = max; st.pend = null; st.fase = 'ataque'; }   // venceu: leva tudo
       }
       return {events:ev};
     }
@@ -377,7 +382,7 @@ function botReforco(st, s, lv){
   }).sort((x, y) => y[1] - x[1]);
   if(lv === 'facil'){
     const [u] = pick(sc.slice(0, 3));
-    return {t:'por', id:u, n:Math.max(1, Math.min(pool, Math.ceil(pool / 2)))};
+    return {t:'por', id:u, n:pool};
   }
   return {t:'por', id:sc[0][0], n:pool};
 }
@@ -409,7 +414,7 @@ function botAtaque(st, s, lv){
   cands.sort((x, y) => y[2] - x[2]);
   let c = cands[0];
   if(lv === 'facil'){
-    if(st.conq && Math.random() < .3) return null;
+    if(st.conq && Math.random() < .15) return null;
     c = pick(cands.slice(0, 3));
   }
   const para = lv === 'facil' ? 1 : Math.max(1, Math.floor(st.tr[c[0]] / 3));
@@ -427,7 +432,7 @@ function botMover(st, s, lv){
   return clamp(Math.round(T * wt / (wt + wf)), p.min, p.max);
 }
 function botFort(st, s, lv){
-  if(lv === 'facil' && Math.random() < .5) return null;
+  if(lv === 'facil' && Math.random() < .2) return null;
   const A = analise(st, s);
   const need = u => A.danger[u] - st.tr[u] + (REG[REGOF[u]].uf.every(x => st.own[x] === s) ? 3 : 0) + (REGOF[u] === A.alvo ? 2 : 0);
   let best = null, bs = 0;
@@ -444,33 +449,40 @@ function botFort(st, s, lv){
   }
   return best;
 }
+const W = {bg:.35, inc:3, opI:.7, risk:.5, rt:.3, ter:.6, mx:.8};
 /* ---- Difícil: avaliação da posição + valor esperado sobre os resultados exatos dos dados ---- */
 // valor da posição para s: (tropas + 3×renda + cartas) dele menos a média dos rivais, menos o risco nas fronteiras
 function avaliar(st, s){
   const n = st.n, T = new Array(n).fill(0), S = new Array(n).fill(0), I = new Array(n).fill(0);
   for(const u of UFS){ T[st.own[u]]++; S[st.own[u]] += st.tr[u]; }
-  for(let k=0;k<n;k++) I[k] = T[k] ? Math.max(3, Math.floor(T[k] / 3)) : 0;
+  for(let k=0;k<n;k++) I[k] = T[k] ? Math.max(3, T[k] / 3) : 0;   // renda "contínua": cada estado conta
   const full = REG.map(R => { const o = st.own[R.uf[0]]; return R.uf.every(u => st.own[u] === o) ? o : -1; });
   full.forEach((o, i) => { if(o >= 0) I[o] += REG[i].b; });
   const cv = bonusTroca(st.trocas) / 3;
   const nc = k => (Array.isArray(st.cards[k]) ? st.cards[k].length : st.cards[k]) + (k === st.turn && st.conq ? 1 : 0);
-  const V = k => S[k] + 3 * I[k] + nc(k) * cv;
-  let opp = 0, alive = 0;
-  for(let k=0;k<n;k++) if(k !== s && T[k]){ opp += V(k); alive++; }
-  let score = V(s) - (alive ? opp / alive : 0) + (alive ? 0 : 1000);
+  // um estado vale proporcionalmente à tropa média por estado; perto do limite de rodadas vale mais
+  let tot = 0; for(let k=0;k<n;k++) tot += S[k];
+  const ter = W.ter * Math.max(1, tot / UFS.length) * (1 + 2 * st.rodada / st.limR);
+  const V = k => S[k] + W.inc * I[k] + T[k] * ter + nc(k) * cv;
+  // rivais: mistura da média com o mais forte (atacar o líder vale mais)
+  let opp = 0, alive = 0, mxv = -1e9;
+  for(let k=0;k<n;k++) if(k !== s && T[k]){ const x = V(k); opp += x; alive++; if(x > mxv) mxv = x; }
+  let score = V(s) - (alive ? (1 - W.mx) * opp / alive + W.mx * mxv : -1000);
   // risco: cada fronteira minha pode cair na próxima rodada (rival concentra a renda dele ali)
   for(const u of UFS){
     if(st.own[u] !== s) continue;
     let best = 0;
-    for(const x of ADJ[u]){ const k = st.own[x]; if(k !== s){ const a = st.tr[x] - 1 + I[k] * .7; if(a > best) best = a; } }
+    for(const x of ADJ[u]){ const k = st.own[x]; if(k !== s){ const a = st.tr[x] - 1 + I[k] * W.opI; if(a > best) best = a; } }
     if(best <= 0) continue;
-    const r = REGOF[u], loss = 1 + (full[r] === s ? 3 * REG[r].b : 0) + st.tr[u] * .3;
-    score -= pWin(Math.round(best), st.tr[u]) * loss;
+    const r = REGOF[u], loss = 1 + (full[r] === s ? W.inc * REG[r].b : 0) + st.tr[u] * W.rt;
+    score -= pWin(Math.round(best), st.tr[u]) * loss * W.risk;
   }
   return score;
 }
 // distribuição final de um ataque "até o fim": [[atqRestante, defRestante, prob], ...]
 function distAtaque(A, D){
+  // batalhas enormes: aproximação com dois desfechos (rápido)
+  if(A + D > 50){ const p = pWin(A, D); return [[Math.max(1, Math.round(A - .9 * D)), 0, p], [0, Math.max(1, Math.round(D - A / 1.15)), 1 - p]]; }
   let cur = new Map([[A * 1000 + D, 1]]); const out = [];
   while(cur.size){
     const nx = new Map();
@@ -512,9 +524,10 @@ function moverHeur(st, s, from, to, max){
   return Math.round((max + 1) * (dt + 3) / (dt + df + 4));
 }
 function ataqueDificil(st, s){
-  const base = avaliar(st, s);
-  let best = null, bg = .35;
+  const base = avaliar(st, s), t0 = Date.now();
+  let best = null, bg = W.bg;
   for(const u of UFS){
+    if(Date.now() - t0 > 300) break;
     if(st.own[u] !== s || st.tr[u] < 2) continue;
     for(const v of ADJ[u]){
       if(st.own[v] === s || pWin(st.tr[u] - 1, st.tr[v]) < .3) continue;
@@ -527,9 +540,10 @@ function ataqueDificil(st, s){
 function reforcoDificil(st, s){
   if(acharTroca(st.cards[s])) return {t:'troca'};
   const pool = st.pool;
-  let best = null, bs = -1e9;
+  let best = null, bs = -1e9; const t0 = Date.now();
   for(const u of UFS){
     if(st.own[u] !== s || !ADJ[u].some(x => st.own[x] !== s)) continue;
+    if(best && Date.now() - t0 > 300) break;
     for(const n of [...new Set([pool, Math.ceil(pool / 2)])]){
       st.tr[u] += n;
       let sc = avaliar(st, s);
@@ -595,18 +609,19 @@ function botFallback(st, s){
 }
 
 /* ------------------------------- TELA ------------------------------- */
-const VB0 = {x:-6, y:-6, w:652, h:652};
+const VB0 = {x:-6, y:-6, w:658, h:658};
 let VB = Object.assign({}, VB0), layoutKey = '', SEL = {key:'', from:null, to:null}, AMT = 1, REGMODE = false;
 let lastSeq = -1, diceRolling = 0, gestures = null;
 
+let BS = 1;   // escala dos marcadores (maior no celular)
 function mapSVG(){
   let paths = '', lines = '', bads = '', sig = '', rl = '';
   for(const u of UFS){
     const m = TMAPA[u];
     paths += `<path class="st" id="p_${u}" data-uf="${u}" d="${m.d}"/>`;
     if(m.a) lines += `<path class="ld" d="M${m.a[0]} ${m.a[1]}L${m.l[0]} ${m.l[1]}"/><circle cx="${m.a[0]}" cy="${m.a[1]}" r="1.6" fill="rgba(255,255,255,.7)"/>`;
-    bads += `<g class="bd" id="b_${u}" data-uf="${u}" transform="translate(${m.l[0]},${m.l[1]})"><circle r="11"/><text id="t_${u}">1</text></g>`;
-    sig += `<text class="sg" x="${m.a ? m.l[0] + 15 : m.l[0]}" y="${m.a ? m.l[1] + 3 : m.l[1] + 20}">${u.toUpperCase()}</text>`;
+    bads += `<g class="bd" id="b_${u}" data-uf="${u}" transform="translate(${m.l[0]},${m.l[1]}) scale(${BS})"><circle r="11"/><text id="t_${u}">1</text></g>`;
+    sig += `<text class="sg" x="${m.a ? m.l[0] + 11 * BS + 6 : m.l[0]}" y="${m.a ? m.l[1] + 3 : m.l[1] + 11 * BS + 9}">${u.toUpperCase()}</text>`;
   }
   REG.forEach(R => rl += `<text class="rgl" x="${R.l[0]}" y="${R.l[1]}">${R.n.toUpperCase()} +${R.b}</text>`);
   return `<g id="gst">${paths}</g><g>${lines}</g><g id="garw"></g><g id="gbd">${bads}</g><g id="gsg">${sig}</g><g id="grl" style="display:none">${rl}</g>`;
@@ -717,11 +732,17 @@ function render(g, v, ui){
   if(layoutKey !== key || !$('#tmap')){
     layoutKey = key;
     st.classList.toggle('port', port);
+    BS = port ? 1.25 : 1;
     st.innerHTML = `<div class="mapbox"><svg id="tmap" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${mapSVG()}</svg>
       <div class="zb"><button id="zIn" title="Aproximar">+</button><button id="zOut" title="Afastar">−</button><button id="zFit" title="Ver o mapa todo">⤢</button><button id="zReg" title="Ver regiões" style="font-size:14px">🗺</button></div>
-      <div class="dice" id="dice"></div><div id="rleg"></div></div>
-      <div class="side"><div class="plist" id="plist"></div><div class="acts" id="acts"></div><div class="regs" id="regs"></div></div>`;
+      ${port ? '' : '<div class="dice" id="dice"></div>'}<div id="rleg"></div></div>
+      <div class="side"><div class="plist" id="plist"></div>${port ? '<div class="dice" id="dice"></div>' : ''}<div class="acts" id="acts"></div><div class="regs" id="regs"></div></div>`;
     setVB(); wireMap(ui); lastSeq = -1;
+  }
+  if(port){
+    const mb = $('.mapbox'), ph = $('#plist').offsetHeight || 80;
+    mb.style.flex = 'none'; mb.style.height = Math.round(clamp(Math.min(W - 10, H - ph - (H >= 700 ? 250 : 200)), 200, 2000)) + 'px';
+    $('#regs').style.display = H >= 700 ? '' : 'none';
   }
   const me = v.me, live = v.phase === 'game', mt = myTurn(v, g);
   const skey = g.tn + '|' + g.fase + '|' + g.turn;
@@ -757,8 +778,8 @@ function render(g, v, ui){
     b.classList.toggle('lt', !!COL[o].lt);
     b.classList.toggle('sel', u === SEL.from || u === SEL.to);
     b.classList.toggle('tg', tg.has(u));
-    const t = $('#t_' + u), val = String(g.tr[u]);
-    if(t.textContent !== val){ t.textContent = val; if(live){ b.classList.remove('bump'); void b.getBBox(); b.classList.add('bump'); } }
+    const t = $('#t_' + u), val = g.tr[u] ? String(g.tr[u]) : '…';
+    if(t.textContent !== val){ t.textContent = val; if(live){ b.classList.remove('bmp'); void b.getBBox(); b.classList.add('bmp'); } }
   }
   $('#grl').style.display = REGMODE ? '' : 'none';
   $('#gsg').style.display = REGMODE ? 'none' : '';
@@ -795,11 +816,12 @@ function render(g, v, ui){
   pl.innerHTML = g.names.map((nm, s) => {
     const c = countOf(g, s), t = troopsOf(g, s), nc = Array.isArray(g.cards[s]) ? g.cards[s].length : g.cards[s];
     return `<div class="pl ${g.turn === s && live ? 'vez' : ''} ${g.vivo[s] ? '' : 'out'}" data-seat="${s}"><span class="sw" style="background:${COL[s].c}"></span>
-      <span class="nmx">${esc(pname(v, s) || nm)}${s === me ? ' (você)' : ''}</span><span class="nums">${g.vivo[s] ? `🗺${c} ⚔${t} 🂠${nc}` : 'eliminado'}</span></div>`;
+      <span class="nmx">${esc(pname(v, s) || nm)}${s === me ? ' (você)' : ''}</span><span class="nums">${g.vivo[s] ? `🗺${c} ⚔${t} <i class="mc"></i>${nc}` : 'eliminado'}</span></div>`;
   }).join('');
   // regiões (painel lateral no PC)
-  $('#regs').style.display = port ? 'none' : '';
-  if(!port) $('#regs').innerHTML = '<div style="font-weight:800;color:#ffe6a6;margin-bottom:2px">Regiões (bônus)</div>' + REG.map(R => {
+  const regDot = R => { const o = R.uf.map(u => g.own[u]); return o.every(x => x === o[0]) ? `<i style="background:${COL[o[0]].c}"></i>` : ''; };
+  if(port) $('#regs').innerHTML = REG.map(R => `<span class="rc">${R.n} <b style="color:#ffe6a6">+${R.b}</b>${regDot(R)}</span>`).join('') + `<span class="rc" style="opacity:.75">troca: +${bonusTroca(g.trocas)}</span>`;
+  else $('#regs').innerHTML = '<div style="font-weight:800;color:#ffe6a6;margin-bottom:2px">Regiões (bônus)</div>' + REG.map(R => {
     const o = R.uf.map(u => g.own[u]), full = o.every(x => x === o[0]) ? o[0] : -1;
     return `<div class="rr"><span>${R.n}${full >= 0 ? `<i style="background:${COL[full].c}"></i>` : ''}</span><span>${R.uf.length} est. · +${R.b}</span></div>`;
   }).join('') + `<div style="opacity:.75;margin-top:4px">Próxima troca de cartas: +${bonusTroca(g.trocas)}</div>`;
@@ -879,7 +901,7 @@ quem tiver o número maior vence aquele par; <b>empate é do defensor</b>. Cada 
 ${REG.map(R => `<tr><td>${R.n}</td><td>${R.uf.map(u => u.toUpperCase()).join(', ')}</td><td>+${R.b}</td></tr>`).join('')}</table>
 <h3>Cartas</h3>
 <p>Quem conquista pelo menos um estado na vez ganha uma carta (▲, ■ ou ●). No reforço, troque <b>3 iguais</b> ou <b>3 diferentes</b> por tropas extras:
-4, 6, 8, 10, 12, 15 e depois +5 a cada troca (a contagem é da mesa toda). Com 5 cartas ou mais, a troca é automática. Quem elimina um jogador fica com as cartas dele.</p>
+4, 6, 8, 10, 12, 15, 20, 25 e depois 30 por troca (a contagem é da mesa toda). Com 5 cartas ou mais, a troca é automática. Quem elimina um jogador fica com as cartas dele.</p>
 <h3>Mapa</h3>
 <p>Arraste para mover, use dois dedos (ou a roda do mouse) para aproximar, e os botões + − ⤢. O botão 🗺 mostra as regiões. Estados pequenos têm o número de tropas fora do mapa, ligado por uma linha.</p>
 <h3>Bots</h3>
@@ -896,7 +918,7 @@ Mesa.run({
   ],
   seats: o => clamp(+o.jogadores || 4, 2, 6),
   seatLabel: s => COL[s].n,
-  modeLabel: o => (o.obj === 'rapido' ? 'RÁPIDO' : 'DOMINAR O MAPA') + ' · BOT ' + (DIFS[o.diff] || 'NORMAL'),
+  modeLabel: o => (o.obj === 'rapido' ? 'RÁPIDO · ' : '') + (DIFS[o.diff] || 'NORMAL'),
   setup,
   startEvents(st){ const e = st.ev0 || []; delete st.ev0; return [{k:'log', text:`Sorteio: ${esc(st.names[st.start])} começa.`}, ...e]; },
   waiting(st){ return st.res ? [] : [st.turn]; },

@@ -536,7 +536,7 @@ function telaFim(g, v, S){
 }
 function relogio(){
   const left = Math.max(0, LOC.end - Date.now()), tb = $('#tb'), ts = $('#ts');
-  const g = Mesa.ui.view && Mesa.ui.view.game, emVez = g && g.fase === 'vez';
+  const g = Mesa.ui && Mesa.ui.view && Mesa.ui.view.game, emVez = g && g.fase === 'vez';
   if(tb){ tb.style.width = (emVez ? clamp(left / LOC.dur, 0, 1) * 100 : 0) + '%'; tb.classList.toggle('low', left < LOC.dur * 0.25); }
   if(ts){ ts.textContent = emVez ? Math.ceil(left / 1000) : ''; ts.classList.toggle('low', left < 8000); }
 }
